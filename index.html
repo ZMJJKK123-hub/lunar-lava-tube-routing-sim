@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌙 月球熔岩管基地建设方案：三阶段工程动态沙盘</title>
+<style>
+/* ================= 基础与变量 ================= */
+:root{
+  --cyan:#00CEC9; --purple:#6C5CE7; --lav:#A29BFE;
+  --ink:#dfe8ff; --dim:#8f9cc4;
+  --glass: linear-gradient(160deg, rgba(14,19,34,.80), rgba(7,9,18,.62));
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#010208}
+body{font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+#cv{position:fixed;inset:0;z-index:0;display:block;width:100%;height:100%;cursor:grab}
+#cv:active{cursor:grabbing}
+
+/* 暗角 + 扫描线氛围层 */
+#vignette{
+  position:fixed;inset:0;z-index:5;pointer-events:none;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.013) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(1,2,8,.6) 100%);
+}
+
+/* ================= 通用毛玻璃面板 ================= */
+.panel{
+  position:relative;
+  background:var(--glass);
+  border:1px solid rgba(0,206,201,.30);
+  border-radius:14px;
+  box-shadow:0 0 26px rgba(0,206,201,.10), 0 8px 32px rgba(0,0,0,.45), inset 0 0 22px rgba(108,92,231,.07);
+  backdrop-filter:blur(14px) saturate(150%);
+  -webkit-backdrop-filter:blur(14px) saturate(150%);
+}
+.panel::before,.panel::after{
+  content:"";position:absolute;width:14px;height:14px;pointer-events:none;
+  border-color:rgba(0,206,201,.75);border-style:solid;
+}
+.panel::before{top:-1px;left:-1px;border-width:2px 0 0 2px;border-radius:14px 0 0 0}
+.panel::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0;border-radius:0 0 14px 0}
+.grad{background:linear-gradient(92deg,#00CEC9 10%,#A29BFE 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ================= HUD 层 ================= */
+#hud{position:fixed;inset:0;z-index:10;pointer-events:none}
+#hud .panel,#hud button{pointer-events:auto}
+
+/* —— 顶部标题 + 可折叠总述 —— */
+#titleBlock{position:absolute;top:14px;left:14px;padding:13px 18px 11px;max-width:min(620px,86vw)}
+#titleBlock h1{font-size:clamp(16px,2.1vw,25px);letter-spacing:2px;font-weight:800;filter:drop-shadow(0 0 14px rgba(0,206,201,.35))}
+#titleBlock .sub{margin-top:5px;font-size:clamp(9px,1.1vw,12px);color:var(--lav);letter-spacing:1.5px}
+#ovToggle{
+  margin-top:9px;cursor:pointer;user-select:none;color:var(--cyan);
+  font-size:12px;letter-spacing:2px;display:flex;align-items:center;gap:8px;
+  background:transparent;border:none;padding:0;transition:color .2s;
+}
+#ovToggle:hover{color:#fff}
+#ovToggle .tri{display:inline-block;transition:transform .3s;font-size:10px}
+#ovToggle.open .tri{transform:rotate(90deg)}
+#overview{
+  margin-top:10px;max-height:0;opacity:0;overflow:hidden;transition:max-height .6s ease,opacity .5s;
+  font-size:12.5px;line-height:2;color:#c3cfe9;text-align:justify;
+  border-top:1px dashed rgba(0,206,201,.3);padding:0 4px;
+}
+#overview.open{max-height:520px;opacity:1;padding:10px 4px 4px;overflow:auto}
+
+/* —— 右上提示 —— */
+#hint{
+  position:absolute;top:16px;right:16px;text-align:right;font-size:11px;color:var(--dim);
+  letter-spacing:1px;line-height:1.9;text-shadow:0 0 8px rgba(0,0,0,.9);
+}
+#hint b{color:var(--cyan);font-weight:600}
+#telemetry{
+  position:absolute;top:88px;right:16px;font-family:Consolas,monospace;font-size:10.5px;
+  color:rgba(0,206,201,.75);letter-spacing:1px;text-align:right;text-shadow:0 0 8px rgba(0,0,0,.9);
+}
+
+/* ================= 底部阶段控制台 ================= */
+#console{
+  position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+  width:min(1020px,calc(100vw - 20px));padding:12px 16px 14px;
+}
+#steps{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
+.step{
+  cursor:pointer;user-select:none;display:flex;align-items:center;gap:9px;
+  background:rgba(10,14,26,.55);border:1px solid rgba(0,206,201,.28);border-radius:999px;
+  padding:8px 16px;color:var(--ink);font-size:13px;letter-spacing:1px;
+  transition:all .25s ease;white-space:nowrap;
+}
+.step:hover{border-color:rgba(162,155,254,.8);box-shadow:0 0 16px rgba(108,92,231,.3);transform:translateY(-1px)}
+.step .n{
+  width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:Consolas,monospace;font-size:12px;font-weight:800;
+  border:1.5px solid rgba(0,206,201,.6);color:var(--cyan);transition:all .25s;
+}
+.step.active{
+  background:linear-gradient(92deg,rgba(0,206,201,.22),rgba(108,92,231,.22));
+  border-color:rgba(0,206,201,.85);
+  box-shadow:0 0 22px rgba(0,206,201,.3), inset 0 0 14px rgba(108,92,231,.12);
+  animation:breath 2.6s ease-in-out infinite;
+}
+.step.active .n{background:linear-gradient(92deg,var(--cyan),var(--lav));color:#04101a;border-color:transparent}
+.step.done .n{background:rgba(0,206,201,.25);color:#9ef7f2}
+.step-arrow{color:rgba(162,155,254,.6);font-size:15px;letter-spacing:0}
+
+#stageBar{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:11px;padding-top:10px;border-top:1px solid rgba(0,206,201,.18);
+}
+#stageTitle{font-size:13.5px;font-weight:800;letter-spacing:1.5px;flex-shrink:0}
+#stageText{flex:1;font-size:12px;line-height:1.85;color:#b7c3e2;transition:opacity .35s;min-width:0}
+#stageText.fade{opacity:0}
+#autoBtn{
+  cursor:pointer;flex-shrink:0;color:var(--ink);font-size:12px;letter-spacing:1px;
+  background:rgba(108,92,231,.18);border:1px solid rgba(162,155,254,.5);border-radius:999px;
+  padding:6px 14px;transition:all .25s;
+}
+#autoBtn:hover{box-shadow:0 0 16px rgba(108,92,231,.4)}
+#autoBtn.on{background:linear-gradient(92deg,rgba(0,206,201,.3),rgba(108,92,231,.3));border-color:rgba(0,206,201,.8)}
+
+/* ================= 加载层 ================= */
+#loading{
+  position:fixed;inset:0;z-index:100;background:#010208;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  transition:opacity .8s;
+}
+#loading.off{opacity:0;pointer-events:none!important}
+#loading .moon{font-size:52px;animation:floaty 2.4s ease-in-out infinite;filter:drop-shadow(0 0 22px rgba(0,206,201,.6))}
+#loading .bar{width:210px;height:3px;border-radius:3px;overflow:hidden;background:rgba(0,206,201,.12);position:relative}
+#loading .bar::after{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,var(--cyan),var(--lav));animation:load 1.2s ease-in-out infinite}
+#loading .ld-txt{font-size:13px;letter-spacing:4px;color:var(--dim)}
+
+/* ================= 动画 ================= */
+@keyframes blink{50%{opacity:0}}
+@keyframes breath{0%,100%{box-shadow:0 0 14px rgba(0,206,201,.18)}50%{box-shadow:0 0 28px rgba(0,206,201,.42)}}
+@keyframes load{0%{left:-40%}100%{left:100%}}
+@keyframes floaty{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-10px) rotate(6deg)}}
+
+/* ================= 响应式 ================= */
+@media (max-width:760px){
+  #hint{display:none}
+  #telemetry{display:none}
+  .step{padding:6px 11px;font-size:11.5px}
+  .step .lbl{font-size:11.5px}
+  #stageBar{flex-direction:column;align-items:stretch;text-align:left}
+  #overview.open{max-height:300px}
+}
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "tween": "https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@23.1.3/dist/tween.esm.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+<div id="vignette"></div>
+
+<!-- ===================== HUD ===================== -->
+<div id="hud">
+  <header id="titleBlock" class="panel">
+    <h1 class="grad">🌙 月球熔岩管基地建设方案：三阶段工程动态沙盘</h1>
+    <div class="sub">LUNAR LAVA TUBE BASE · DYNAMIC SANDBOX — 剖面地质沙盘 × 时间轴工程演示</div>
+    <button id="ovToggle"><span class="tri">▶</span> 方案总述（点击展开 / 收起）</button>
+    <div id="overview">
+      本方案提出在月球熔岩管内建设永久性基地，充分利用其天然辐射屏蔽和恒温环境优势。针对熔岩管内部崎岖地形，方案采用‘熔融月壤填平’技术——通过太阳能聚光器或微波烧结设备，将月壤原位熔融冷却形成高强度人造岩板，为所有舱段和设备提供平整地基。通信系统采用‘道钉’微型中继器沿管壁每隔100米部署，实现信号无死角覆盖；散热系统通过向地下钻入5-10米深的热传导阵列解决真空环境散热难题；月尘防护则采用基于透明导电薄膜的主动静电除尘系统，对精密设备表面实施非接触式清洁。方案分三阶段实施：第一阶段机器人先遣队完成测绘与地基平整，第二阶段部署核能供电、居住舱与生命保障系统，第三阶段实现载人驻留并启动3D打印扩展。整个计划技术路径清晰，所用核心技术在实验室或地球模拟环境中已有验证基础，是一套逻辑闭环、具备工程可行性的月球基地建设方案。
+    </div>
+  </header>
+
+  <div id="hint">
+    🖱️ <b>左键拖拽</b> 旋转 · <b>滚轮</b> 缩放 · <b>右键</b> 平移<br>
+    ⌨️ 键盘 <b>1 / 2 / 3</b> 切换阶段 · <b>0</b> 总览
+  </div>
+  <div id="telemetry">
+    <div id="tmCam">CAM ▸ --</div>
+    <div id="tmFps">FPS ▸ --</div>
+  </div>
+
+  <!-- 阶段控制台 -->
+  <section id="console" class="panel">
+    <div id="steps">
+      <button class="step" data-s="1"><span class="n">1</span><span class="lbl">地形勘探与平整</span></button>
+      <span class="step-arrow">──▶</span>
+      <button class="step" data-s="2"><span class="n">2</span><span class="lbl">设施部署</span></button>
+      <span class="step-arrow">──▶</span>
+      <button class="step" data-s="3"><span class="n">3</span><span class="lbl">核心系统运作</span></button>
+    </div>
+    <div id="stageBar">
+      <div id="stageTitle" class="grad">🛰 工程时间轴</div>
+      <div id="stageText">欢迎使用动态沙盘 — 上方为月面与环形山，下方剖面中可见黑洞洞的熔岩管空腔与崎岖碎石管底。点击上方步骤按钮，按时间轴观看三阶段建造演示。</div>
+      <button id="autoBtn">▶ 自动演示</button>
+    </div>
+  </section>
+</div>
+
+<div id="loading">
+  <div class="moon">🌙</div>
+  <div class="bar"></div>
+  <div class="ld-txt">正在初始化全息沙盘…</div>
+</div>
+
+<script type="module">
+/* =====================================================================
+   月球熔岩管基地 · 三阶段工程动态沙盘
+   —— 月球地壳剖面切块：上层环形山月面 / 中层地壳岩体 / 下层熔岩管空腔
+   —— 全部几何体由 Three.js 基础几何 + 顶点噪波位移生成，零外部资源
+   ===================================================================== */
+const loadFail = msg=>{
+  const el=document.querySelector('#loading .ld-txt');
+  if(el) el.innerHTML=`⚠️ ${msg}<br><span style="font-size:11px;letter-spacing:1px">请检查网络后刷新页面</span>`;
+};
+window.__err=null;
+window.addEventListener('error',e=>{window.__err=e.message;});
+
+let THREE, OrbitControls, TWEEN;
+try{
+  THREE = await import('three');
+  ({OrbitControls} = await import('three/addons/controls/OrbitControls.js'));
+  TWEEN = await import('tween');
+}catch(e){ loadFail('Three.js / Tween.js 库加载失败（需联网访问 CDN）'); throw e; }
+
+/* ===================== 0. 工具 ===================== */
+const R=Math.random;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const clamp=THREE.MathUtils.clamp;
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const deg=THREE.MathUtils.degToRad;
+
+/* 三维值噪声（岩壁 / 月面 / 碎石） */
+function hash3(x,y,z){const n=Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453;return n-Math.floor(n);}
+function vnoise(x,y,z){
+  const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);
+  const xf=x-xi,yf=y-yi,zf=z-zi;
+  const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf),w=zf*zf*(3-2*zf);
+  const h=(i,j,k)=>hash3(xi+i,yi+j,zi+k);
+  const a=lerp(h(0,0,0),h(1,0,0),u),b=lerp(h(0,1,0),h(1,1,0),u);
+  const c=lerp(h(0,0,1),h(1,0,1),u),d=lerp(h(0,1,1),h(1,1,1),u);
+  return lerp(lerp(a,b,v),lerp(c,d,v),w);
+}
+function fbm(x,y,z){let f=0,a=.5,s=1;for(let i=0;i<4;i++){f+=a*vnoise(x*s,y*s,z*s);s*=2.13;a*=.5;}return f;}
+
+/* 程序化 Canvas 纹理 */
+function canvasTex(w,h,draw,repeat){
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  draw(cv.getContext('2d'),w,h);
+  const t=new THREE.CanvasTexture(cv);
+  t.colorSpace=THREE.SRGBColorSpace;
+  if(repeat){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat[0],repeat[1]);}
+  return t;
+}
+/* 月海灰白月壤（亮） */
+const surfTex=canvasTex(512,512,(g)=>{
+  g.fillStyle='#a9adb6';g.fillRect(0,0,512,512);
+  for(let i=0;i<60;i++){
+    const x=R()*512,y=R()*512,r=24+R()*90;
+    const gr=g.createRadialGradient(x,y,0,x,y,r);
+    const v=150+R()*50|0;
+    gr.addColorStop(0,`rgba(${v},${v+2},${v+6},${.10+R()*.12})`);
+    gr.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  }
+  for(let i=0;i<4200;i++){
+    const v=(R()*70|0)+120;
+    g.fillStyle=`rgba(${v},${v+2},${v+6},${.2+R()*.4})`;
+    g.fillRect(R()*512,R()*512,1+R()*2,1+R()*2);
+  }
+},[6,4]);
+/* 深空玄武岩（暗） */
+const rockTex=canvasTex(512,512,(g)=>{
+  g.fillStyle='#1c1e24';g.fillRect(0,0,512,512);
+  for(let i=0;i<80;i++){
+    const x=R()*512,y=R()*512,r=20+R()*80;
+    const gr=g.createRadialGradient(x,y,0,x,y,r);
+    gr.addColorStop(0,`rgba(${44+R()*26|0},${46+R()*26|0},${58+R()*26|0},${.08+R()*.10})`);
+    gr.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  }
+  for(let i=0;i<44;i++){
+    const x=R()*512,y=R()*512,r=4+R()*15;
+    g.strokeStyle='rgba(0,0,0,.42)';g.lineWidth=1.6;
+    g.beginPath();g.arc(x,y,r,0,7);g.stroke();
+  }
+  for(let i=0;i<2400;i++){
+    const v=(R()*34|0)+20;
+    g.fillStyle=`rgba(${v},${v+2},${v+6},${.25+R()*.4})`;
+    g.fillRect(R()*512,R()*512,1+R()*2,1+R()*2);
+  }
+},[5,3]);
+/* 地基科技网格（冷却后浮现） */
+const gridTex=canvasTex(256,256,(g)=>{
+  g.clearRect(0,0,256,256);
+  g.strokeStyle='rgba(0,206,201,.55)';g.lineWidth=1.2;
+  for(let i=0;i<=256;i+=32){
+    g.beginPath();g.moveTo(i,0);g.lineTo(i,256);g.stroke();
+    g.beginPath();g.moveTo(0,i);g.lineTo(256,i);g.stroke();
+  }
+  g.strokeStyle='rgba(162,155,254,.7)';g.lineWidth=2.5;
+  g.strokeRect(2,2,252,252);
+},[10,2]);
+/* Sprite 光晕 */
+function glowTex(inner,outer){
+  return canvasTex(128,128,(g)=>{
+    const gr=g.createRadialGradient(64,64,0,64,64,64);
+    gr.addColorStop(0,'rgba(255,255,255,.95)');
+    gr.addColorStop(.25,inner);
+    gr.addColorStop(.6,outer);
+    gr.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=gr;g.fillRect(0,0,128,128);
+    g.strokeStyle=outer;g.lineWidth=2;
+    g.beginPath();g.arc(64,64,34,0,7);g.stroke();
+  });
+}
+const glowCyan=glowTex('rgba(0,206,201,.85)','rgba(0,206,201,.28)');
+const glowWarm=glowTex('rgba(255,190,120,.9)','rgba(255,120,50,.3)');
+
+/* ===================== 1. 渲染器 / 场景 / 相机 ===================== */
+const canvas=document.getElementById('cv');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.12;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x010208);
+
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,3000);
+camera.position.set(112,68,130);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,-12,0);
+controls.enableDamping=true;controls.dampingFactor=.06;
+controls.minDistance=18;controls.maxDistance=420;
+controls.update();
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+/* Tween 组（阶段切换时统一清除） */
+const tweens=new TWEEN.Group();
+
+/* ===================== 2. 星空背景 ===================== */
+{
+  const N=2600,pos=new Float32Array(N*3),col=new Float32Array(N*3),c=new THREE.Color();
+  for(let i=0;i<N;i++){
+    const r=750+R()*250,th=R()*Math.PI*2,ph=Math.acos(2*R()-1);
+    pos[i*3]=r*Math.sin(ph)*Math.cos(th);
+    pos[i*3+1]=r*Math.cos(ph);
+    pos[i*3+2]=r*Math.sin(ph)*Math.sin(th);
+    const p=R();
+    c.set(p<.7?0xffffff:p<.88?0x9fc0ff:0xb9a8ff).multiplyScalar(.55+R()*.45);
+    col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const stars=new THREE.Points(g,new THREE.PointsMaterial({size:1.9,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:.95,depthWrite:false}));
+  stars.name='stars';scene.add(stars);
+}
+
+/* ===================== 3. 光照 ===================== */
+scene.add(new THREE.AmbientLight(0x27304e,.55));
+scene.add(new THREE.HemisphereLight(0x36426e,0x101218,.5));
+const sun=new THREE.DirectionalLight(0xe8efff,2.4);
+sun.position.set(95,150,70);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-140;sun.shadow.camera.right=140;
+sun.shadow.camera.top=140;sun.shadow.camera.bottom=-140;
+sun.shadow.camera.near=20;sun.shadow.camera.far=420;
+sun.shadow.bias=-.0004;
+scene.add(sun);
+const rim=new THREE.DirectionalLight(0x4a5adf,.55);
+rim.position.set(-90,26,-60);scene.add(rim);
+/* 管内常驻微光 + 可控灯光 */
+const tubeAmbient=new THREE.PointLight(0x2b4a66,7,70,1.8);tubeAmbient.position.set(0,-18,0);scene.add(tubeAmbient);
+const baseLight=new THREE.PointLight(0xbfe8ff,0,80,1.7);baseLight.position.set(0,-22,-2);scene.add(baseLight);
+const moltenLight=new THREE.PointLight(0xff6a22,0,60,1.6);scene.add(moltenLight);
+
+/* ===================== 4. 月面（环形山地表） ===================== */
+const FW=170,FD=110;                       // 沙盘脚印
+const craters=[
+  {x:-52,z:-28,r:20,d:3.2},{x:30,z:-40,r:13,d:2.2},{x:70,z:22,r:16,d:2.6},
+  {x:-18,z:38,r:9,d:1.6},{x:8,z:-14,r:7,d:1.3},{x:48,z:44,r:11,d:1.8},
+  {x:-70,z:8,r:10,d:1.7},{x:20,z:20,r:5,d:.9},
+];
+function surfaceHeight(x,z){
+  let h=fbm(x*.045,z*.045,3.7)*2.6+fbm(x*.16,z*.16,9.1)*.8;
+  for(const c of craters){
+    const d=Math.hypot(x-c.x,z-c.z);
+    if(d<c.r*1.6){
+      const t=d/c.r;
+      if(t<1)h-=c.d*(1-t*t)*(1-t*t);
+      h+=c.d*.28*Math.exp(-((d-c.r)**2)/(2*(c.r*.16)**2));
+    }
+  }
+  return Math.max(h,-1.4);
+}
+{
+  const g=new THREE.PlaneGeometry(FW,FD,170,110);
+  g.rotateX(-Math.PI/2);
+  const p=g.attributes.position;
+  for(let i=0;i<p.count;i++)p.setY(i,surfaceHeight(p.getX(i),p.getZ(i)));
+  g.computeVertexNormals();
+  const surf=new THREE.Mesh(g,new THREE.MeshStandardMaterial({
+    color:0xb9bdc6,roughness:.97,metalness:.02,map:surfTex,side:THREE.DoubleSide
+  }));
+  surf.receiveShadow=true;surf.name='surface';scene.add(surf);
+}
+
+/* ===================== 5. 地壳岩体（剖面切块） ===================== */
+const crustMat=new THREE.MeshStandardMaterial({color:0x34363e,roughness:.95,metalness:.03,map:rockTex});
+function crustBox(x0,x1,y0,y1,z0,z1){
+  const b=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0),crustMat);
+  b.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);
+  b.castShadow=b.receiveShadow=true;
+  scene.add(b);return b;
+}
+crustBox(-86,86,-42,-1,-56,-15);   // 后方岩体
+crustBox(-86,86,-42,-33.9,-15,15); // 管底基岩
+crustBox(-86,86,-42,-29.9,15,56);  // 前沿切面地台（与地基同高）
+crustBox(-86,-62,-30,-1,-15,56);   // 左岩柱
+crustBox(62,86,-30,-1,-15,56);     // 右岩柱
+
+/* ===================== 6. 熔岩管拱壳（顶点弯拱 + 噪波） ===================== */
+const ARCH={len:124,R:16.2,cy:-28,phi0:deg(-8),phi1:deg(172)};
+{
+  const arc=ARCH.R*(ARCH.phi1-ARCH.phi0);
+  const g=new THREE.PlaneGeometry(arc,ARCH.len,44,120);   // 宽=弧长方向, 高=管轴方向
+  const p=g.attributes.position;
+  for(let i=0;i<p.count;i++){
+    const s=p.getX(i)/arc+.5;
+    const t=p.getY(i)/ARCH.len+.5;
+    const phi=lerp(ARCH.phi0,ARCH.phi1,s);
+    const x0=lerp(-ARCH.len/2,ARCH.len/2,t);
+    const dZ=Math.cos(phi),dY=Math.sin(phi);
+    const n=fbm(x0*.14,phi*3.1,dZ*3.3);
+    const ridge=vnoise(x0*.024,phi*2.2,4.7);
+    const rr=ARCH.R-(n-.45)*4.4-ridge*1.7;
+    p.setXYZ(i,x0,ARCH.cy+dY*rr,dZ*rr);
+  }
+  g.computeVertexNormals();
+  const arch=new THREE.Mesh(g,new THREE.MeshStandardMaterial({
+    color:0x2b2d35,roughness:.96,metalness:.02,map:rockTex,side:THREE.DoubleSide
+  }));
+  arch.castShadow=arch.receiveShadow=true;
+  arch.name='arch';scene.add(arch);
+}
+
+/* ===================== 7. 熔岩管碎石管底（阶段1主角） ===================== */
+const FLAT_Y=-29.9;                       // 最终人造地基顶面
+const FLOOR_SEG=124;
+function rubbleY(x,z){
+  const n=fbm(x*.22,z*.22,11.3),n2=fbm(x*.6,z*.6,21.7);
+  return Math.min(-32.7+Math.pow(n,1.25)*2.3+n2*.35,-30.55);
+}
+const floorGeo=new THREE.PlaneGeometry(124,30,FLOOR_SEG,30);
+floorGeo.rotateX(-Math.PI/2);
+const floorPos=floorGeo.attributes.position;
+const floorCol=new Float32Array(floorPos.count*3);
+const ruggedY=new Float32Array(floorPos.count);
+for(let i=0;i<floorPos.count;i++){
+  const x=floorPos.getX(i),z=floorPos.getZ(i);
+  ruggedY[i]=rubbleY(x,z);
+  floorPos.setY(i,ruggedY[i]);
+  const v=.36+R()*.12;                    // 碎石灰
+  floorCol[i*3]=v;floorCol[i*3+1]=v+.01;floorCol[i*3+2]=v+.03;
+}
+floorGeo.setAttribute('color',new THREE.BufferAttribute(floorCol,3));
+floorGeo.computeVertexNormals();
+const floorMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.97,metalness:.05});
+const floor=new THREE.Mesh(floorGeo,floorMat);
+floor.receiveShadow=true;floor.name='floor';scene.add(floor);
+
+/* 管内散落碎石（会被熔融液面吞没熔化） */
+const rubbleRocks=[];
+{
+  const geo=new THREE.DodecahedronGeometry(1,0);
+  const mat=new THREE.MeshStandardMaterial({color:0x4a4d57,roughness:.95,flatShading:true});
+  for(let i=0;i<46;i++){
+    const m=new THREE.Mesh(geo,mat);
+    const x=(R()*2-1)*58,z=(R()*2-1)*13;
+    const s=.3+R()*1.25;
+    m.scale.set(s,s*(.6+R()*.5),s);
+    m.position.set(x,rubbleY(x,z)+s*.3,z);
+    m.rotation.set(R()*3,R()*3,R()*3);
+    /* 保证碎石顶面低于最终熔融液面，升液时能被完全吞没 */
+    const top=m.position.y+s*.55;
+    if(top>-30.25)m.position.y-=top+30.25;
+    m.castShadow=m.receiveShadow=true;
+    m.userData={top:Math.min(top,-30.25),s0:m.scale.clone(),melted:false};
+    scene.add(m);rubbleRocks.push(m);
+  }
+}
+
+/* —— 熔融液面（炽热平面，自下而上升起） —— */
+const moltenMat=new THREE.MeshStandardMaterial({
+  color:0x3a1004,emissive:0xff5a1e,emissiveIntensity:1.9,
+  roughness:.55,metalness:.1,transparent:true,opacity:.97
+});
+const molten=new THREE.Mesh(new THREE.BoxGeometry(124,.35,30),moltenMat);
+molten.visible=false;scene.add(molten);
+const LEVEL0=-33.2;
+let level=LEVEL0;
+
+/* —— 冷却后的科技网格浮现层 —— */
+const gridMat=new THREE.MeshBasicMaterial({map:gridTex,transparent:true,opacity:0,depthWrite:false});
+const gridOverlay=new THREE.Mesh(new THREE.PlaneGeometry(122,28),gridMat);
+gridOverlay.rotation.x=-Math.PI/2;
+gridOverlay.position.set(0,FLAT_Y+.05,0);
+gridOverlay.visible=false;scene.add(gridOverlay);
+
+/* —— 微波烧结车（阶段1沿轨道往复） —— */
+const bots=new THREE.Group();bots.visible=false;scene.add(bots);
+{
+  const railMat=new THREE.MeshStandardMaterial({color:0x8b93a3,metalness:.9,roughness:.3});
+  for(const z of [-7,7]){
+    const rail=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,124,8),railMat);
+    rail.rotation.z=Math.PI/2;rail.position.set(0,-25.2,z);bots.add(rail);
+  }
+  const botMat=new THREE.MeshStandardMaterial({color:0x596070,metalness:.6,roughness:.5});
+  const coneMat=new THREE.MeshBasicMaterial({color:0xffa050,transparent:true,opacity:.35,blending:THREE.AdditiveBlending,depthWrite:false});
+  for(let k=0;k<2;k++){
+    const bot=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.BoxGeometry(1.1,.7,1.4),botMat);body.position.y=-24.4;body.castShadow=true;
+    const horn=new THREE.Mesh(new THREE.ConeGeometry(.42,.9,12),botMat);
+    horn.rotation.x=Math.PI;horn.position.y=-24.95;
+    const beam=new THREE.Mesh(new THREE.ConeGeometry(1.5,4.4,16,1,true),coneMat);
+    beam.position.y=-27.2;
+    bot.add(body,horn,beam);
+    bot.userData={off:k*Math.PI};
+    bots.add(bot);
+  }
+}
+
+/* ===================== 8. 基地舱段（阶段2） ===================== */
+const MAT={
+  hull:new THREE.MeshStandardMaterial({color:0xd2d7e2,metalness:.45,roughness:.4}),
+  infl:new THREE.MeshStandardMaterial({color:0xe8ecf4,metalness:.15,roughness:.55}),
+  metal:new THREE.MeshStandardMaterial({color:0x8b93a3,metalness:.9,roughness:.3}),
+  dark:new THREE.MeshStandardMaterial({color:0x2b2f3a,metalness:.4,roughness:.7}),
+  win:new THREE.MeshStandardMaterial({color:0x0a2226,emissive:0x8fe8ff,emissiveIntensity:0,roughness:.3}),
+  purple:new THREE.MeshStandardMaterial({color:0x160f2e,emissive:0x8f7bff,emissiveIntensity:0,roughness:.4}),
+  cyan:new THREE.MeshStandardMaterial({color:0x03201f,emissive:0x00e5ff,emissiveIntensity:0,roughness:.35}),
+};
+function sh(m){m.castShadow=m.receiveShadow=true;return m;}
+
+/* 核心枢纽舱 */
+const hub=new THREE.Group();
+{
+  const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(4.2,4.6,5,28),MAT.hull));body.position.y=2.5;
+  const dome=sh(new THREE.Mesh(new THREE.SphereGeometry(4.2,28,16,0,Math.PI*2,0,Math.PI/2),MAT.hull));dome.position.y=5;
+  hub.add(body,dome);
+  for(let i=0;i<8;i++){
+    const w=new THREE.Mesh(new THREE.BoxGeometry(.5,.7,.08),MAT.win);
+    const a=i/8*Math.PI*2;
+    w.position.set(Math.cos(a)*4.3,2.6,Math.sin(a)*4.3);
+    w.rotation.y=-a+Math.PI/2;
+    hub.add(w);
+  }
+  const mast=new THREE.Mesh(new THREE.CylinderGeometry(.06,.1,3.4,8),MAT.metal);
+  mast.position.y=9.2;hub.add(mast);
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(.2,10,8),MAT.cyan.clone());
+  tip.position.y=10.9;hub.add(tip);hub.userData.beacon=tip;
+}
+hub.position.set(0,FLAT_Y,-4);
+
+/* 充气居住舱 ×2 */
+function habCapsule(len,r){
+  const g=new THREE.Group();
+  const cyl=sh(new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,22),MAT.infl));
+  cyl.rotation.z=Math.PI/2;
+  const s1=sh(new THREE.Mesh(new THREE.SphereGeometry(r,22,14),MAT.infl));s1.position.x=-len/2;
+  const s2=sh(new THREE.Mesh(new THREE.SphereGeometry(r,22,14),MAT.infl));s2.position.x=len/2;
+  g.add(cyl,s1,s2);
+  for(const s of[-1,1]){
+    const w=new THREE.Mesh(new THREE.BoxGeometry(len*.5,.4,.08),MAT.win);
+    w.position.set(0,s*(r+.02),0);w.rotation.x=s*Math.PI/2;
+    g.add(w);
+  }
+  for(const x of[-len/2.6,0,len/2.6]){
+    const f=sh(new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,1.6,8),MAT.metal));
+    f.position.set(x,-r-.75,0);g.add(f);
+  }
+  return g;
+}
+const habA=habCapsule(8,2.5);habA.position.set(-12,FLAT_Y+2.9,4);
+const habB=habCapsule(8,2.5);habB.position.set(12,FLAT_Y+2.9,4);
+
+/* 小型核能模块 */
+const reactor=new THREE.Group();
+{
+  const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(2,2.4,4.2,20),MAT.dark));body.position.y=2.1;
+  const cap=sh(new THREE.Mesh(new THREE.SphereGeometry(2,20,12,0,Math.PI*2,0,Math.PI/2),MAT.metal));cap.position.y=4.2;
+  reactor.add(body,cap);
+  reactor.userData.rings=[];
+  for(let i=0;i<3;i++){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(2.1,.12,8,32),MAT.purple.clone());
+    ring.rotation.x=Math.PI/2;ring.position.y=1+i*1.3;
+    reactor.add(ring);reactor.userData.rings.push(ring);
+  }
+}
+reactor.position.set(11,FLAT_Y,-10.5);
+
+/* 连接走廊 */
+function corridor(a,b,r=1.05){
+  const dir=b.clone().sub(a),len=dir.length();
+  const m=sh(new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,14),MAT.metal));
+  m.position.copy(a).addScaledVector(dir,.5);
+  m.quaternion.setFromUnitVectors(V3(0,1,0),dir.normalize());
+  return m;
+}
+const modules=[hub,habA,habB,reactor];
+modules.forEach(m=>{m.userData.deployY=m.position.y;m.scale.setScalar(.001);m.visible=false;scene.add(m);});
+scene.add(
+  corridor(V3(0,FLAT_Y+2,-4).add(V3(4.2,0,0)),V3(-8,FLAT_Y+2.6,4)),
+  corridor(V3(0,FLAT_Y+2,-4).add(V3(4.2,0,0)),V3(8,FLAT_Y+2.6,4)),
+  corridor(V3(0,FLAT_Y+2.4,-4).add(V3(0,0,-4.2)),V3(11,FLAT_Y+2.2,-10)),
+);
+scene.children.filter(o=>o.type==='Mesh'&&o.material===MAT.metal&&o.geometry.type==='CylinderGeometry')
+  .forEach(c=>{c.visible=false;c.name='corridor';});
+
+/* ===================== 9. 阶段3核心系统 ===================== */
+/* —— EDS 静电屏障 + 月尘粒子 —— */
+const eds=new THREE.Group();
+eds.position.set(0,FLAT_Y+4.4,-4);
+const edsWire=new THREE.Mesh(
+  new THREE.IcosahedronGeometry(6.6,2),
+  new THREE.MeshBasicMaterial({color:0x7fd8ff,wireframe:true,transparent:true,opacity:.3,blending:THREE.AdditiveBlending,depthWrite:false})
+);
+const edsShell=new THREE.Mesh(
+  new THREE.SphereGeometry(6.55,32,20),
+  new THREE.MeshBasicMaterial({color:0x4fa8ff,transparent:true,opacity:.06,blending:THREE.AdditiveBlending,depthWrite:false})
+);
+eds.add(edsWire,edsShell);
+eds.visible=false;scene.add(eds);
+
+const DUST_N=240;
+const dustGeo=new THREE.BufferGeometry();
+const dustPos=new Float32Array(DUST_N*3);
+const dustVel=new Float32Array(DUST_N*3);
+const DUST_R=7.6;
+for(let i=0;i<DUST_N;i++){
+  const a=R()*Math.PI*2,b=Math.acos(2*R()-1),r=DUST_R+3+R()*8;
+  dustPos[i*3]=eds.position.x+r*Math.sin(b)*Math.cos(a);
+  dustPos[i*3+1]=eds.position.y+r*Math.cos(b)*.6;
+  dustPos[i*3+2]=eds.position.z+r*Math.sin(b)*Math.sin(a);
+}
+dustGeo.setAttribute('position',new THREE.BufferAttribute(dustPos,3));
+const dustPts=new THREE.Points(dustGeo,new THREE.PointsMaterial({
+  color:0xc8d4e8,size:.22,transparent:true,opacity:.75,
+  blending:THREE.AdditiveBlending,depthWrite:false
+}));
+dustPts.visible=false;scene.add(dustPts);
+
+/* —— 热传导阵列 —— */
+const thermal=new THREE.Group();
+thermal.position.set(-6,FLAT_Y,-13);
+const thermalRods=[];
+{
+  const plat=sh(new THREE.Mesh(new THREE.BoxGeometry(11,.5,2.6),MAT.dark));
+  plat.position.y=.25;thermal.add(plat);
+  for(let i=0;i<5;i++){
+    const x=i*2.2-4.4;
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(.26,.3,1.5,10),
+      new THREE.MeshStandardMaterial({color:0x2a0b05,emissive:0xff4a2a,emissiveIntensity:0,roughness:.4}));
+    top.position.set(x,1.25,.4);
+    const mid=new THREE.Mesh(new THREE.CylinderGeometry(.26,.26,1.2,10),MAT.metal);
+    mid.position.set(x,.15,.4);
+    const botGeo=new THREE.CylinderGeometry(.3,.34,7.5,10);
+    botGeo.translate(0,-3.75,0);                    /* 锚点移至杆顶，钻入时向下生长 */
+    const bot=new THREE.Mesh(botGeo,
+      new THREE.MeshStandardMaterial({color:0x04102e,emissive:0x2b50ff,emissiveIntensity:0,roughness:.4}));
+    bot.position.set(x,.75,.4);
+    const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowWarm,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+    glow.scale.set(1.7,1.7,1);glow.position.set(x,2.1,.4);
+    thermal.add(top,mid,bot,glow);
+    const pulses=[];
+    for(let k=0;k<2;k++){
+      const p=new THREE.Mesh(new THREE.SphereGeometry(.14,8,6),new THREE.MeshBasicMaterial({color:0xff5a2a}));
+      p.position.set(x,1.6,.4);p.visible=false;
+      thermal.add(p);pulses.push({m:p,off:k*.5+R()*.3});
+    }
+    thermalRods.push({top,bot,glow,pulses,x});
+  }
+}
+thermal.visible=false;scene.add(thermal);
+
+/* —— 道钉中继网络 + 上行链路至地表 —— */
+const SHAFT={x:53,z:-6};
+const spikes=[];
+const spikeGroup=new THREE.Group();scene.add(spikeGroup);
+{
+  const phi=deg(150),Rr=13.8;
+  const anchor=V3(0,ARCH.cy+Math.sin(phi)*Rr,Math.cos(phi)*Rr);
+  const inward=V3(0,-Math.sin(phi),-Math.cos(phi)).normalize();
+  for(let k=0;k<7;k++){
+    const x=-55+k*18;
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(.24,.34,1.9,10),MAT.metal);
+    body.quaternion.setFromUnitVectors(V3(0,1,0),inward);
+    const tip=new THREE.Mesh(new THREE.SphereGeometry(.38,12,10),MAT.cyan.clone());
+    const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowCyan,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+    glow.scale.set(2.4,2.4,1);
+    g.add(body,tip,glow);
+    g.position.set(x,anchor.y,anchor.z).addScaledVector(inward,.5);
+    g.userData={tip,glow};
+    g.scale.setScalar(.001);
+    spikeGroup.add(g);spikes.push(g);
+  }
+}
+/* 中继链路曲线（末端经钻井上行至地表天线） */
+const shaftTopY=surfaceHeight(SHAFT.x,SHAFT.z);
+let relayCurve,relayLine,relayPulses=[];
+{
+  const pts=spikes.map(s=>s.position.clone().add(V3(0,1.1,0)));
+  pts.push(V3(SHAFT.x,ARCH.cy+Math.sqrt(ARCH.R*ARCH.R-SHAFT.z*SHAFT.z)-.8,SHAFT.z));
+  pts.push(V3(SHAFT.x,shaftTopY+3.2,SHAFT.z));
+  relayCurve=new THREE.CatmullRomCurve3(pts);
+  relayLine=new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(relayCurve.getPoints(220)),
+    new THREE.LineBasicMaterial({color:0x00e5ff,transparent:true,opacity:0,blending:THREE.AdditiveBlending})
+  );
+  scene.add(relayLine);
+  for(let i=0;i<5;i++){
+    const p=new THREE.Mesh(new THREE.SphereGeometry(.22,8,6),new THREE.MeshBasicMaterial({color:0xaefcff}));
+    p.visible=false;p.userData.off=i/5;
+    scene.add(p);relayPulses.push(p);
+  }
+}
+/* 地表中继天线（链路地面端） */
+const antenna=new THREE.Group();
+{
+  const y0=shaftTopY;
+  const pole=sh(new THREE.Mesh(new THREE.CylinderGeometry(.12,.2,3.2,10),MAT.metal));pole.position.y=y0+1.6;
+  const dishPts=[];for(let i=0;i<=10;i++){const r=i/10*1.1;dishPts.push(new THREE.Vector2(r,r*r*.32));}
+  const dish=sh(new THREE.Mesh(new THREE.LatheGeometry(dishPts,20),MAT.metal));
+  dish.position.y=y0+3.4;dish.rotation.x=-.5;
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(.16,10,8),MAT.cyan.clone());
+  tip.position.y=y0+4.1;
+  antenna.add(pole,dish,tip);antenna.userData.tip=tip;
+}
+scene.add(antenna);
+/* 上行光柱（钻井 → 地表） */
+const SHAFT_CEIL=ARCH.cy+Math.sqrt(ARCH.R*ARCH.R-SHAFT.z*SHAFT.z);   /* 管顶钻井口高度 */
+const shaftBeam=new THREE.Mesh(
+  new THREE.CylinderGeometry(.22,.22,shaftTopY+3.6-SHAFT_CEIL,10,1,true),
+  new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide})
+);
+shaftBeam.position.set(SHAFT.x,(shaftTopY+3.6+SHAFT_CEIL)/2,SHAFT.z);
+scene.add(shaftBeam);
+
+/* —— 地表点缀：信标 / 中继箱 / 岩石 —— */
+{
+  const rockGeo=new THREE.DodecahedronGeometry(1,0);
+  const rockMat=new THREE.MeshStandardMaterial({color:0x9aa0ab,roughness:.95,flatShading:true});
+  const rocks=new THREE.InstancedMesh(rockGeo,rockMat,70);
+  const m=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),s=V3(0,0,0),p=V3(0,0,0);
+  for(let i=0;i<70;i++){
+    const x=(R()*2-1)*82,z=(R()*2-1)*53;
+    const sc=.25+R()*1.1;
+    e.set(R()*3,R()*3,R()*3);q.setFromEuler(e);
+    s.set(sc,sc*.7,sc);p.set(x,surfaceHeight(x,z)+sc*.2,z);
+    m.compose(p,q,s);rocks.setMatrixAt(i,m);
+  }
+  rocks.castShadow=rocks.receiveShadow=true;scene.add(rocks);
+  const beacon=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),new THREE.MeshStandardMaterial({color:0x330606,emissive:0xff3b3b,emissiveIntensity:1.5}));
+  beacon.position.set(-64,surfaceHeight(-64,34)+1.4,34);scene.add(beacon);beacon.name='sBeacon';
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,1.4,8),MAT.metal);
+  pole.position.set(-64,surfaceHeight(-64,34)+.7,34);scene.add(pole);
+}
+
+/* ===================== 10. 阶段时间轴引擎 ===================== */
+const state={floor:'rugged',deployed:false,systems:false,active:0};
+const stageEls=document.querySelectorAll('.step');
+const stageTitle=document.getElementById('stageTitle');
+const stageText=document.getElementById('stageText');
+
+const STAGE_TEXT={
+  1:{title:'① 地形处理 · 熔融月壤填平',cam:[46,-8,54],tgt:[-8,-27,-2],
+     text:'地形处理：针对天然崎岖的地形，先遣机器人粗整平后，利用微波烧结将月壤加热至1100-1600°C，冷却后原位形成高强度平整人造岩板地基。'},
+  2:{title:'② 机器人驻扎与基地展开',cam:[30,-5,40],tgt:[0,-26,-3],
+     text:'设施部署：在成型的人造地基上，部署小型核能模块与居住舱。坚厚的玄武岩管顶天然屏蔽了致命的宇宙射线和微陨石，且地下温度恒定。'},
+  3:{title:'③ 核心功能启动 · 除尘 / 散热 / 通信',cam:[36,-2,46],tgt:[4,-23,-4],
+     text:'核心系统：1.EDS静电除尘：施加交变电压产生行波电场，非接触式推开带电月尘。2.热传导阵列：利用深层恒温岩石作为吸热体，解决真空无法对流散热的问题。3.道钉中继：沿管壁部署，解决信号遮挡。'},
+};
+const OVERVIEW_CAM={cam:[112,68,130],tgt:[0,-12,0]};
+
+function flyTo(camArr,tgtArr,dur=2200){
+  const s={px:camera.position.x,py:camera.position.y,pz:camera.position.z,tx:controls.target.x,ty:controls.target.y,tz:controls.target.z};
+  new TWEEN.Tween(s,tweens)
+    .to({px:camArr[0],py:camArr[1],pz:camArr[2],tx:tgtArr[0],ty:tgtArr[1],tz:tgtArr[2]},dur)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .onUpdate(()=>{camera.position.set(s.px,s.py,s.pz);controls.target.set(s.tx,s.ty,s.tz);})
+    .start();
+}
+
+function setPanel(title,text){
+  stageText.classList.add('fade');
+  setTimeout(()=>{
+    stageTitle.textContent=title;
+    stageText.textContent=text;
+    stageText.classList.remove('fade');
+  },320);
+}
+
+/* —— 地基形态切换 —— */
+function applyFloorInstant(){
+  state.floor='slab';
+  level=FLAT_Y;
+  molten.visible=true;
+  molten.position.y=FLAT_Y-.175;
+  moltenMat.emissive.set(0x000000);moltenMat.emissiveIntensity=0;
+  moltenMat.color.set(0x14161b);moltenMat.metalness=.82;moltenMat.roughness=.3;moltenMat.opacity=1;
+  for(let i=0;i<floorPos.count;i++){
+    floorPos.setY(i,FLAT_Y-.46);
+    floorCol[i*3]=.075;floorCol[i*3+1]=.08;floorCol[i*3+2]=.095;
+  }
+  floorPos.needsUpdate=true;floorGeo.attributes.color.needsUpdate=true;
+  floorGeo.computeVertexNormals();
+  floorMat.metalness=.4;
+  gridOverlay.visible=true;gridMat.opacity=.5;
+  bots.visible=false;
+  rubbleRocks.forEach(r=>r.visible=false);
+  moltenLight.intensity=0;
+}
+function resetFloor(){
+  state.floor='rugged';
+  tweens.removeAll();  /* 仅停地基相关补间（相机补间随后重建） */
+  level=LEVEL0;
+  molten.visible=true;
+  molten.position.y=LEVEL0-.175;
+  moltenMat.color.set(0x3a1004);moltenMat.emissive.set(0xff5a1e);
+  moltenMat.emissiveIntensity=1.9;moltenMat.roughness=.55;moltenMat.metalness=.1;
+  gridOverlay.visible=false;gridMat.opacity=0;
+  bots.visible=true;
+  rubbleRocks.forEach(r=>{
+    r.visible=true;r.userData.melted=false;
+    if(r.userData.s0)r.scale.copy(r.userData.s0);
+  });
+  for(let i=0;i<floorPos.count;i++){
+    floorPos.setY(i,ruggedY[i]);
+    const v=.36+R()*.12;
+    floorCol[i*3]=v;floorCol[i*3+1]=v+.01;floorCol[i*3+2]=v+.03;
+  }
+  floorPos.needsUpdate=true;floorGeo.attributes.color.needsUpdate=true;
+  floorGeo.computeVertexNormals();
+}
+
+/* —— 阶段1：熔融液面升起 → 冷却成岩板 —— */
+function playStage1(){
+  resetFloor();
+  moltenLight.intensity=85;
+  const s={L:LEVEL0};
+  new TWEEN.Tween(s,tweens).to({L:FLAT_Y},9500)
+    .easing(TWEEN.Easing.Quadratic.InOut)  /* 液面近似匀速抬升 */
+    .onUpdate(()=>{
+      level=s.L;
+      molten.position.y=level-.175;
+      moltenLight.position.set(0,level+2.5,0);
+      moltenLight.intensity=85;
+      const lb=level-.46;
+      for(let i=0;i<floorPos.count;i++){
+        const y=Math.max(ruggedY[i],lb);
+        floorPos.setY(i,y);
+        let cr,cg,cb;
+        if(lb<=ruggedY[i]+.001){                    /* 尚未被淹没：碎石原色 */
+          cr=.4;cg=.41;cb=.44;
+        }else{
+          const g=clamp(1-(lb-ruggedY[i])/2.0,0,1); /* 淹没深度→热度 */
+          cr=lerp(.06,1,g);cg=lerp(.065,.42,g);cb=lerp(.08,.13,g);
+        }
+        floorCol[i*3]=cr;floorCol[i*3+1]=cg;floorCol[i*3+2]=cb;
+      }
+      floorPos.needsUpdate=true;floorGeo.attributes.color.needsUpdate=true;
+      floorGeo.computeVertexNormals();
+      /* 碎石熔没 */
+      rubbleRocks.forEach(r=>{
+        if(!r.userData.melted&&level>r.userData.top-.15){
+          r.userData.melted=true;
+          new TWEEN.Tween(r.scale,tweens).to({x:.001,y:.001,z:.001},420)
+            .easing(TWEEN.Easing.Quadratic.Out)
+            .onComplete(()=>{r.visible=false;}).start();
+        }
+      });
+    })
+    .onComplete(()=>{
+      /* 冷却：炽热橙红 → 暗黑反光玄武岩 */
+      bots.visible=false;
+      const c={k:0};
+      new TWEEN.Tween(c,tweens).to({k:1},3600)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .onUpdate(()=>{
+          moltenMat.emissiveIntensity=lerp(1.9,0,c.k);
+          moltenMat.color.setRGB(lerp(.23,.078,c.k),lerp(.063,.086,c.k),lerp(.016,.106,c.k));
+          moltenMat.metalness=lerp(.1,.82,c.k);
+          moltenMat.roughness=lerp(.55,.3,c.k);
+          moltenLight.intensity=lerp(85,0,c.k);
+          floorMat.metalness=lerp(.05,.4,c.k);
+          for(let i=0;i<floorPos.count;i++){
+            floorCol[i*3]=lerp(floorCol[i*3],.075,c.k*.12);
+            floorCol[i*3+1]=lerp(floorCol[i*3+1],.08,c.k*.12);
+            floorCol[i*3+2]=lerp(floorCol[i*3+2],.095,c.k*.12);
+          }
+          floorGeo.attributes.color.needsUpdate=true;
+        })
+        .onComplete(()=>{
+          state.floor='slab';
+          gridOverlay.visible=true;
+          new TWEEN.Tween(gridMat,tweens).to({opacity:.5},900).start();
+        }).start();
+    }).start();
+}
+
+/* —— 阶段2：舱段降落 + 充气展开 + 主灯亮起 —— */
+function deployModules(instant){
+  state.deployed=true;
+  modules.forEach(m=>{
+    m.visible=true;
+    scene.children.filter(c=>c.name==='corridor').forEach(c=>c.visible=true);
+    if(instant){m.scale.setScalar(1);m.position.y=m.userData.deployY;return;}
+    m.scale.setScalar(.001);
+    m.position.y=m.userData.deployY+9;
+  });
+  if(instant){MAT.win.emissiveIntensity=1.5;baseLight.intensity=130;return;}
+  const seq=[[hub,0],[habA,600],[habB,1150],[reactor,1700]];
+  seq.forEach(([m,delay])=>{
+    new TWEEN.Tween(m.position,tweens).delay(delay).to({y:m.userData.deployY},900)
+      .easing(TWEEN.Easing.Bounce.Out).start();
+    const sc={v:.001};
+    new TWEEN.Tween(sc,tweens).delay(delay+250).to({v:1},850)
+      .easing(TWEEN.Easing.Back.Out)
+      .onUpdate(()=>m.scale.setScalar(sc.v)).start();
+  });
+  new TWEEN.Tween(MAT.win,tweens).delay(1500).to({emissiveIntensity:1.5},1600).start();
+  new TWEEN.Tween(baseLight,tweens).delay(1600).to({intensity:130},2000).start();
+}
+function resetModules(){
+  state.deployed=false;
+  tweens.removeAll();
+  modules.forEach(m=>{m.visible=false;m.scale.setScalar(.001);});
+  scene.children.filter(c=>c.name==='corridor').forEach(c=>c.visible=false);
+  MAT.win.emissiveIntensity=0;baseLight.intensity=0;
+}
+
+/* —— 阶段3：EDS / 热阵列 / 道钉依次启动 —— */
+function activateSystems(instant){
+  state.systems=true;
+  eds.visible=dustPts.visible=thermal.visible=true;
+  if(instant){
+    spikes.forEach(s=>{s.scale.setScalar(1);s.userData.tip.material.emissiveIntensity=2;s.userData.glow.material.opacity=.7;});
+    relayLine.material.opacity=.5;shaftBeam.material.opacity=.4;
+    relayPulses.forEach(p=>p.visible=true);
+    thermalRods.forEach(r=>{r.top.material.emissiveIntensity=1.4;r.bot.material.emissiveIntensity=.9;r.glow.material.opacity=.4;r.pulses.forEach(p=>p.visible=true);});
+    return;
+  }
+  /* EDS 力场浮现 */
+  const e={v:.001};
+  new TWEEN.Tween(e,tweens).to({v:1},1200)
+    .easing(TWEEN.Easing.Back.Out)
+    .onUpdate(()=>eds.scale.setScalar(e.v)).start();
+  /* 热传导杆钻入 */
+  thermalRods.forEach((r,i)=>{
+    const s={v:.001};
+    new TWEEN.Tween(s,tweens).delay(500+i*180).to({v:1},800)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onUpdate(()=>{r.top.scale.y=s.v;r.bot.scale.y=s.v;})
+      .onComplete(()=>{r.pulses.forEach(p=>p.visible=true);}).start();
+    new TWEEN.Tween(r.top.material,tweens).delay(1300).to({emissiveIntensity:1.4},900).start();
+    new TWEEN.Tween(r.bot.material,tweens).delay(1300).to({emissiveIntensity:.9},900).start();
+  });
+  /* 道钉逐个点亮 → 链路连通 → 上行光柱 */
+  spikes.forEach((s,i)=>{
+    const sc={v:.001};
+    new TWEEN.Tween(sc,tweens).delay(1600+i*260).to({v:1},450)
+      .easing(TWEEN.Easing.Back.Out)
+      .onUpdate(()=>s.scale.setScalar(sc.v)).start();
+    new TWEEN.Tween(s.userData.tip.material,tweens).delay(1750+i*260).to({emissiveIntensity:2},500).start();
+    new TWEEN.Tween(s.userData.glow.material,tweens).delay(1750+i*260).to({opacity:.7},500).start();
+  });
+  new TWEEN.Tween(relayLine.material,tweens).delay(1600+7*260).to({opacity:.5},900)
+    .onComplete(()=>{relayPulses.forEach(p=>p.visible=true);}).start();
+  new TWEEN.Tween(shaftBeam.material,tweens).delay(1600+7*260+400).to({opacity:.4},900).start();
+  new TWEEN.Tween(antenna.userData.tip.material,tweens).delay(1600+7*260+400).to({emissiveIntensity:2},600).start();
+}
+function resetSystems(){
+  state.systems=false;
+  tweens.removeAll();
+  eds.visible=dustPts.visible=thermal.visible=false;
+  eds.scale.setScalar(1);
+  spikes.forEach(s=>{s.scale.setScalar(.001);s.userData.tip.material.emissiveIntensity=0;s.userData.glow.material.opacity=0;});
+  relayLine.material.opacity=0;shaftBeam.material.opacity=0;
+  relayPulses.forEach(p=>p.visible=false);
+  thermalRods.forEach(r=>{r.top.material.emissiveIntensity=0;r.bot.material.emissiveIntensity=0;r.glow.material.opacity=0;r.pulses.forEach(p=>p.visible=false);});
+  antenna.userData.tip.material.emissiveIntensity=0;
+}
+
+/* —— 阶段调度 —— */
+function setStage(n,{instant=false,fly=true,auto=false}={}){
+  if(!auto)stopAuto(true);
+  state.active=n;
+  /* 前置阶段瞬时补齐 */
+  if(n>=2&&state.floor!=='slab')applyFloorInstant();
+  if(n>=3&&!state.deployed)deployModules(true);
+  /* 本阶段动画 */
+  tweens.removeAll();
+  if(n===1){
+    if(state.deployed)resetModules();
+    if(state.systems)resetSystems();
+    playStage1();
+  }else if(n===2){
+    resetModules();
+    deployModules(instant);
+  }else if(n===3){
+    resetSystems();
+    activateSystems(instant);
+  }else{ /* 总览 */
+    if(state.floor!=='rugged'&&state.active!==1){/* 保留当前地基状态 */}
+  }
+  if(fly){
+    const cfg=n===0?OVERVIEW_CAM:STAGE_TEXT[n];
+    flyTo(cfg.cam,cfg.tgt,n===0?1800:2400);
+  }
+  setPanel(n===0?'🛰 工程时间轴':STAGE_TEXT[n].title,
+           n===0?'欢迎使用动态沙盘 — 上方为月面与环形山，下方剖面中可见黑洞洞的熔岩管空腔与崎岖碎石管底。点击上方步骤按钮，按时间轴观看三阶段建造演示。':STAGE_TEXT[n].text);
+  stageEls.forEach(el=>{
+    const s=+el.dataset.s;
+    el.classList.toggle('active',s===n);
+    el.classList.toggle('done',s<n);
+  });
+}
+
+/* ===================== 11. UI 事件 ===================== */
+stageEls.forEach(el=>el.addEventListener('click',()=>setStage(+el.dataset.s)));
+addEventListener('keydown',e=>{
+  if(e.key>='1'&&e.key<='3')setStage(+e.key);
+  else if(e.key==='0')setStage(0);
+});
+const ovToggle=document.getElementById('ovToggle'),overview=document.getElementById('overview');
+ovToggle.addEventListener('click',()=>{
+  ovToggle.classList.toggle('open');
+  overview.classList.toggle('open');
+});
+/* 自动演示 */
+const autoBtn=document.getElementById('autoBtn');
+let autoTimers=[];
+function stopAuto(silent){
+  autoTimers.forEach(clearTimeout);autoTimers=[];
+  if(!silent){autoBtn.classList.remove('on');autoBtn.textContent='▶ 自动演示';}
+}
+autoBtn.addEventListener('click',()=>{
+  if(autoBtn.classList.contains('on')){stopAuto();return;}
+  autoBtn.classList.add('on');autoBtn.textContent='⏸ 停止演示';
+  setStage(1,{auto:true});
+  autoTimers.push(setTimeout(()=>setStage(2,{auto:true}),12000));
+  autoTimers.push(setTimeout(()=>setStage(3,{auto:true}),21000));
+  autoTimers.push(setTimeout(()=>{stopAuto();},31000));
+});
+
+/* ===================== 12. 动画主循环 ===================== */
+const clock=new THREE.Clock();
+let fpsF=0,fpsT=0;
+const tmCam=document.getElementById('tmCam'),tmFps=document.getElementById('tmFps');
+const stars=scene.getObjectByName('stars');
+const beacon=scene.getObjectByName('sBeacon');
+const botList=[...bots.children.filter(c=>c.userData.off!==undefined)];
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05);
+  const t=clock.elapsedTime;
+  tweens.update(performance.now());
+  controls.update();
+
+  stars.rotation.y+=dt*.004;
+  beacon.material.emissiveIntensity=(Math.sin(t*3)>.4)?2.4:.2;
+
+  /* 烧结车往复行驶 */
+  if(bots.visible){
+    botList.forEach(b=>{b.position.x=Math.sin(t*.5+b.userData.off)*54;});
+  }
+
+  /* EDS 力场脉动 + 月尘被斥离 */
+  if(eds.visible){
+    eds.rotation.y+=dt*.18;
+    edsWire.material.opacity=.22+.13*Math.sin(t*1.9);
+    edsShell.material.opacity=.05+.035*Math.sin(t*1.4+1);
+    const c=eds.position;
+    for(let i=0;i<DUST_N;i++){
+      let x=dustPos[i*3]-c.x,y=dustPos[i*3+1]-c.y,z=dustPos[i*3+2]-c.z;
+      const d=Math.hypot(x,y,z)||.001;
+      const nx=x/d,ny=y/d,nz=z/d;
+      let vx=dustVel[i*3],vy=dustVel[i*3+1],vz=dustVel[i*3+2];
+      if(d<DUST_R){                                  /* 触碰静电屏障 → 反弹 */
+        vx=nx*3.2;vy=ny*3.2;vz=nz*3.2;
+      }else{
+        vx-=nx*1.1*dt;vy-=ny*1.1*dt;vz-=nz*1.1*dt;   /* 缓慢趋近 */
+      }
+      vx*=.995;vy*=.995;vz*=.995;
+      dustVel[i*3]=vx;dustVel[i*3+1]=vy;dustVel[i*3+2]=vz;
+      x+=vx*dt;y+=vy*dt;z+=vz*dt;
+      const nd=Math.hypot(x,y,z);
+      if(nd>15){                                     /* 远离后重置 */
+        const a=R()*Math.PI*2,b2=Math.acos(2*R()-1),r=DUST_R+6+R()*4;
+        x=r*Math.sin(b2)*Math.cos(a);y=r*Math.cos(b2)*.6;z=r*Math.sin(b2)*Math.sin(a);
+        dustVel[i*3]=dustVel[i*3+1]=dustVel[i*3+2]=0;
+      }
+      dustPos[i*3]=c.x+x;dustPos[i*3+1]=c.y+y;dustPos[i*3+2]=c.z+z;
+    }
+    dustGeo.attributes.position.needsUpdate=true;
+  }
+
+  /* 热传导杆：红热脉动 + 热量向下流动粒子 */
+  if(thermal.visible){
+    thermalRods.forEach((r,i)=>{
+      if(r.top.material.emissiveIntensity>0){
+        r.top.material.emissiveIntensity=1.1+.6*Math.sin(t*2.6+i);
+        r.bot.material.emissiveIntensity=.75+.4*Math.sin(t*2+i*1.5);
+        r.glow.material.opacity=.28+.18*Math.sin(t*2.6+i);
+        r.pulses.forEach(p=>{
+          const u=((t*.55+p.off)%1);
+          p.m.position.y=lerp(1.8,-7.6,u);
+          p.m.material.color.setRGB(lerp(1,.17,u),lerp(.35,.31,u),lerp(.17,1,u));
+          p.m.scale.setScalar(.7+.5*Math.sin(u*Math.PI));
+        });
+      }
+    });
+  }
+
+  /* 道钉链路信号脉冲 + 天线闪烁 */
+  if(relayLine.material.opacity>0){
+    relayPulses.forEach(p=>{
+      const u=(t*.06+p.userData.off)%1;
+      p.position.copy(relayCurve.getPoint(u));
+      p.scale.setScalar(.75+.45*Math.sin(t*6+p.userData.off*18));
+    });
+    antenna.userData.tip.material.emissiveIntensity=1.4+.8*Math.sin(t*4);
+    shaftBeam.material.opacity=.3+.14*Math.sin(t*2.2);
+  }
+  if(hub.visible)hub.userData.beacon.material.emissiveIntensity=(Math.sin(t*4)>.55)?2.4:.15;
+  reactor.userData.rings.forEach((r,i)=>{
+    r.material.emissiveIntensity=state.deployed?(.8+.6*Math.sin(t*3+i*1.3)):r.material.emissiveIntensity;
+  });
+
+  renderer.render(scene,camera);
+
+  fpsF++;fpsT+=dt;
+  if(fpsT>=.5){
+    tmFps.textContent=`FPS ▸ ${Math.round(fpsF/fpsT)}`;
+    tmCam.textContent=`CAM ▸ x ${camera.position.x.toFixed(0)} | y ${camera.position.y.toFixed(0)} | z ${camera.position.z.toFixed(0)}`;
+    fpsF=0;fpsT=0;
+  }
+}
+
+/* ===================== 13. 自适应 & 启动 ===================== */
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+});
+
+animate();
+setTimeout(()=>document.getElementById('loading').classList.add('off'),700);
+/* 演示直入参数：?auto=1 自动播放三阶段（便于录屏 / 截图） */
+if(new URLSearchParams(location.search).get('auto')==='1'){
+  setTimeout(()=>{autoBtn.click();},1600);
+}
+</script>
+</body>
+</html>
