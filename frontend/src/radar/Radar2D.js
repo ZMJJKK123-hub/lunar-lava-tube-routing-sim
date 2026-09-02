@@ -35,10 +35,30 @@ export class Radar2D {
 
     this.infoPanel = null          // 点击节点的极客数据面板
     this.wallMode = false          // 放墙模式: 关闭时左键=平移画面, 开启时左键拖=画墙
+    // 放墙模式光标: 砖墙图标; 悬停到已放置的墙上 -> 红叉(点击即删除)
+    this.cursorWall = this._svgCursor(
+      "<rect x='2' y='5' width='22' height='7' fill='#9fb2c8' stroke='#1a2230' stroke-width='1.4'/>" +
+      "<rect x='2' y='14' width='22' height='7' fill='#9fb2c8' stroke='#1a2230' stroke-width='1.4'/>" +
+      "<line x1='10' y1='5' x2='10' y2='12' stroke='#1a2230' stroke-width='1.4'/>" +
+      "<line x1='18' y1='5' x2='18' y2='12' stroke='#1a2230' stroke-width='1.4'/>" +
+      "<line x1='6' y1='14' x2='6' y2='21' stroke='#1a2230' stroke-width='1.4'/>" +
+      "<line x1='14' y1='14' x2='14' y2='21' stroke='#1a2230' stroke-width='1.4'/>" +
+      "<line x1='22' y1='14' x2='22' y2='21' stroke='#1a2230' stroke-width='1.4'/>", 'cell')
+    this.cursorDelX = this._svgCursor(
+      "<circle cx='13' cy='13' r='11' fill='rgba(255,64,48,0.22)' stroke='#ff5040' stroke-width='2'/>" +
+      "<path d='M8 8 L18 18 M18 8 L8 18' stroke='#ff3b28' stroke-width='2.6' stroke-linecap='round'/>",
+      'not-allowed')
     this.menu = null
     this._bindEvents()
     this.animate = this.animate.bind(this)
     requestAnimationFrame(this.animate)
+  }
+
+  /* 自定义光标: SVG -> data URI cursor */
+  _svgCursor(body, fallback) {
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26'>" + body + "</svg>"
+    return "url(" + JSON.stringify("data:image/svg+xml;utf8," + encodeURIComponent(svg))
+      + ") 13 13, " + fallback
   }
 
   /* ================= 坐标变换 ================= */
@@ -119,6 +139,13 @@ export class Radar2D {
     window.addEventListener('mousemove', (e) => this._move(e))
     window.addEventListener('mouseup', (e) => this._up(e))
     cv.addEventListener('mouseleave', () => { this.hoverId = null; this._refreshHoverEdges() })
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'
+          && this.snapshot?.walls?.length) {
+        e.preventDefault()
+        this.client?.send({ cmd: 'remove_wall', index: this.snapshot.walls.length - 1 })
+      }
+    })
     cv.addEventListener('wheel', (e) => {
       e.preventDefault()
       const f = e.deltaY > 0 ? 0.9 : 1.11
@@ -132,6 +159,23 @@ export class Radar2D {
       this._placeInfoPanel()
     }, { passive: false })
   }
+  _hitWall(sx, sy) {
+    if (!this.snapshot) return -1
+    for (let i = 0; i < (this.snapshot.walls ?? []).length; i++) {
+      const w = this.snapshot.walls[i]
+      const [x1, y1] = this._w2s(w.x1, w.z1)
+      const [x2, y2] = this._w2s(w.x2, w.z2)
+      // 点到线段距离 < 10px
+      const dx = x2 - x1, dy = y2 - y1
+      const len2 = dx * dx + dy * dy || 1
+      let t = ((sx - x1) * dx + (sy - y1) * dy) / len2
+      t = Math.max(0, Math.min(1, t))
+      const px = x1 + t * dx, py = y1 + t * dy
+      if (Math.hypot(sx - px, sy - py) < 10) return i
+    }
+    return -1
+  }
+
   _hitNode(sx, sy) {
     if (!this.snapshot) return null
     let best = null, bd = 14
@@ -161,15 +205,21 @@ export class Radar2D {
       if (nid) this._showMenu(e.clientX, e.clientY, nid)
       return
     }
-    const ob = this._hitObstacle(sx, sy)
-    if (ob >= 0 && e.button === 0) {             // 拖巨石 (任何模式)
-      this.drag = { type: 'obstacle', idx: ob }
-      this.canvas.style.cursor = 'grabbing'
-      return
-    }
-    if (this.wallMode) {                          // 放墙模式: 左键拖 = 画墙
+    if (this.wallMode) {                          // 放墙模式
+      // 先判定是否点在已有墙上 -> 撤销该堵
+      const wi = this._hitWall(sx, sy)
+      if (wi >= 0) {
+        this.client?.send({ cmd: 'remove_wall', index: wi })
+        return
+      }
       const [wx, wz] = this._s2w(sx, sy)
       this.drag = { type: 'wall', x1: wx, z1: wz, x2: wx, z2: wz, sx, sy, moved: false }
+      return
+    }
+    const ob = this._hitObstacle(sx, sy)
+    if (ob >= 0 && e.button === 0) {             // 拖巨石 (未点中墙时)
+      this.drag = { type: 'obstacle', idx: ob }
+      this.canvas.style.cursor = 'grabbing'
       return
     }
     // 默认模式: 左键拖 = 平移画面; 左键点(位移<6px) = 选中节点
@@ -199,6 +249,10 @@ export class Radar2D {
       if (o) { o.x = wx; o.z = wz; this.staticDirty = true }
       return
     }
+    // 放墙模式: 悬停到已放置的墙上 -> 光标变叉叉(点击即删除), 否则墙图标
+    if (this.wallMode) {
+      this.canvas.style.cursor = this._hitWall(sx, sy) >= 0 ? this.cursorDelX : this.cursorWall
+    }
     // 悬停: 只在命中变化时刷新边集 (避免每帧重建)
     const nid = this._hitNode(sx, sy)
     if (nid !== this.hoverId) {
@@ -207,7 +261,7 @@ export class Radar2D {
       this._edgePh = []
       this.hoverRipples = []
       this._refreshHoverEdges()
-      this.canvas.style.cursor = nid ? 'pointer' : 'crosshair'
+      if (!this.wallMode) this.canvas.style.cursor = nid ? 'pointer' : 'crosshair'
     }
   }
   _up() {
@@ -674,7 +728,7 @@ export class Radar2D {
 
   setWallMode(on) {
     this.wallMode = !!on
-    this.canvas.style.cursor = this.wallMode ? 'cell' : 'crosshair'
+    this.canvas.style.cursor = this.wallMode ? this.cursorWall : 'crosshair'
   }
 
   select(id) {

@@ -676,6 +676,17 @@ class SimulationEngine:
         self.compute_network()
         return {"ok": True, "cut": newly}
 
+    def remove_wall(self, index: int):
+        """撤销第 index 堵墙 (按加入顺序 0..n-1) -> LOS 重算"""
+        if not (0 <= index < len(self.walls)):
+            return {"ok": False, "error": "bad index"}
+        self.walls.pop(index)
+        self._recompute_los()
+        self._emit("wall_removed", "ok", f"🧱 墙体 #{index} 已拆除",
+                   narration="🧱 一堵岩壁被拆除,被它隔断的视线恢复,算法正在回归更优的直连路径。")
+        self.compute_network()
+        return {"ok": True}
+
     def clear_walls(self):
         self.walls = []
         self._recompute_los()

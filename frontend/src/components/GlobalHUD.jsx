@@ -46,7 +46,7 @@ export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode
             border: logOpen ? '1px solid #1a6a40' : '1px solid #1d3a5f', borderRadius: 4,
           }}>📜 日志{logOpen ? ' ●' : ''}</button>
         <button id="guide-wall" onClick={onToggleWall}
-          title="开启后: 左键拖拽画墙(自定义遮挡物, 切断视线→链路消失); 再点一次恢复平移模式"
+          title="开启后: 左键拖拽画墙(切断视线→链路消失); 二次点击已放置的墙可删除它(悬停变红叉); Ctrl+Z=撤销最后一堵; 再点按钮退出"
           style={{
             padding: '5px 10px', cursor: 'pointer', fontSize: 12,
             background: wallMode ? '#5c4a14' : '#12203a',

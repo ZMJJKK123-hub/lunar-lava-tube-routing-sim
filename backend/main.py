@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
-"""FastAPI 入口: WebSocket 实时通道 + 静态前端托管(可选)"""
+"""FastAPI 入口: WebSocket 实时通道 + 前端静态页面托管 (单端口 5000)"""
 import asyncio
 import contextlib
 import json
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from sim.engine import ENGINE
+
+# 前端构建产物 (npm run build 后的 dist)
+DIST_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 app = FastAPI(title="月面熔岩管多智能体网络仿真引擎")
 app.add_middleware(
@@ -15,18 +21,52 @@ app.add_middleware(
 )
 
 CLIENTS: set[WebSocket] = set()
+INFLIGHT: dict[WebSocket, asyncio.Task] = {}   # 客户端 -> 正在进行的发送任务
+
+
+async def _send_to(ws: WebSocket, data: str):
+    """单个客户端的限时发送; 失败/超时由 done 回调踢出"""
+    await asyncio.wait_for(ws.send_text(data), timeout=10.0)
 
 
 async def broadcast(message: dict):
-    dead = []
+    """
+    发后即忘广播: 引擎循环绝不同步 await 任何客户端发送。
+    uvicorn 的 ws.send 在对端停止读取时会无限期挂起 (transport 缓冲满 ->
+    writable 事件被清除), 若在引擎循环内直接 await 会冻结整个仿真。
+    这里把每条发送丢进独立任务; 上一帧还没发完(卡住)的客户端直接踢出。
+    """
     data = json.dumps(message, ensure_ascii=False)
-    for ws in CLIENTS:
-        try:
-            await ws.send_text(data)
-        except Exception:
-            dead.append(ws)
-    for ws in dead:
-        CLIENTS.discard(ws)
+    for ws in list(CLIENTS):
+        if ws in INFLIGHT:          # 上一帧仍卡着 -> 判定僵死连接, 踢出
+            CLIENTS.discard(ws)
+            INFLIGHT.pop(ws, None)
+            continue
+        task = asyncio.create_task(_send_to(ws, data))
+
+        def _done(t, ws=ws):
+            INFLIGHT.pop(ws, None)
+            if t.cancelled() or t.exception() is not None:
+                CLIENTS.discard(ws)
+
+        INFLIGHT[ws] = task
+        task.add_done_callback(_done)
+
+
+@app.get("/health")
+async def health():
+    """仿真健康度: tick 应随时间持续增长"""
+    return {"tick": ENGINE.tick, "clients": len(CLIENTS),
+            "mode": ENGINE.mode, "nodes": len(ENGINE.nodes)}
+
+
+# ---------- 前端静态托管: 单端口部署, 页面与接口同源 ----------
+if DIST_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
+
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(DIST_DIR / "index.html")
 
 
 @app.websocket("/ws")
@@ -57,6 +97,9 @@ async def ws_endpoint(ws: WebSocket):
                 resp = ENGINE.move_obstacle(msg["index"], msg["x"], msg["z"])
                 await broadcast(ENGINE.snapshot())
                 await ws.send_text(json.dumps({"cmd": "ack", **resp}))
+            elif cmd == "remove_wall":
+                ENGINE.remove_wall(msg["index"])
+                await broadcast(ENGINE.snapshot())
             elif cmd == "clear_walls":
                 ENGINE.clear_walls()
                 await broadcast(ENGINE.snapshot())
