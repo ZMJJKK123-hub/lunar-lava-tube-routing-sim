@@ -1,285 +1,330 @@
-# 后端架构说明(backend/)
+# 后端完全手册(backend/)
 
 > 月球熔岩管多智能体网络沙盘 —— 仿真引擎
-> 一句话:维护 60 个通信节点 + 16 块巨石的地下网络世界,每 0.25 秒重算一次
-> "谁能连谁、数据怎么走、哪条链路熔断",并通过 WebSocket 以 5Hz 推送给前端。
+> 一句话:维护 60 根通信桩 + 26 块巨石的地下网络世界,每 0.25 秒重算一次
+> "谁能连谁、数据怎么走、哪条链路熔断",通过 WebSocket 以 5Hz 推送给前端。
+>
+> 本手册按"**每个文件 → 每个类 → 每个函数**"组织:每个函数只讲**它干什么、
+> 输入什么、返回什么**,不需要读源码。最后两章统一讲**函数之间怎么组装**、
+> **路由代价的权重公式怎么算**。函数名可直接在编辑器里搜索定位。
 
 ---
 
 ## 目录
 
-1. [文件结构](#1-文件结构)
-2. [一次仿真的完整生命周期](#2-一次仿真的完整生命周期)
-3. [核心算法详解](#3-核心算法详解)
-4. [关键数据结构](#4-关键数据结构)
-5. [WebSocket 协议](#5-websocket-协议)
-6. [参数速查表(我想改 X 应该去哪)](#6-参数速查表)
-7. [设计取舍与已知问题](#7-设计取舍与已知问题)
+- [1. 文件与类总览](#1-文件与类总览)
+- [2. 函数级 API 手册](#2-函数级-api-手册)
+  - [2.1 sim/node.py —— Node 类(通信桩)](#21-simnodepy--node-类通信桩)
+  - [2.2 sim/physics.py —— 物理层(6 个函数)](#22-simphysicspy--物理层6-个函数)
+  - [2.3 sim/routing.py —— 路由算法(4 个函数)](#23-simroutingpy--路由算法4-个函数)
+  - [2.4 sim/engine.py —— SimulationEngine 类(仿真引擎)](#24-simenginepy--simulationengine-类仿真引擎)
+  - [2.5 main.py —— FastAPI 入口](#25-mainpy--fastapi-入口)
+- [3. 对外接口(HTTP + WebSocket)](#3-对外接口http--websocket)
+- [4. 函数之间怎么组装(调用链)](#4-函数之间怎么组装调用链)
+- [5. 权重怎么算(link_cost 六项公式详解)](#5-权重怎么算link_cost-六项公式详解)
 
 ---
 
-## 1. 文件结构
+## 1. 文件与类总览
 
-```
-backend/
-├── main.py            (82行)  FastAPI 入口: WebSocket 通道 + 启动引擎
-├── requirements.txt           依赖: fastapi / uvicorn / websockets
-└── sim/
-    ├── node.py       (152行)  节点物理状态类 —— 一个节点的全部参数与演化
-    ├── physics.py    (142行)  物理层纯函数 —— 链路预算(能不能连) + 路由代价(走它多贵)
-    ├── routing.py    (152行)  图算法 —— Dijkstra 路由 / RCSPA 资源约束最短路径
-    └── engine.py     (838行)  状态机 —— 地质生成/视距检测/每tick流水线/灾害/事件
-```
-
-**分层原则**:node 存状态,physics 只算数(纯函数,无状态),routing 只跑图,
-engine 负责编排——把前三者串成每 tick 的流水线,并管理所有"变化"(事件/灾害/收敛)。
-
----
-
-## 2. 一次仿真的完整生命周期
-
-### 启动(main.py + engine.__init__)
-
-```
-uvicorn 启动
- └─ startup: 创建引擎 SimulationEngine()
-     ├─ 生成地质: 大圆形竞技场 + 26块互不重叠巨石 + 60个节点(避让石头/彼此间距105m)
-     ├─ 视距检测(LOS): 预计算哪些节点对被石头挡住(静态缓存)
-     ├─ 首次全网计算, 若覆盖率 <96% → 换随机种子重新生成(最多重试8次)
-     └─ 启动主循环 task(持有强引用防GC) ──────────────┐
-                                                        │
-客户端连接 /ws                                          │
- └─ 立即下发: ① geology(地质数据,只发一次)              │
-             ② snapshot(当前全网快照)                   │
-```
-
-### 主循环(engine.run_forever,每 0.25s 一个 tick)
-
-```
-┌─ 每 0.25s: 物理 tick ──────────────────────────────────────┐
-│  ① 60个节点各自 step():                                     │
-│     耗电(休眠节点电流×0.15) → RTG充电240mAh/h               │
-│     → 辐射累积/SEU掷骰 → 队列消散 → 温度随机游走             │
-│  ② compute_network() 十步流水线(见下节)                     │
-└─────────────────────────────────────────────────────────────┘
-┌─ 每 0.20s: 广播 ────────────────────────────────────────────┐
-│  把全网快照(nodes/links/routes/events/stats)JSON 推给所有客户端│
-└─────────────────────────────────────────────────────────────┘
-```
-
-### compute_network() 十步流水线(engine.py:316)
-
-```
- ① 建边    两两节点对 → LOS过滤 → link_budget → links字典
- ② 链路diff 与上一tick比对 → 链路熔断/恢复 事件
- ③ 路由    Dijkstra(以sink为源) → 每节点的 path/next_hop/hop_count
- ④ 信息素  每条边的承载量指数平滑(0.82旧+0.18新) —— ACO负载记忆
- ⑤ 路由diff 与上一tick比对 → 重路由/失联/重新入网 事件
- ⑥ 状态    邻居数/队列积压/节点分级(ACTIVE/DEGRADED)
- ⑦ 呼叫轮换 传感器每6tick换一半活跃(模拟占空比省电)
- ⑧ PAMAS   不在活跃路径 且 物理邻居正在收发 → 休眠
- ⑨ 被挡清单 每节点最近3个"近在咫尺却被挡"的邻居+原因(巨石/岩壁/…)
- ⑩ 收敛机  只有"链路生死集合"变化才算结构变化 → HEALING→CONVERGED→STABLE
-```
-
----
-
-## 3. 核心算法详解
-
-### 3.1 视距检测 LOS —— "看不到 → 图中无边 → 必须中继"
-
-`engine._recompute_los()`(engine.py:252),三种遮挡,全部数学化:
-
-| 遮挡物 | 数学判定 | 代码 |
+| 文件 | 类/模块 | 一句话职责 |
 |---|---|---|
-| 巨石(圆) | 线段到圆心最近距离 < 0.85r | `_seg_blocked_by_sphere` (engine.py:58) |
-| 竞技场边界 | 线段5点采样,任一点出大圆=穿岩 | `_seg_in_tube` (engine.py:243) |
-| 用户画的墙 | 2D线段叉积相交 | `_seg2d_intersect` (engine.py:49) |
+| `sim/node.py` | `class Node` | 一根通信桩的全部物理参数 + 每 tick 的演化(耗电/辐射/温度) |
+| `sim/physics.py` | 模块(6 个函数) | 纯计算:距离/路径损耗/噪声/SNR/BER/链路熔断/路由代价 |
+| `sim/routing.py` | 模块(4 个函数) | 纯算法:Dijkstra 全网路由 + 波前记录 + RCSPA 信道分配 |
+| `sim/engine.py` | `class SimulationEngine` | 总指挥:世界生成、LOS 遮挡、每 tick 流水线、灾害、快照输出 |
+| `main.py` | `app = FastAPI()` | 网络入口:WebSocket 广播、HTTP 健康检查、托管前端页面 |
+| `README.md` | — | 本手册 |
 
-被挡的节点对进入 `blocked_pairs` 集合,**建边时直接跳过——数据结构层面就没有这条边**,
-路由算法只能在真实存在的边上走,绕行是被迫的、天然的。LOS 是静态缓存,只在
-"拖巨石 / 画墙 / 塌方"时重算(一次约几十毫秒)。
+依赖方向(单向,无循环):`main → engine → routing/physics → node`。
+分层原则:**node 存状态,physics 只算数(纯函数),routing 只跑图,engine 负责编排**。
 
-### 3.2 链路预算 link_budget —— "这条边能不能通、质量多好"
+---
 
-`physics.link_budget()`(physics.py:60),教科书公式链:
+## 2. 函数级 API 手册
 
-```
-输入: 发射节点tx, 接收节点rx
- ① 距离硬门限: sim距离 > 30 (=300米) → 直接不通   ← 前端虚线圈的权威来源
- ② 倾角惩罚 = 20·log10(1/cos((θtx+θrx)/2))         ← 地基沉降→天线偏转
- ③ 路径损耗 = FSPL(4πd/λ) + 洞壁散射 12·log10(d/20+1)
- ④ 接收功率 prx = 发射功率dBm + 增益A + 增益B − 路损 − 倾角惩罚
- ⑤ 噪声底 = 10·log10(k·T·B/1mW) + 6dB              ← T=节点实时温度!
- ⑥ SNR = prx − 噪声底
- ⑦ BER = ½·erfc(√(Eb/N0))  (UWB/BPSK)             ← 误码率由 Eb/N0 决定
- ⑧ 链路余量 margin = prx − 有效灵敏度
-    (有效灵敏度 = 噪声底 + 解调门限8dB + 高温NF恶化0.12dB/°C + 硬件老化)
- ⑨ 熔断判定: up = (margin > 0) 且 (BER < 1e-3)
-输出: {snr_db, ber, margin_db, up, ...}
-```
+### 2.1 sim/node.py —— Node 类(通信桩)
 
-**温度的杀伤路径**(热浪灾害的原理):高温 → ⑤噪声底升高 + ⑧灵敏度恶化
-→ SNR 跌 / margin 跌 → 双门限击穿 → 链路熔断。
+一个 `Node` 实例 = 一根通信桩。字段分四组:**能源**(battery_mah=12000mAh、
+i_tx=420mA、i_rx=95mA、i_sleep=2.5mA、supercap_pct、temp_c)、
+**射频**(tx_power_dbm=14、rx_sensitivity_dbm=-102、ant_gain_dbi、tilt_deg、
+band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
+**网络**(queue_pct、neighbors、hop_count、state、radio)。
 
-### 3.3 路由代价 link_cost —— "走这条边有多贵"
+#### 属性(property,读取时实时计算)
 
-`physics.link_cost()`(physics.py:110),六项加权求和:
-
-```
-Cost = 能量项     2×(1−SoC/100) + 温度折减惩罚        ← 电少的节点绕着走(均衡寿命)
-     + 链路质量项 (15−SNR)×0.25 + BER×3000 + 1        ← 信号差代价高
-     + 拥塞项     队列A×2.5 + 队列B×1.5                ← 忙节点避让
-     + 可靠性项   SEU次数×0.05 + 非ACTIVE罚2 + 剂量/2万 ← 辐射受损降权
-     + 低速罚     LoRa固定 +1.5                        ← 降速换距离不划算
-     + 信息素项   min(4, 历史负载×0.8)                 ← ACO:忙边越走越贵→自动分流
-```
-
-**这就是"多智能体决策"的代价观**:路由不只是最短,而是电量/信号/拥塞/可靠性/负载
-的联合最优。你拖走一块石头或烧掉一个节点,六项会通过链路质量/队列/信息素连锁变化,
-路径随之改道。
-
-### 3.4 Dijkstra 路由 + 波前记录
-
-`routing.dijkstra()`(routing.py:22):标准堆优化最短路,以 sink 为源反向跑。
-额外产出 `settle_order` —— 节点被"确定最短距离"的真实先后顺序,前端波前扩散
-动画按它逐个点亮,**动画顺序 = 算法真实执行顺序**。
-
-### 3.5 RCSPA —— 资源约束最短路径(按论文实现)
-
-`routing.rscspa()`(routing.py:93),依据
-*"Routing and channel assignment for low-power transmission in PCS"*:
-
-- **状态扩展**:普通 Dijkstra 的状态是"节点",RCSPA 是 **(节点, 最近K−1跳的信道元组)**
-  ——即论文"补全路径 Completion"里的 `FORBIDDEN_RESOURCES` 禁用列表;
-- **复用距离 K=3**:连续 3 跳内同一信道不得复用(防同道干扰抬升功率),
-  违反的补全路径直接丢弃;
-- **信道干扰成本**:候选信道若被任一端附近的活跃呼叫占用 → 代价 ×2.2 惩罚
-  ——**新呼叫被现有流量"排斥",自动绕行到总发射功率更低的路径**(论文核心效果);
-- 输出:最优路径 + 每跳信道分配。
-
-当前机器人信源关闭中(`ROBOT_ENABLED=False`,engine.py:20),RCSPA 待命;
-机器人开启时每跳实时调用它重规划回洞口路由。
-
-### 3.6 ACO 信息素负载均衡
-
-`engine.compute_network()` 第④步(engine.py:359-366):
-
-```
-每条边的负载 ← 0.82×旧值 + 0.18×本tick实际承载路径数   (挥发+沉积)
-```
-负载进入 link_cost 的信息素项:一条边被选中的次数越多,下次越贵,流量自动
-向空闲边分流——你会看到事件流里周期性的"重路由",就是负载再均衡在工作。
-
-### 3.7 PAMAS 节能状态机(工程近似)
-
-engine.py:441-449,每个节点三个电台状态:
-
-```
-DEAD       → IDLE
-在活跃路径上 → TXRX (正常收发, 全电流)
-不在路径 且 物理邻居正在收发 → SLEEP (电流×0.15)   ← 独立关机判定
-不在路径 且 邻居都闲         → IDLE
-```
-配合传感器"每 6 tick 轮换一半活跃呼叫"的占空比,实测约 1/3 节点处于 SLEEP,
-休眠省电直接反映在电池曲线上。论文的 RTS/CTS 六状态与二分探测属包级时序,
-本仿真粒度下等价简化为上述载波监听判定。
-
-### 3.8 收敛状态机 —— "自愈中 / 已收敛 / 稳定"
-
-engine.py:491-533:
-
-```
-结构变化(链路有生有死) ──→ HEALING(自愈重构中, 记录起始tick)
-     │ 连续4个tick无新的结构变化
-     ▼
-   CONVERGED(已收敛, 发解说:自愈耗时N tick + 样例绕行路径) ──→ STABLE
-```
-关键取舍:**ACO引起的等价路径微调不算结构变化**——否则信息素抖动会让网络
-永远显示"自愈中"。判据用"链路生死集合的 diff",对拓扑真变化才敏感。
-
-### 3.9 灾害系统
-
-| 灾害 | 实现 | 事件效果 |
+| 属性 | 返回 | 功能 |
 |---|---|---|
-| 摧毁主干道 | 找承载流量最大的中继 → 置DEAD | 深处节点成批重路由 |
-| 塌方 | 巨石放到最繁忙链路中点 → LOS重算 | 该链路从图中消失 |
-| 热浪 | 全网 +35~70°C | 噪声底/灵敏度双重恶化 → 链路熔断 |
-| 耀斑 | 辐射剂量 +8000~20000 | SEU概率上升 → 节点短暂失联 |
-| 上帝模式 | 前端滑块覆写参数(白名单) | 温度≥100°C/SoC≤3% → 节点当场报废 |
+| `duty_tx` | 0.1~0.9 | 发射占空比。队列越满发射越勤:`0.1 + queue_pct/100×0.8`,封顶 0.9 |
+| `avg_current_ma` | mA | 加权平均电流 = `i_tx×duty_tx + i_rx×0.5 + i_sleep×0.3`,用于算耗电 |
+| `battery_soc` | 0~100 | 剩余电量百分比 `battery_mah/battery_capacity×100` |
+| `thermal_derating` | 0.3~1.0 | 温度放电效率。>45°C 每度衰减 1.2%(下限 0.4);<-20°C 每度衰减 1.5%(下限 0.3) |
+
+#### 方法(4 个)
+
+| 方法 | 输入 → 输出 | 功能 |
+|---|---|---|
+| `effective_rx_sensitivity(band)` | 频段名 → dBm 数值 | **有效接收灵敏度** = kTB 热噪声底 + 解调门限(UWB 8dB / LoRa -15dB)+ 高温噪声系数恶化(>25°C 每度 +0.12dB)+ 老化偏置。"温度→噪声→灵敏度→熔断"这条耦合链的根基 |
+| `step(dt_hours)` | 时间步长 → 无(原地演化) | **每 tick 的物理演化**:①耗电 = 平均电流×时间×休眠系数(SLEEP 时 0.15)÷温度效率,同时 RTG 同位素电源涓流充电 240mAh/h,净结果一行写入电量;②电量≤1% → 判 DEAD;③超级电容:高负载放电、空闲充电;④辐射剂量累积 + 掷骰触发 SEU 单粒子翻转(翻转后进 SEU_RESET,50% 概率下 tick 恢复);⑤队列自然消散 6%/tick;⑥温度随机游走 ±0.15°C |
+| `to_dict()` | 无 → dict | 序列化为前端可用的 JSON(附算好的 soc/derating/灵敏度/电流,剔除缓存字段) |
+| `apply_override(key, value)` | 参数名+值 → 无(非法抛 KeyError) | 上帝模式改参数,只允许 `MUTABLE` 白名单里的键(temp_c / tx_power_dbm / band / state 等 12 个) |
 
 ---
 
-## 4. 关键数据结构
+### 2.2 sim/physics.py —— 物理层(6 个函数)
 
-```python
-nodes: {node_id: Node}                  # 全部节点(含物理参数)
-links: {(a,b): {snr_db, ber, margin_db, up, cost_ab, cost_ba, load}}
-routes: {node_id: {path:[...], next_hop, hop_count, total_cost}}   # 到sink路由
-blocked_pairs: {(a,b), ...}             # 被视线挡住的节点对(图中无边)
-link_load: {(a,b): float}               # ACO信息素(边的历史承载)
-events: deque[120]                      # 算法事件滚动队列(链路熔断/重路由/收敛...)
-last_narration: {id, text}              # 最新关键解说(不受滚动队列挤出)
-obstacles / walls                       # 巨石 / 用户墙
-```
+模块级常量:`WORLD_SCALE=10.0`(世界坐标÷10 = 仿真米数)、`BAND_PROFILE`
+(UWB:3.5GHz / 6.8Mbps / 上限 30 仿真米 = 300m;LoRa:433MHz / 5kbps / 上限 150 仿真米)、
+路径损耗指数 2.6(熔岩管洞壁散射)、解调门限 `SNR_REQ_DB`。
 
-快照 `snapshot()` 每秒发 5 次,包含上述所有内容的 JSON 化版本 + stats 统计
-(覆盖率/平均SNR/平均度/最大跳数)。
-
----
-
-## 5. WebSocket 协议
-
-连接 `ws://127.0.0.1:5000/ws`,服务端先发两条,之后 5Hz 推快照:
-
-```jsonc
-// ① 连接时一次性下发
-{"cmd":"geology", "geology":{chambers, tunnels, pillars, obstacles, walls}}
-// ② 当前快照, 之后每0.2s一条
-{"tick":123, "mode":"STABLE", "nodes":{...}, "links":[...], "routes":{...},
- "events":[...], "walls":[...], "last_narration":{...}, "stats":{...}}
-
-// 客户端 → 服务端指令
-{"cmd":"set_param",  "node":"NODE-05", "params":{"temp_c":120}}   // 上帝模式
-{"cmd":"disaster",   "kind":"collapse"}                            // 灾害
-{"cmd":"move_obstacle","index":3,"x":..,"z":..}                    // 拖巨石
-{"cmd":"add_wall",   "x1":..,"z1":..,"x2":..,"z2":..}              // 画墙
-{"cmd":"clear_walls"}                                              // 清墙
-```
+| 函数 | 输入 → 输出 | 功能 |
+|---|---|---|
+| `distance(a, b)` | 两节点 → 米 | 三维欧氏距离(世界坐标)。显式勾股展开,无任何花活 |
+| `sim_distance(a, b)` | 两节点 → 仿真米 | `distance / WORLD_SCALE`。物理公式统一用它,与世界显示尺度解耦 |
+| `free_space_path_loss_db(d_m, freq_ghz)` | 距离+频率 → dB | 通用路径损耗模型 `PL = FSPL(d₀) + 10·γ·log10(d/d₀)`,γ=`PATH_LOSS_EXPONENT`=2.6(洞壁散射已并入指数,不再单独叠加,避免双重计损) |
+| `thermal_noise_floor_dbm(node, bandwidth_hz)` | 节点+带宽 → dBm | 热噪声 = kTB,用**节点实时温度**(月球无大气,温度直接抬噪声底),再 +6dB 接收机噪声系数 |
+| `link_budget(tx, rx)` | 发节点+收节点 → dict 或 **None** | **链路预算:判定这条边通不通、质量如何**。返回 `{distance, prx_dbm, snr_db, ber, margin_db, band, up}` 或 None。内部五步:①任一端 DEAD → None;②超频段硬上限 → None(与前端悬停虚线圈严格一致);③双端倾角和 >3° 时按 cos 损失罚 dB;④接收功率 = 发射功率+双端天线增益−路损−倾角罚,SNR = 接收功率−噪声底;⑤BER:BPSK 用 erfc(Q 函数近似),LoRa CSS 用指数容错曲线。**熔断判定 up = 链路余量>0 且 BER<1e-3** |
+| `link_cost(tx, rx, link, load)` | 两节点+链路 dict+历史负载 → float | **多变量融合路由代价,即 Dijkstra 的边权**。六项相加:能量+质量+拥塞+可靠性+LoRa 低速罚+信息素。**公式与权重值详见第 5 章** |
 
 ---
 
-## 6. 参数速查表
+### 2.3 sim/routing.py —— 路由算法(4 个函数)
 
-| 想改什么 | 去哪改 |
+| 函数 | 输入 → 输出 | 功能 |
+|---|---|---|
+| `build_graph(nodes, links)` | 节点+链路表 → 邻接表 | 把 `links` 字典压成 `{节点: [(邻居, 边权), ...]}`,只收 `up=True` 的链路;边权双向可以不等(cost_ab ≠ cost_ba,因为两端电量/队列不同) |
+| `dijkstra(graph, source)` | 邻接表+源 → (dist, prev, settle_order) | 标准 Dijkstra。**额外产出 `settle_order`**:节点被"敲定最短距离"的先后顺序,即波前扩散序列,前端按它逐个点亮节点播放算法运行过程 |
+| `routing_step(nodes, links, sink_id)` | 节点+链路+汇 → (routes, wave) | 全网站到 sink 的一次计算:建图 → Dijkstra(以 sink 为源)→ 回溯每个节点的路径。输出 `routes[nid] = {hop_count, next_hop, path, total_cost}`,不可达节点 hop_count=-1。`wave = {settle_order, hop_of, max_hop}` 供波前动画与跳数分层 |
+| `rscspa(adj, source, sink, n_channels=3, K=3, busy_edge)` | 邻接表+起讫+参数 → {path, channels, cost} 或 None | **RCSPA,按论文 "Routing and channel assignment for low power transmission in PCS" 实现**。Dijkstra 变体:状态从"节点"升级为"(节点, 最近 K−1 跳信道元组)"。①`if r in tail: continue` —— 同一信道连续 K=3 条边内不得复用(复用距离约束);②`penalty = w×1.2` —— 该信道被附近活跃呼叫占用时施加 120% 干扰惩罚,新呼叫被现有流量"排斥"自动绕行到总功率更低的路径(论文核心效果);③终止后回溯得路径 + 逐跳信道分配。当前由巡检机器人调用,机器人处于关闭待命状态(见 2.4 的 `ROBOT_ENABLED`) |
+
+---
+
+### 2.4 sim/engine.py —— SimulationEngine 类(仿真引擎)
+
+模块级几何工具(4 个,类外):
+
+| 函数 | 功能 |
 |---|---|
-| 通信半径(前端虚线圈) | physics.py:10 `max_range`(30=300米) |
-| 巨石数量/大小 | engine.py:182-187(26块, r=55~130) |
-| 节点数量 | engine.py:218(`count < 59`) |
-| tick 节奏 | engine.py:21-22(物理0.25s/广播0.2s) |
-| RTG充电功率 | node.py:104(240 mAh/h) |
-| 信息素挥发率 | engine.py:366(0.82/0.18) |
-| 收敛等待 | engine.py:23(`HEALING_HOLD_TICKS=4`) |
-| 复用距离K/信道数 | routing.py:93 参数(`K=3, n_channels=3`) |
-| 开启机器人 | engine.py:20 `ROBOT_ENABLED=True` |
-| 拓扑种子 | engine.py:25 `SEED`(不满足覆盖率会自动+1000重试) |
+| `_cross(ox, oz, ax, az, bx, bz)` | 2D 叉积,供线段相交判定 |
+| `_seg2d_intersect(p1, p2, w1, w2)` | 两线段是否相交(严格判定)——用户墙体切视线用 |
+| `_seg_blocked_by_sphere(p1, p2, c, R)` | 线段是否穿过球体(点到线段距离 ≤ R)——巨石/巨柱遮挡判定 |
+| `_bez(p0, p1, p2, t)` | 二次贝塞尔插值,隧道曲线取点用 |
+
+类常量:`_CHAMBERS=[(650,-500,880)]` 唯一大腔室(纯 2D 沙盘,直径约 1760m)、
+`_TUNNELS=[]`、`_PILLARS=[]`(旧多腔室模板已清空保留)、`UWB_RANGE=30.0`、
+`SEED=42`、`HEALING_HOLD_TICKS=4`、`ROBOT_ENABLED=False`。
+
+#### A. 世界生成(启动时跑一次)
+
+| 方法 | 功能 |
+|---|---|
+| `__init__()` | 初始化全部容器(nodes/links/routes/traffic/events…),然后**最多换 8 个种子重建世界**,直到节点覆盖率 ≥96%(保证随机撒点不产生孤岛)。模块底部创建全局单例 `ENGINE = SimulationEngine()` |
+| `_build_geology()` | 生成地质:腔室(圆心 ±30 随机抖动)→ 隧道(贝塞尔曲线,当前为空)→ 巨柱(当前为空)→ 依次调 `_spawn_nodes / _spawn_obstacles / _recompute_los` |
+| `_tunnel_point(ti, t, off_r, theta)` | 隧道曲线上取点 + 法向偏移(2D 遗留接口) |
+| `_spawn_nodes()` | **摆世界里的东西**:先放 26 块互不重叠巨石(半径 55~130,间距 ≥ r1+r2+110,让出 sink 区),再随机撒 59 根桩(NODE-01~59,间距 ≥105,避石 70);NODE-00 是 sink,固定在左上开阔处。每根桩按离圆心深度初始化温度/电量/辐射(越深越冷、辐射越高),role 按 1/3 概率给 sensor |
+| `_spawn_obstacles()` | 空函数(巨石已在 `_spawn_nodes` 里放完,保留接口) |
+
+#### B. 视距与合法性
+
+| 方法 | 功能 |
+|---|---|
+| `_in_tube(p)` | 点是否在大腔室圆内(圆外 = 岩壁)。巨石拖拽落点合法性校验用 |
+| `_seg_in_tube(p1, p2)` | 线段 4 个采样点全在腔室内才合法(出圆即穿岩) |
+| `_recompute_los()` | **重算全部节点对的视线,产出 `blocked_pairs` 集合——被挡的节点对永不建边**。四重遮挡:①巨石(0.85r 球体与线段相交)②巨柱多球③线段穿出腔室圆(岩壁)④用户墙体(线段相交)。粗筛 480 仿真米外的节点对省算力 |
+| `export_geology()` | 把腔室/隧道/巨柱/巨石/墙体打包成 dict,前端连接时一次性下发 |
+
+#### C. 事件与核心流水线
+
+| 方法 | 功能 |
+|---|---|
+| `_emit(type, severity, msg, narration, **payload)` | 发事件:滚进 120 条的事件队列;关键类型(disaster/node_dead/healing_start/converged/isolated/rejoin)的解说另存 `last_narration`,防止被滚动队列挤出 |
+| `_zh(nid)` | "NODE-05" → "05号"(解说用语) |
+| `compute_network(quiet=False)` | **引擎心脏,一个函数串起十步**(详见第 4 章调用链):建边→链路生死事件→Dijkstra 路由→ACO 信息素→重路由事件→节点状态/队列→呼叫轮换→PAMAS 电台判定→遮挡清单→收敛状态机。`quiet=True` 时跳过全部事件(仅启动重建世界时用) |
+| `_coverage()` | 覆盖率 = 可达节点数 / 总节点数 ×100 |
+| `snapshot()` | **打包全网快照**(约 91KB):tick/mode/wave/events[-40]/巨石/墙体/links/nodes(含 blocked_nbrs)/routes/traffic/robot/stats,前端每 0.2s 收到的就是它 |
+| `run_forever(broadcaster)` | **引擎主循环**(async):每 0.25s 一个 tick(全部 Node.step + compute_network),每 0.2s 广播一次 snapshot;单 tick 异常只记日志不杀循环 |
+
+#### D. 上帝模式 / 用户交互
+
+| 方法 | 功能 |
+|---|---|
+| `apply_override(node_id, params)` | 上帝模式:批量改节点参数(走 Node 白名单);改出临界值(≥100°C 或电量≤3%)直接判 DEAD 并发解说;改完重算网络 |
+| `add_wall(x1,z1,x2,z2)` | 用户画墙:入 walls 列表 → LOS 重算 → 报告新增切断对数 → 重算网络 |
+| `remove_wall(index)` | 撤销第 index 堵墙(按加入顺序)→ LOS 重算 → 重算网络 |
+| `clear_walls()` | 清空全部墙 → 同上 |
+| `move_obstacle(idx, x, z)` | 拖巨石:校验索引与落点在腔室内 → 移动 → LOS 重算 → 返回 `{ok, cut:新增切断对数}` → 重算网络 |
+
+#### E. 灾害系统(`inject_disaster(kind)` 总入口)
+
+| kind | 执行 | 效果 |
+|---|---|---|
+| `kill_backbone` → `_kill_backbone()` | 统计每条路径的中间节点承载几条流,**电死承载最多的中继** | 精确打击主干道,强制全网岔路绕行 |
+| `collapse` → `_collapse()` | 在**信息素负载最重的链路中点**砸一块 r=38 巨石(若 70m 内有节点则挪开 50m) | LOS 重算切断该链路,几何意义上的真实塌方 |
+| `thermal_surge` | 全网温度 +35~70°C | 噪声底抬升 → SNR 下降 → 链路熔断(热学耦合链) |
+| `solar_flare` | 全网辐射 +8000~20000 rad | SEU 翻转概率上升 → 节点间歇降级 |
+| `random_kill` | 随机击毁一个非 sink 节点 | 考验自愈的最朴素手段 |
+
+#### F. 巡检机器人(五件套,当前 `ROBOT_ENABLED=False` 关闭待命)
+
+| 方法 | 功能 |
+|---|---|
+| `_init_robot()` | 从某条可行路径的起点出发,初始化机器人状态(u/v 边、t 进度、pos 坐标、visited 集) |
+| `_robot_adj()` | 用 `up=True` 的链路建邻接表(边权取 link_cost) |
+| `_busy_channels()` | 统计当前主干流量占用的信道(每条边按节点编号和模 3 分配),供 RCSPA 干扰排斥 |
+| `_robot_plan()` | 每到一节点,以机器人前方节点为源调 `rscspa()` 重规划回洞口的资源约束最短路径 |
+| `_robot_step()` | 沿边插值游走,抵达节点时记录+发事件+优先选未访问的邻居(探索岔路);经过的路径节点也算 PAMAS 活跃 |
 
 ---
 
-## 7. 设计取舍与已知问题
+### 2.5 main.py —— FastAPI 入口
 
-**取舍(有意为之):**
-1. **集中式 Dijkstra**:每 tick 以 sink 为源全网重算,代表"多智能体已收敛的稳态";
-   分布式协议过程本身不在仿真范围(RCSPA 才是按论文的在线接纳算法)。
-2. **PAMAS 工程近似**:载波监听休眠 + 呼叫占空比,等价实现节能语义,
-   未做包级 RTS/CTS 时序。
-3. **尺度解耦**:`WORLD_SCALE=10`,物理公式用归一化距离——改渲染尺度不影响算法。
+| 函数/对象 | 功能 |
+|---|---|
+| `CLIENTS` / `INFLIGHT` | 当前 WebSocket 客户端集合 / 每客户端正在进行的发送任务 |
+| `_send_to(ws, data)` | 单客户端限时发送(10s 超时),超时/失败由回调踢出 |
+| `broadcast(message)` | **发后即忘广播**:每条 snapshot 丢进独立任务发送,引擎循环绝不 await 任何客户端——防止一个僵死连接(TCP 缓冲满不再读取)冻结整个仿真;上一帧还没发完的客户端直接判定僵死踢出(前端会自动重连) |
+| `ws_endpoint("/ws")` | WebSocket 入口:连接即下发 geology + 首帧 snapshot,然后循环收指令(set_param/disaster/add_wall/remove_wall/clear_walls/move_obstacle),执行后广播新状态 |
+| `health("/health")` | HTTP 健康检查:返回 `{tick, clients, mode, nodes}`,tick 应随时间持续增长 |
+| `serve_index("/")` + `/assets` 挂载 | 托管 `frontend/dist` 构建产物——**页面与接口同源,单端口 5000** |
+| `startup()` | 启动钩子:先手动 `compute_network()` 一次,再起 `run_forever` 任务并**持有强引用**(防被 GC 静默回收导致引擎停摆) |
 
-**已知问题(无害,备查):**
-1. LOS 粗筛半径(480m)大于建边上限(300m),多检测了一些必然不通的对——纯浪费,无功能影响;
-2. engine.py 顶部 docstring 仍是早期"多分支迷宫"描述,与纯 2D 现状不符(仅注释过时);
-3. 事件队列 deque(120)滚动可能挤出旧事件,关键解说已用 `last_narration` 单独保留。
+---
 
-**运行稳定性保障(main.py + run_forever):**
-- 引擎 task 持强引用(防 Python GC 静默回收——历史上"跑20分钟悄悄死掉"的真凶);
-- 每 tick try/except:单次异常只记日志,不杀引擎。
+## 3. 对外接口(HTTP + WebSocket)
+
+### HTTP(端口 5000)
+
+| 路由 | 功能 |
+|---|---|
+| `GET /` | 前端页面(frontend/dist 构建产物) |
+| `GET /health` | `{tick, clients, mode, nodes}`,监控引擎是否存活(tick 在涨 = 活着) |
+
+### WebSocket `ws://127.0.0.1:5000/ws`
+
+**服务端推送**(两种帧):
+
+| 帧 | 内容 |
+|---|---|
+| `{cmd:"geology", geology}` | 连接时一次:腔室/隧道/巨柱/巨石/墙体 |
+| snapshot(无 cmd) | 每 0.2s:tick / mode / wave / events[-40] / obstacles / walls / links / nodes / routes / traffic / robot / stats |
+
+**客户端指令**(JSON,`cmd` 字段区分):
+
+| 指令 | 载荷 | 效果 |
+|---|---|---|
+| `set_param` | `{node:"NODE-05", params:{temp_c:80}, req_id}` | 上帝模式改参数,回 `ack` |
+| `disaster` | `{kind:"collapse" / "kill_backbone" / "thermal_surge" / "solar_flare" / "random_kill" / null}` | 注入灾害 |
+| `add_wall` | `{x1,z1,x2,z2}` | 画墙切视线 |
+| `remove_wall` | `{index}` | 撤销第 index 堵墙(Ctrl+Z / 点墙) |
+| `clear_walls` | — | 清空全部墙 |
+| `move_obstacle` | `{index, x, z}` | 拖巨石,回 `{ack, cut:切断对数}` |
+
+---
+
+## 4. 函数之间怎么组装(调用链)
+
+### 主链:每个仿真 tick(0.25s)
+
+```
+main.startup() 起任务(持强引用)
+  └─ engine.run_forever()                        ← while True 主循环
+       ├─ for n in nodes: n.step(0.004h)         ← ①物理演化:耗电/辐射/SEU/队列/温度
+       │     (读 duty_tx / avg_current_ma / thermal_derating 三个属性;
+       │      radio=="SLEEP" 时电流×0.15 —— 上游来自 compute_network 的 PAMAS 判定)
+       └─ engine.compute_network()               ← ②网络重算,内部十步:
+            1. physics.link_budget(a,b) 双向      ← 边通不通(物理),SNR/BER 写回节点
+            2. 链路生死事件(对比 prev_links)
+            3. routing.routing_step(...)          ← 全网 Dijkstra + 波前
+            4. ACO 信息素平滑 link_load            ← 0.82×旧 + 0.18×新
+            5. 重路由/孤岛/重新入网事件
+            6. 节点状态回填 + 队列增长/消散 + DEGRADED 判定
+            7. 呼叫轮换 → traffic(每 6 tick 换一半 sensor)
+            8. PAMAS 判定 → 每桩 radio(TXRX/SLEEP/IDLE)
+            9. blocked_info 遮挡清单(喂前端红虚线)
+            10. 收敛状态机(mode: STABLE/HEALING/CONVERGED)
+       └─ 每 0.2s: broadcast(engine.snapshot())  ← ③发后即忘推给前端
+```
+
+**三个跨 tick 反馈回路**(系统的自组织就来自这里):
+
+1. **物理→网络**:n.step 改变温度/电量 → 下 tick link_budget 的噪声底/灵敏度变 → 链路可能熔断;
+2. **网络→物理**:PAMAS 判出的 SLEEP → 下 tick n.step 电流×0.15 → 休眠真省电;
+3. **网络→网络**:ACO 信息素 → 下 tick link_cost 的 pheromone 项 → 流量自动摊匀。
+
+### 交互链:用户操作(全部走同一条短路)
+
+```
+前端指令 → main.ws_endpoint 收到 → engine 对应方法
+   add_wall / remove_wall / move_obstacle / apply_override / inject_disaster
+     └─ 改世界状态(墙 / 巨石 / 节点参数 / 节点生死)
+     └─ (涉及几何时)_recompute_los() → blocked_pairs 更新
+     └─ compute_network()                ← 与主链共用同一个心脏
+     └─ _emit 事件 + broadcast(snapshot) ← 前端立即看到后果
+```
+
+一句话总结:**一切变化的出口都是 compute_network,一切呈现的出口都是 snapshot。**
+
+---
+
+## 5. 权重怎么算(link_cost 六项公式详解)
+
+`physics.link_cost()` 就是 Dijkstra 的边权,六项直接相加:
+`cost = energy + quality + congestion + reliability + speed_penalty + pheromone`。
+下面逐项讲每一项是什么、由什么决定、代码怎么算。
+
+**先明确两个量**:SNR(dB)就是这一段传输信号的信噪比;BER 就是误码率。
+一跳就是路径上每经过一条链路,数据被转发一次。
+
+### energy(能量项)
+
+由发送节点的剩余电量决定:`energy = 2.0 × (1 − 电量百分比/100)`——电量满就是 0 分,
+电空就是 2 分;温度极端、放电效率掉到 0.8 以下时,再按 `(0.8 − 效率) × 5.0` 加罚。
+作用:让路径自动避开低电量的节点,别把个别桩累死。
+
+### quality(链路质量项)
+
+- 当这条边的信噪比小于 15 的时候,quality 加上 `(15 − SNR) × 0.25`;
+- 当 BER(误码率)大于 10⁻⁹ 的时候,quality 加上 `min(BER × 3000, 3.0)`;
+- 每一跳(每经过一条边)都会给 quality 加上 1.0——这是基础跳代价,
+  让算法在其他条件相同时默认偏爱跳数少的路径。
+
+### congestion(拥塞项)
+
+这个参数非常简单,只由节点队列的积压程度给出一个参数。每个节点都有这个积压参数
+`queue_pct`(0~100 的百分比),它的决定过程:
+
+1. 首先判断节点是否在活跃转发路径上。判断的方法:引擎构建路由的时候,维护着一个
+   `self.routes`(所有到 sink 的路径),并统计出所有路径经过的链路计数 `usage`;
+   节点只要出现在这个集合的某条链路里,就算在活跃路径上;
+2. 当节点在某条正在传输数据的链路中,它的队列就会积压递增(queue_pct 增加),
+   增加的幅度根据本轮的信道质量决定:恶劣链路(该节点参与的链路 SNR<10dB 或已熔断)
+   单步 +8.0%,正常链路单步 +1.5%,即正常承载转发流量的平缓增长。
+   这里的"单步"就是 0.25 秒一个轮回,也就是代码重新计算的一次轮回(一个 tick);
+3. 每一个回合所有节点都会减 6,就是每一个回合默认能发出去的信息量。
+   增减相抵之后,就是 queue_pct 这个值的决定性因素;
+4. queue_pct 在这一轮已经决定之后,congestion = 出发点 queue_pct ÷ 100 × 2.5
+   + 接收点 queue_pct ÷ 100 × 1.5,最后就得到这个参数。
+
+### reliability(可靠性项)
+
+由翻转次数、状态、辐射剂量三者决定:
+
+- 翻转次数 × 0.05:这是 SEU(单粒子翻转)的惩罚,翻转次数越大,惩罚越大;
+- 状态惩罚:如果 state 是 ACTIVE 就没有这个惩罚,不是 ACTIVE 就加 2.0;
+- 在前两项相加的基础上,再加辐射值 ÷ 20000。
+
+### speed_penalty(低速模式惩罚)
+
+这个比较特殊:特殊情况下通信换了一个方式,用 LoRa 去通信的话,就有一个 1.5 的惩罚;
+但一般来说我们目前用不到 LoRa,用的都是最基本的 UWB 通信,所以不会有这个惩罚。
+
+### pheromone(信息素负载项)
+
+历史承载越多代价越高,流量会自动向空闲链路分发。load 参数每一帧都计算一次:
+这一帧的所有路径中,每有一条经过这条边就 +1(没有就不加),得到本帧的 usage。
+但确定权重时并没有只采取某一时刻的 usage,而是采取了新旧混合的方式:
+`load = 0.82 × 上一帧 load 的值 + 0.18 × 本帧 usage 的值`,
+这才是这一次 load 参数的具体的值。最后进 link_cost 时,
+取 `min(load × 0.8, 4.0)` 去当这一项的惩罚值。
+
+(六项权重全部写在 `physics.py → link_cost()` 里,想调整直接改那一处。)

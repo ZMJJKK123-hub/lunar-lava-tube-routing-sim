@@ -38,13 +38,18 @@ def sim_distance(a, b) -> float:
 
 
 def free_space_path_loss_db(d_m: float, freq_ghz: float) -> float:
-    """FSPL + 熔岩管内多径额外衰减"""
+    """通用路径损耗模型: PL = FSPL(d0) + 10*gamma*log10(d/d0)   (文献式13)
+    月球熔岩管内无大气、以视距为主; 洞壁散射/多径已并入 PATH_LOSS_EXPONENT(=2.6),
+    故不再单独叠加额外散射项, 避免双重计损。"""
     if d_m < REFERENCE_DIST_M:
         d_m = REFERENCE_DIST_M
     lam = 3e8 / (freq_ghz * 1e9)
-    fspl = 20 * math.log10(4 * math.pi * d_m / lam)
-    cave_extra = 12.0 * math.log10(max(d_m, 1.0) / 20.0 + 1.0)  # 洞壁遮挡/散射
-    return fspl + max(0.0, cave_extra)
+    d0 = REFERENCE_DIST_M
+    # 常数项: d0 处的自由空间损耗, 系数固定 20 (与路径损耗指数无关)
+    fspl0 = 20 * math.log10(4 * math.pi * d0 / lam)
+    # 距离项: 随距离按 10*gamma 增长, 由 PATH_LOSS_EXPONENT 控制
+    dist = 10 * PATH_LOSS_EXPONENT * math.log10(d_m / d0)
+    return fspl0 + dist
 
 
 def thermal_noise_floor_dbm(node, bandwidth_hz: float) -> float:
