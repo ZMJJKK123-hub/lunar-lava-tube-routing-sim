@@ -14,6 +14,7 @@
 //      未 Hover 时 rAF 只做一次位图拷贝, 零动画开销。
 
 const DATA_HOP_S = 0.625   // DATA 方块每跳视觉耗时 (后端真实 0.25s, 放慢 2.5 倍便于观看)
+const BUS_HOP_S = 0.625    // 链上泛洪点每跳视觉耗时 (同上, 放慢 2.5 倍)
 
 // 样式表 (可选覆盖): 链上四种泛洪报文的视觉语言, 与 DATA 方块严格区分
 // (稳态 SYNC 流量每 tick 上百跳, 紫系一律小而暗 —— BLOCK 才是主角)
@@ -540,15 +541,22 @@ export class Radar2D {
     const nodes = Object.assign(Object.create(null), snap.nodes)
     if (snap.robot) nodes.ROBOT = { x: snap.robot.x, z: snap.robot.z }
     const pk = (snap.packets ?? []).filter((p) => p.kind && p.kind !== 'DATA')
-    const bus = this._busHops ?? (this._busHops = { tick: -1, hops: [] })
-    if (bus.tick !== snap.tick) {              // 新 tick: 换装下一批指令
+    // 指令池: 每 tick 新生一批跳入池 (视觉寿命 BUS_HOP_S > tick 周期 ->
+    // 多代共存, 上一代飞完自然过期), 慢速化后不会中途消失
+    const pool = this._busPool ?? (this._busPool = [])
+    if (pk.length && this._busTick !== snap.tick) {
+      this._busTick = snap.tick
       const now = performance.now()
-      bus.tick = snap.tick
-      bus.hops = pk.map((p) => ({ ...p, startAt: now - p.t * 250 }))
+      for (const p of pk) {
+        pool.push({ a: p.a, b: p.b, kind: p.kind, r: p.r,
+                    born: now - p.t * BUS_HOP_S })
+      }
     }
-    let hops = bus.hops
+    const nowCut = performance.now() - 150 - BUS_HOP_S * 1.3
+    for (let i = pool.length - 1; i >= 0; i--) if (pool[i].born < nowCut) pool.splice(i, 1)
+    let hops = pool
     if (!hops.length) return
-    // 显示采样: BLOCK 全保留, 其余超 ~140 跳时等距抽样 (保风暴氛围)
+    // 显示采样: BLOCK 全保留, 其余超 ~160 时等距抽样 (保风暴氛围)
     if (hops.length > 160) {
       const blocks = hops.filter((h) => h.kind === 'BLOCK')
       const rest = hops.filter((h) => h.kind !== 'BLOCK')
@@ -568,7 +576,7 @@ export class Radar2D {
       const dim = p.kind === 'BLOCK' ? 0.95 : (p.r === false ? 0.3 : 0.6)
       const trail = st.stream || 1              // 串点: 批量报文 (如 SYNC_RESP)
       for (let k = 0; k < trail; k++) {
-        const f = (now - p.startAt) / 250 - k * 0.09
+        const f = (now - p.born) / BUS_HOP_S - k * 0.09
         if (f <= 0 || f >= 1) continue
         const fade = Math.min(1, f / 0.12, (1 - f) / 0.15)   // 两端淡入淡出
         if (fade <= 0) continue
@@ -1096,40 +1104,31 @@ export class Radar2D {
           ctx.beginPath(); ctx.arc(tx, tz, lw(1.7), 0, Math.PI * 2); ctx.fill()
         }
       }
-      // 飞行员渲染: 前端自主匀速航行 —— 朝后端意图目的地连续飞行
-      // (每帧限幅转向 -> 永远圆滑), 每帧向后端真实位置轻校正 (分叉有界);
-      // 瞬移/状态切换/落钉时刻直接吸附对齐, 关键瞬间零误差
-      const nowP = performance.now()
-      const dtP = Math.min(0.05, (nowP - (this._pilotT || nowP)) / 1000)
-      this._pilotT = nowP
-      if (!this._pilot) this._pilot = { x: rb.x, z: rb.z, heading: rb.heading || 0 }
-      const P = this._pilot
-      const keyState = rb.state + ':' + rb.stock
-      if (this._rbLast && (Math.hypot(rb.x - this._rbLast.x, rb.z - this._rbLast.z) > 400
-                           || keyState !== this._rbLast.key)) {
-        P.x = rb.x; P.z = rb.z; P.heading = rb.heading || 0   // 吸附: 瞬移/换状态/落钉
-      }
-      this._rbLast = { x: rb.x, z: rb.z, key: keyState }
-      if (rb.dest) {
-        const dLeft = Math.hypot(rb.dest[0] - P.x, rb.dest[1] - P.z)
-        if (dLeft > 40) {
-          const want = Math.atan2(rb.dest[1] - P.z, rb.dest[0] - P.x)
-          let diff = (want - P.heading) % (Math.PI * 2)
-          if (diff > Math.PI) diff -= Math.PI * 2
-          if (diff < -Math.PI) diff += Math.PI * 2
-          const TURN = 5.2 * dtP          // 转向速率 ~300°/s, 与后端 15°/tick 等效
-          P.heading += Math.max(-TURN, Math.min(TURN, diff))
-          const SPD = 240 * dtP           // 与后端 60 单位/tick 同速
-          P.x += Math.cos(P.heading) * SPD
-          P.z += Math.sin(P.heading) * SPD
+      // 实体插值: 沿后端真实路径的上一采样段行进 (路径=后端真实轨迹,
+      // 墙石绝不穿; 后端已圆弧化, 折点<=15° 天然顺滑)
+      const nowRb = performance.now()
+      if (!this._rb || this._rb.tick !== snap.tick) {
+        const jump = this._rb ? Math.hypot(rb.x - this._rb.cx, rb.z - this._rb.cz)
+                              : Infinity
+        this._rb = {
+          tick: snap.tick,
+          px: this._rb ? this._rb.cx : rb.x, pz: this._rb ? this._rb.cz : rb.z,
+          cx: rb.x, cz: rb.z,
+          tPrev: this._rb ? this._rb.tCurr : nowRb - 200,
+          tCurr: nowRb,
+          teleport: jump > 400,            // 瞬移(重置/传送): 不插值
         }
-        P.x += (rb.x - P.x) * 0.008      // 轻校正: 分叉收敛 (绕石时最多偏一个石头直径)
-        P.z += (rb.z - P.z) * 0.008
-      } else {
-        P.x += (rb.x - P.x) * 0.04       // 无目的地: 直接缓向真值
-        P.z += (rb.z - P.z) * 0.04
       }
-      const x = P.x, z = P.z
+      const S = this._rb
+      let x, z
+      if (S.teleport || S.tCurr - S.tPrev < 30) {
+        x = S.cx; z = S.cz
+      } else {
+        const f = Math.max(0, Math.min(1,
+                  (nowRb - S.tCurr) / (S.tCurr - S.tPrev)))
+        x = S.px + (S.cx - S.px) * f
+        z = S.pz + (S.cz - S.pz) * f
+      }
 
       // 通信覆盖圈 (300 世界米)
       ctx.setLineDash([lw(10), lw(8)])
