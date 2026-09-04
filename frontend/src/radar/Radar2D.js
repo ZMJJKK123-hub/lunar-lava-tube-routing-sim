@@ -84,8 +84,9 @@ export class Radar2D {
     if (!this.geology) return
     let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9
     for (const c of this.geology.chambers) {
+      const rz = c.rz ?? c.r
       minX = Math.min(minX, c.x - c.r); maxX = Math.max(maxX, c.x + c.r)
-      minZ = Math.min(minZ, c.z - c.r); maxZ = Math.max(maxZ, c.z + c.r)
+      minZ = Math.min(minZ, c.z - rz); maxZ = Math.max(maxZ, c.z + rz)
     }
     const w = this.container.clientWidth, h = this.container.clientHeight
     const s = Math.min(w / (maxX - minX), h / (maxZ - minZ)) * 0.94
@@ -102,11 +103,11 @@ export class Radar2D {
     this.chamberPaths = geo.chambers.map((c, ci) => {
       const p = new Path2D()
       const N = 40
+      const rx = c.r, rz = c.rz ?? c.r      // 扁椭圆腔室: 长轴 x / 短轴 z
       for (let k = 0; k <= N; k++) {
         const a = (k / N) * Math.PI * 2
         const wob = 1 + (this._noise(ci * 13 + k) - 0.5) * 0.14
-        const r = c.r * wob
-        const x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r
+        const x = c.x + Math.cos(a) * rx * wob, z = c.z + Math.sin(a) * rz * wob
         k === 0 ? p.moveTo(x, z) : p.lineTo(x, z)
       }
       p.closePath()
@@ -677,7 +678,13 @@ export class Radar2D {
     o.scale(this.view.scale, this.view.scale)
     const lw = (px) => px / this.view.scale
 
-    // (纯 2D 沙盘: 溶洞边界与管道带不再渲染 —— 只留石头/节点/连线)
+    // 溶洞腔体: 暗色填充 + 极淡描边 —— 熔岩管平面示意轮廓 (扁椭圆, 腔外=岩壁)
+    if (this.chamberPaths?.length) {
+      o.fillStyle = 'rgba(28,46,74,0.5)'
+      o.strokeStyle = 'rgba(105,145,196,0.3)'
+      o.lineWidth = lw(1.6)
+      for (const p of this.chamberPaths) { o.fill(p); o.stroke(p) }
+    }
 
     // 巨石 / 巨柱 (实心岩石: 高不透明填充 + 亮描边 + 裂纹, 一眼可辨)
     snap.obstacles.forEach((ob, i) => {

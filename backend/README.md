@@ -114,7 +114,7 @@ band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
 | `_seg_blocked_by_sphere(p1, p2, c, R)` | 线段是否穿过球体(点到线段距离 ≤ R)——巨石/巨柱遮挡判定 |
 | `_bez(p0, p1, p2, t)` | 二次贝塞尔插值,隧道曲线取点用 |
 
-类常量:`_CHAMBERS=[(650,-500,880)]` 唯一大腔室(纯 2D 沙盘,直径约 1760m)、
+类常量:`_CHAMBERS=[(650,-500,1300,600)]` 唯一大腔室(纯 2D 沙盘,扁椭圆熔岩管平面示意,长半轴 1300 / 短半轴 600,约 2.2:1)、
 `_TUNNELS=[]`、`_PILLARS=[]`(旧多腔室模板已清空保留)、`UWB_RANGE=30.0`、
 `SEED=42`、`HEALING_HOLD_TICKS=4`、`ROBOT_ENABLED=False`。
 

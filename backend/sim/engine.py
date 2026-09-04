@@ -30,11 +30,11 @@ UWB_RANGE = 30.0
 # 拓扑: C0(洞口)→C1→C2→C3 主干; C1↔C4↔C0 右环; C2↔C6↔C1 左环;
 #       C2→C5 死胡同; C3→C7 死胡同; C3→C8 深腔 → C9 死胡同尖
 # ---------------------------------------------------------------------------
-# 2D 溶洞模板: (x, z, 半径) —— 俯视平面地质 (算法层与 3D 版完全一致)
-# 纯 2D 沙盘: 一张大画布 (单一大腔室), 无隧道/无巨柱 ——
+# 2D 溶洞模板: (x, z, 长半轴 rx, 短半轴 rz) —— 扁椭圆腔室 = 熔岩管平面示意图
+# 纯 2D 沙盘: 一张横向扁长的大画布 (单一大腔室), 无隧道/无巨柱 ——
 # 遮挡只来自散布的大石头 (互不重叠, 挡了就是挡了)
 _CHAMBERS = [
-    (650, -500, 880),     # 唯一大腔室: 圆心 (x,z) 半径 r, 覆盖整个战场
+    (650, -500, 1300, 600),   # 唯一大腔室: 横向扁长 (~2.2:1), 似熔岩管俯视轮廓
 ]
 _TUNNELS = []
 _PILLARS = []
@@ -121,13 +121,14 @@ class SimulationEngine:
     def _build_geology(self):
         rng = self._rng
         self.chambers = []
-        for i, (x, z, r) in enumerate(_CHAMBERS):
+        for i, (x, z, rx, rz) in enumerate(_CHAMBERS):
             self.chambers.append({
                 "id": i,
                 "x": x + rng.uniform(-30, 30),
                 "y": 0.0,
                 "z": z + rng.uniform(-30, 30),
-                "r": r + rng.uniform(-15, 25),
+                "r": rx + rng.uniform(-15, 25),    # x 半轴 (长轴)
+                "rz": rz + rng.uniform(-15, 25),   # z 半轴 (短轴, 压扁)
             })
         # 隧道: 两腔室间二次贝塞尔, 控制点带随机垂向摆动
         self.tunnels = []
@@ -177,24 +178,29 @@ class SimulationEngine:
         return (c[0] + nx * off_r * s, 0.0, c[2] + nz * off_r * s)
 
     def _spawn_nodes(self):
-        """60 根通信桩: 大画布内随机散布 (最小间距, 避开石头), sink 在左上"""
+        """60 根通信桩: 扁椭圆大画布内随机散布 (最小间距, 避开石头), sink 在左端"""
         rng = self._rng
         self.nodes.clear()
         c = self.chambers[0]
-        R = c["r"] * 0.92
-        # 先放石头 (互不重叠的大块, 挡了就是挡了)
+        RX, RZ = c["r"] * 0.92, c["rz"] * 0.92   # 长轴/短轴撒布范围 (扁椭圆)
+        sink_xy = (c["x"] - RX * 0.72, c["z"] - RZ * 0.55)
+        # 先放石头 (互不重叠的大块, 挡了就是挡了, 且整体留在椭圆腔室内)
         self.obstacles = []
         placed_rocks = []
         tries = 0
         while len(placed_rocks) < 26 and tries < 900:
             tries += 1
             ang = rng.uniform(0, math.pi * 2)
-            rr = math.sqrt(rng.uniform(0.05, 0.72)) * R
-            x, z = c["x"] + math.cos(ang) * rr, c["z"] + math.sin(ang) * rr
+            rr = math.sqrt(rng.uniform(0.05, 0.72))
+            x = c["x"] + math.cos(ang) * rr * RX
+            z = c["z"] + math.sin(ang) * rr * RZ
             r = rng.uniform(55, 130)
+            if ((abs(x - c["x"]) + r) / c["r"] > 0.96
+                    or (abs(z - c["z"]) + r) / c["rz"] > 0.96):
+                continue                       # 石头不得戳出椭圆腔壁
             if any(math.dist((x, z), (q[0], q[1])) < r + q[2] + 110 for q in placed_rocks):
                 continue
-            if math.dist((x, z), (c["x"] - R * 0.72, c["z"] - R * 0.55)) < r + 160:
+            if math.dist((x, z), sink_xy) < r + 160:
                 continue                       # 让出 sink 区域
             placed_rocks.append((x, z, r))
             self.obstacles.append({
@@ -205,7 +211,7 @@ class SimulationEngine:
             })
 
         def add(id_, x, z, role):
-            depth = min(1.0, math.hypot(x - c["x"], z - c["z"]) / R)
+            depth = min(1.0, math.hypot((x - c["x"]) / RX, (z - c["z"]) / RZ))
             n = Node(
                 id=id_, x=round(x, 1), y=0.0, z=round(z, 1), role=role,
                 temp_c=round(rng.uniform(-55, 8) - depth * 15, 1),
@@ -216,18 +222,18 @@ class SimulationEngine:
             )
             self.nodes[n.id] = n
 
-        # sink: 左上开阔处
+        # sink: 左端开阔处
         self.sink_id = "NODE-00"
-        add("NODE-00", c["x"] - R * 0.72, c["z"] - R * 0.55, "sink")
+        add("NODE-00", sink_xy[0], sink_xy[1], "sink")
 
         # 其余节点: 随机撒点 (最小间距 + 避石头)
         count, tries = 0, 0
         while count < 59 and tries < 4000:
             tries += 1
             ang = rng.uniform(0, math.pi * 2)
-            rr = math.sqrt(rng.uniform(0.02, 0.94)) * R
-            x = c["x"] + math.cos(ang) * rr
-            z = c["z"] + math.sin(ang) * rr
+            rr = math.sqrt(rng.uniform(0.02, 0.94))
+            x = c["x"] + math.cos(ang) * rr * RX
+            z = c["z"] + math.sin(ang) * rr * RZ
             if any(math.dist((x, z), (o["x"], o["z"])) < o["r"] + 70 for o in self.obstacles):
                 continue
             if any(math.dist((x, z), (n.x, n.z)) < 105 for n in self.nodes.values()):
@@ -241,9 +247,11 @@ class SimulationEngine:
         pass
 
     def _in_tube(self, p) -> bool:
-        """纯 2D 沙盘: 点在唯一大腔室圆内即合法 (边界外=岩壁)"""
+        """纯 2D 沙盘: 点在唯一大腔室(扁椭圆)内即合法 (椭圆外=岩壁)"""
         for c in self.chambers:
-            if math.dist(p, (c["x"], c["y"], c["z"])) < c["r"] * 0.99:
+            nx = (p[0] - c["x"]) / c["r"]
+            nz = (p[2] - c["z"]) / c["rz"]
+            if nx * nx + nz * nz < 0.99 ** 2:
                 return True
         return False
 
@@ -292,7 +300,8 @@ class SimulationEngine:
     def export_geology(self) -> dict:
         """地质数据一次性下发前端渲染 (隧道曲线/腔室/巨柱)"""
         return {
-            "chambers": [{k: c[k] for k in ("id", "x", "y", "z", "r")} for c in self.chambers],
+            "chambers": [{k: c[k] for k in ("id", "x", "y", "z", "r", "rz")}
+                         for c in self.chambers],
             "tunnels": self.tunnels,
             "pillars": self.pillars,
             "obstacles": self.obstacles,
