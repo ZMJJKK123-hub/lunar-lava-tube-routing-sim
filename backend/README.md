@@ -36,11 +36,12 @@
 | `sim/routing.py` | 模块(4 个函数) | 纯算法:Dijkstra 全网路由 + 波前记录 + RCSPA 信道分配 |
 | `sim/transport.py` | `class TransportLayer` | 真实报文传输:握手/重传/超时信号/逐跳字节计数 |
 | `sim/blockchain.py` | `class BlockchainNetwork` | 区块链全网状态同步:轮询PoA/泛洪/追块/分叉愈合 |
+| `sim/robot.py` | `class PatrolRobot` | 巡检机器人:SOS 听测 + 道钉投放物理搭桥(独立模块,引擎只挂配置) |
 | `sim/engine.py` | `class SimulationEngine` | 总指挥:世界生成、LOS 遮挡、每 tick 流水线、灾害、快照输出 |
 | `main.py` | `app = FastAPI()` | 网络入口:WebSocket 广播、HTTP 健康检查、托管前端页面 |
 | `README.md` | — | 本手册 |
 
-依赖方向(单向,无循环):`main → engine → routing/physics → node`。
+依赖方向(单向,无循环):`main → engine → routing/physics/robot → node`。
 分层原则:**node 存状态,physics 只算数(纯函数),routing 只跑图,engine 负责编排**。
 
 ---
@@ -169,17 +170,19 @@ band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
 | `solar_flare` | 全网辐射 +8000~20000 rad | SEU 翻转概率上升 → 节点间歇降级 |
 | `random_kill` | 随机击毁一个非 sink 节点 | 考验自愈的最朴素手段 |
 
-#### F. 巡检机器人(五件套,当前 `ROBOT_ENABLED=False` 关闭待命)
+#### F. 巡检机器人(独立模块 sim/robot.py,`ROBOT_ENABLED=True`)
 
-| 方法 | 功能 |
+| 成员 | 功能 |
 |---|---|
-| `_init_robot()` | 从某条可行路径的起点出发,初始化机器人状态(u/v 边、t 进度、pos 坐标、visited 集) |
-| `_robot_adj()` | 用 `up=True` 的链路建邻接表(边权取 link_cost) |
-| `_busy_channels()` | 统计当前主干流量占用的信道(每条边按节点编号和模 3 分配),供 RCSPA 干扰排斥 |
-| `_robot_plan()` | 每到一节点,以机器人前方节点为源调 `rscspa()` 重规划回洞口的资源约束最短路径 |
-| `_robot_step()` | 沿边插值游走,抵达节点时记录+发事件+优先选未访问的邻居(探索岔路);经过的路径节点也算 PAMAS 活跃 |
+| `PatrolRobot.inject_links(links)` | 挂点①:ROBOT↔覆盖内(300m+LOS)节点链路注入(带 50 点代价罚——健康流量永不借道,只有孤岛经它回流,桥接检测因此精确);位于链路事件比对后,机器人移动的边翻动不产生事件 |
+| `PatrolRobot.tick(tick)` | 挂点②:SOS 判定(hop<0 连续 4 tick,道钉/sink 豁免)+ 信标(每 10 tick 错峰,渲染总线"SOS"类)+ 状态机 PATROL/RESCUE + 道钉投放 |
+| 桥接检测→投放 | 有真实节点路径经过机器人(=它此刻物理验证可搭桥)→ 原地投放道钉固化,机器人撤离;RESCUE 超时 80 tick 且无法桥接(如全跨度墙)→ 放弃 + 120 tick 耳聋期撤离 |
+| `plan_robot_path(from, to)` | 占位符(直线),可整体替换任意路径算法 |
+| 道钉 BEACON-xx | 真节点入网(role="beacon"):链路/Dijkstra/传输/泛洪全自动生效;链上注册为非共识节点(转发不出块);不计覆盖率;会被 LOS 规则同等对待 |
+| SOS 语义 | 无线电广播信标:300m+LOS 内可闻;机器人只信耳朵不感知全局(全局分裂由账本侧边栏呈现) |
 
----
+机器人是"全同步观察者":持有完整链但不出块不遥测(sorted_ids 名单外);
+传输层选路不含机器人边(它会移动,数据走道钉)。
 
 ### 2.5 sim/transport.py —— 传输层(真实报文,整包 store-and-forward)
 

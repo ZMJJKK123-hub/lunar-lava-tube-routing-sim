@@ -20,6 +20,7 @@ import time
 from collections import deque
 
 from .routing import rscspa
+from .robot import ROBOT_ID          # 机器人是合法中继 id (不在 eng.nodes)
 
 RETRIES_MAX = 3             # 每包每跳最大重传次数
 QUEUE_LIMIT_BYTES = 8192    # 节点发送缓冲上限 (queue_pct = 积压/8192*100)
@@ -165,6 +166,8 @@ class TransportLayer:
         for (a, b), l in self.eng.links.items():
             if not l["up"]:
                 continue
+            if ROBOT_ID in (a, b):
+                continue          # 机器人会移动, 不承载数据报文 —— 数据走道钉
             adj.setdefault(a, []).append((b, l["cost_ab"]))
             adj.setdefault(b, []).append((a, l["cost_ba"]))
         return adj
@@ -290,7 +293,7 @@ class TransportLayer:
                                msg_id=m.id, node=s.cur)
                 return
         # ---- 发起新一跳 ----
-        if s.nxt is None or s.nxt not in self.eng.nodes:
+        if s.nxt is None or (s.nxt not in self.eng.nodes and s.nxt != ROBOT_ID):
             q.popleft()
             self._arrive(s, m)
             return

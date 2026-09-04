@@ -13,6 +13,12 @@ const TYPE_LABEL = {
   isolated: '节点失联', rejoin: '节点入网', node_dead: '节点损毁',
   congestion: '拥塞告警', healing_start: '自愈启动', converged: '全网收敛',
   disaster: '灾害注入', override: '上帝模式',
+  sos_start: 'SOS 呼救', sos_stop: '呼救解除',
+  robot_rescue: '机器人出动', robot_patrol: '机器人巡逻', robot_giveup: '救援放弃',
+  robot_investigate: '链上核查', robot_checked: '核查完毕', robot_fallback: '回撤搭桥',
+  beacon_deploy: '道钉投放', chain_block: '链出块', chain_heal: '分叉愈合',
+  msg_sent: '报文发出', msg_delivered: '报文送达', msg_timeout: '报文超时',
+  msg_fail: '报文失败', msg_reroute: '报文绕行', msg_no_path: '无路可拒',
 }
 
 export default function EventLog({ events, mode, onClose }) {

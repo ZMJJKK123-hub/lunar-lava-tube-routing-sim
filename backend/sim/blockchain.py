@@ -25,6 +25,8 @@ import json
 import random
 from dataclasses import dataclass
 
+from .robot import ROBOT_ID          # 机器人为非共识节点 (全同步, 不出块不遥测)
+
 # ---------------- 可调常量 ----------------
 TTL = 12                    # 泛洪包生存跳数
 SEEN_MAX = 4096             # 已见消息缓存上限 (LRU)
@@ -415,8 +417,18 @@ class BlockchainNetwork:
         return out
 
     def _alive(self, nid):
+        if nid == ROBOT_ID:
+            return True                # 机器人常开 (大电池; 非共识节点)
         n = self.eng.nodes.get(nid)
         return n is not None and n.state != "DEAD"
+
+    def register_node(self, nid: str):
+        """注册非共识节点 (机器人/道钉): 完整链同步与转发, 但不进轮值名单
+        sorted_ids —— 永不遥测、永不出块、不进账本侧边栏。"""
+        if nid not in self.nodes:
+            nd = ChainNode(nid, self.sorted_ids, self.genesis)
+            nd._net = self
+            self.nodes[nid] = nd
 
     def _telemetry_payload(self, nid):
         n = self.eng.nodes[nid]

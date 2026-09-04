@@ -9,13 +9,14 @@ import math
 
 
 def build_graph(nodes, links):
-    """links: {(id_a,id_b): link_dict} 对称链路 -> 邻接表"""
+    """links: {(id_a,id_b): link_dict} 对称链路 -> 邻接表。
+    setdefault: 允许不在 nodes 表中的伪节点端点 (如巡检机器人) 入图。"""
     graph = {n.id: [] for n in nodes}
     for (a, b), link in links.items():
         if not link["up"]:
             continue
-        graph[a].append((b, link["cost_ab"]))
-        graph[b].append((a, link["cost_ba"]))
+        graph.setdefault(a, []).append((b, link["cost_ab"]))
+        graph.setdefault(b, []).append((a, link["cost_ba"]))
     return graph
 
 

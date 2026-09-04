@@ -15,9 +15,10 @@ from collections import deque
 
 from .node import Node
 from . import physics
-from .routing import routing_step, rscspa
+from .routing import routing_step
+from .robot import PatrolRobot, ROBOT_ID
 
-ROBOT_ENABLED = False     # 巡检机器人暂时关闭 (置 True 即恢复)
+ROBOT_ENABLED = True      # 巡检机器人 (SOS 听测 + 道钉投放, 逻辑全在 sim/robot.py)
 TICK_PHYS_S = 0.25
 TICK_BROADCAST_S = 0.2
 HEALING_HOLD_TICKS = 4
@@ -125,6 +126,8 @@ class SimulationEngine:
         # 区块链网络: 全节点世界状态同步 (须在节点生成之后挂载)
         from .blockchain import BlockchainNetwork
         self.chain_net = BlockchainNetwork(self)
+        # 巡检机器人: SOS 听测 + 道钉投放 (独立模块, 引擎只挂两个挂点)
+        self.robot = PatrolRobot(self) if ROBOT_ENABLED else None
 
     # ==================================================================
     # 地质: 腔室 / 隧道 / 巨柱 / 散布节点
@@ -346,18 +349,26 @@ class SimulationEngine:
         for i in range(len(nodes)):
             for j in range(i + 1, len(nodes)):
                 a, b = nodes[i], nodes[j]
-                key = (a.id, b.id)
-                if key in self.blocked_pairs:      # LOS 遮挡 (巨石/石柱)
-                    continue
+                # 键一律排序 (id 字母序): 道钉 BEACON-xx < NODE-xx < ROBOT,
+                # 传输层/统计全部按 sorted 元组查键, 两边必须同一约定
+                key = tuple(sorted((a.id, b.id)))
+                if (a.id, b.id) in self.blocked_pairs or \
+                        (b.id, a.id) in self.blocked_pairs:
+                    continue                  # LOS 遮挡 (巨石/石柱)
                 lab = physics.link_budget(a, b)
                 lba = physics.link_budget(b, a)
                 if lab is None or lba is None:
                     continue
                 load = self.link_load.get(key, 0.0)
+                if key[0] == a.id:            # 键方向与循环方向一致
+                    c_ab, c_ba = (physics.link_cost(a, b, lab, load),
+                                  physics.link_cost(b, a, lba, load))
+                else:                         # 反序 (如 BEACON 在前): 按键方向定价
+                    c_ab, c_ba = (physics.link_cost(b, a, lba, load),
+                                  physics.link_cost(a, b, lab, load))
                 links[key] = {
                     **lab,
-                    "cost_ab": physics.link_cost(a, b, lab, load),
-                    "cost_ba": physics.link_cost(b, a, lba, load),
+                    "cost_ab": c_ab, "cost_ba": c_ba,
                     "load": round(load, 2),
                 }
                 a.snr_db, b.snr_db = lab["snr_db"], lba["snr_db"]
@@ -380,6 +391,8 @@ class SimulationEngine:
                                f"✔ 链路恢复 {key[0]} ↔ {key[1]} (SNR={l['snr_db']}dB)",
                                a=key[0], b=key[1])
 
+        if self.robot:
+            self.robot.inject_links(links)   # 挂点①: 机器人链路 (事件比对后: 边翻动不产事件)
         self.links = links
         self.routes, self.wave = routing_step(nodes, links, self.sink_id)
 
@@ -445,11 +458,6 @@ class SimulationEngine:
         for nid, b in chain_load.items():
             if b > 0:
                 active_nodes.add(nid)      # 链上待发 = 电台真实收发 (TXRX)
-        if self.robot and self.robot.get("route"):
-            rp = self.robot["route"].get("path") or []
-            active_nodes.update(rp)
-            for k in range(len(rp) - 1):
-                active_edges.add(tuple(sorted((rp[k], rp[k + 1]))))
         # 物理邻接表 (载波监听用)
         phys_adj = {}
         for (a, b) in self.links:
@@ -506,12 +514,14 @@ class SimulationEngine:
                 info.append({"id": oid, "d": round(d, 1), "via": nxt, "cause": cause})
             self.blocked_info[n.id] = info
 
-        self._robot_step()
-        self._robot_plan()
+        if self.robot:
+            self.robot.tick(self.tick)   # 挂点②: 状态机/SOS/道钉投放 (路由算完后)
 
         # 收敛判定: 只有"结构性变化"(链路生死/节点失联)才触发或重置自愈;
-        # ACO 信息素引起的等价路径微调不算新灾害, 保证收敛解说能落地
-        all_keys = set(links) | set(self.prev_links)
+        # ACO 信息素引起的等价路径微调不算新灾害, 保证收敛解说能落地;
+        # 机器人随移动的边翻动也不算 (它是移动资产, 不是拓扑事故)
+        all_keys = {k for k in set(links) | set(self.prev_links)
+                    if ROBOT_ID not in k}
         structural = (not quiet and any(
             links.get(k, {}).get("up", False)
             != self.prev_links.get(k, {}).get("up", False)
@@ -557,87 +567,11 @@ class SimulationEngine:
         self.prev_routes = {k: dict(v) for k, v in self.routes.items()}
 
     def _coverage(self) -> float:
-        reach = sum(1 for r in self.routes.values() if r.get("hop_count", -1) >= 0)
-        return round(reach / len(self.nodes) * 100, 1)
-
-    # ==================================================================
-    # 巡检机器人: 动态移动信源, 沿拓扑边插值游走 + RCSPA 实时重规划
-    # ==================================================================
-    def _init_robot(self):
-        succ = [p for r in self.routes.values() if (p := r.get("path")) and len(p) > 1]
-        u, v = (succ[0][0], succ[0][1]) if succ else (self.sink_id, self.sink_id)
-        self.robot = {
-            "u": u, "v": v, "t": 0.0, "speed": 14.0,
-            "pos": [self.nodes[u].x, self.nodes[u].y, self.nodes[u].z],
-            "route": None, "visited": {u},
-        }
-
-    def _robot_adj(self):
-        adj = {}
-        for (a, b), l in self.links.items():
-            if not l["up"]:
-                continue
-            adj.setdefault(a, []).append((b, l["cost_ab"]))
-            adj.setdefault(b, []).append((a, l["cost_ba"]))
-        return adj
-
-    def _busy_channels(self):
-        """当前主干流量占用的信道 (供 RCSPA 干扰惩罚/排斥绕行)"""
-        busy = {}
-        for r in self.routes.values():
-            path = r.get("path") or []
-            if r.get("hop_count", -1) <= 0 or not path:
-                continue
-            for k in range(len(path) - 1):
-                key = frozenset((path[k], path[k + 1]))
-                i = int(path[k].split("-")[1]); j = int(path[k + 1].split("-")[1])
-                busy.setdefault(key, set()).add((i + j) % 3)
-        return busy
-
-    def _robot_plan(self):
-        """RCSPA: 以机器人前方节点为源, 重规划至洞口的资源约束最短路径"""
-        if not ROBOT_ENABLED or not self.robot:
-            return
-        ahead = self.robot["v"]
-        if ahead not in self.nodes or self.nodes[ahead].state == "DEAD":
-            ahead = self.robot["u"]
-        adj = self._robot_adj()
-        res = rscspa(adj, ahead, self.sink_id, n_channels=3, K=3,
-                     busy_edge=self._busy_channels())
-        self.robot["route"] = res
-
-    def _robot_step(self, dt: float = 2.5):
-        if not ROBOT_ENABLED:
-            return
-        if not self.robot:
-            self._init_robot()
-        rb = self.robot
-        u, v = self.nodes.get(rb["u"]), self.nodes.get(rb["v"])
-        if not u or not v or u.state == "DEAD" or v.state == "DEAD" or u is v:
-            live = [n.id for n in self.nodes.values() if n.state != "DEAD"]
-            rb["u"] = rb["v"] = live[0] if live else self.sink_id
-            rb["t"] = 0.0
-            return
-        dist_uv = math.dist((u.x, u.y, u.z), (v.x, v.y, v.z)) or 1.0
-        rb["t"] += rb["speed"] * dt / dist_uv
-        if rb["t"] >= 1.0:
-            # 抵达节点: 记录 + 事件解说 + 选择下一条边 (优先未访问, 探索岔路)
-            rb["t"] = 0.0
-            rb["u"] = rb["v"]
-            rb["visited"].add(rb["u"])
-            adj = self._robot_adj().get(rb["u"], [])
-            cands = [b for b, _w in adj if self.nodes[b].state != "DEAD"]
-            fresh = [b for b in cands if b not in rb["visited"]]
-            pool = fresh or cands or [rb["u"]]
-            rb["v"] = random.choice(pool)
-            self._emit("robot_arrive", "info",
-                       f"🤖 机器人抵达 {rb['u']}, 重规划至洞口 (RCSPA)",
-                       narration=f"🤖 巡检机器人抵达 {self._zh(rb['u'])} 节点,正在实时重新规划回洞口的"
-                                 f"中继路线——资源约束最短路径算法会避开繁忙信道,选择总发射功率最低的路径。",
-                       node=rb["u"])
-        uu, vv = self.nodes[rb["u"]], self.nodes[rb["v"]]
-        t = rb["t"]
-        rb["pos"] = [uu.x + (vv.x - uu.x) * t, uu.y + (vv.y - uu.y) * t, uu.z + (vv.z - uu.z) * t]
+        # 道钉是基础设施资产, 不计入覆盖率分子分母 (否则投放后永远到不了 100%)
+        real = [nid for nid, n in self.nodes.items() if n.role != "beacon"]
+        reach = sum(1 for nid in real
+                    if self.routes.get(nid, {}).get("hop_count", -1) >= 0)
+        return round(reach / max(1, len(real)) * 100, 1)
 
     # ==================================================================
     # 上帝模式 / 灾害
@@ -690,6 +624,9 @@ class SimulationEngine:
         if not self._in_tube((x, 0.0, z)):
             return {"ok": False, "error": "outside cave"}
         o = self.obstacles[idx]
+        if any(math.dist((x, 0.0, z), (n.x, n.y, n.z)) < o["r"] + 20
+               for n in self.nodes.values() if n.state != "DEAD"):
+            return {"ok": False, "error": "node overlap"}   # 不许把石头压在节点上
         before = set(self.blocked_pairs)
         o["x"], o["y"], o["z"] = round(x, 1), 0.0, round(z, 1)
         self._recompute_los()
@@ -757,6 +694,8 @@ class SimulationEngine:
         load_of = {}
         for r in self.routes.values():
             for nid in (r.get("path") or [])[1:-1]:
+                if nid == ROBOT_ID:
+                    continue             # 机器人是移动资产, 不作打击候选
                 load_of[nid] = load_of.get(nid, 0) + 1
         if not load_of:
             return
@@ -774,7 +713,8 @@ class SimulationEngine:
     def _collapse(self):
         """洞顶塌方: 在最繁忙主干链路中点砸落巨石"""
         self._pre_collapse_routes = {k: dict(v) for k, v in self.routes.items()}
-        live = [(k, l) for k, l in self.links.items() if l["up"]]
+        live = [(k, l) for k, l in self.links.items()
+                if l["up"] and ROBOT_ID not in k]   # 机器人边不作为塌方目标
         if not live:
             return
         key, _lk = max(live, key=lambda kv: self.link_load.get(kv[0], 0.0))
@@ -822,6 +762,15 @@ class SimulationEngine:
         items = known[:VIS_MAX - VIS_RESERVE] + others[:VIS_RESERVE]
         return [{**p, "t": round(frac, 3)} for p in items]
 
+    def _npos(self, nid):
+        """快照用坐标: 普通节点/道钉在 nodes 表, ROBOT 用机器人伪节点"""
+        n = self.nodes.get(nid)
+        if n is not None:
+            return n
+        if self.robot is not None and nid == ROBOT_ID:
+            return self.robot.node
+        return self.robot.node if self.robot else n
+
     def snapshot(self) -> dict:
         alive = [n for n in self.nodes.values() if n.state != "DEAD"]
         avg_snr = (sum(n.snr_db for n in alive) / len(alive)) if alive else 0
@@ -844,19 +793,15 @@ class SimulationEngine:
                     "tr": self.transport.link_summary((a, b)),
                 }
                 for (a, b), l in self.links.items()
-                if physics.distance(self.nodes[a], self.nodes[b]) < 70 * physics.WORLD_SCALE
+                if physics.distance(self._npos(a), self._npos(b)) < 70 * physics.WORLD_SCALE
             ],
-            "nodes": {nid: {**n.to_dict(), "blocked_nbrs": self.blocked_info.get(nid, [])}
+            "nodes": {nid: {**n.to_dict(),
+                            "blocked_nbrs": self.blocked_info.get(nid, []),
+                            "sos": bool(self.robot and nid in self.robot.sos_active)}
                       for nid, n in self.nodes.items()},
             "routes": self.routes,
             "traffic": self.traffic,
-            "robot": ({
-                "x": round(self.robot["pos"][0], 1),
-                "y": round(self.robot["pos"][1], 1),
-                "z": round(self.robot["pos"][2], 1),
-                "u": self.robot["u"], "v": self.robot["v"], "t": round(self.robot["t"], 3),
-                "route": self.robot.get("route"),
-            } if self.robot else None),
+            "robot": (self.robot.export() if self.robot else None),
             "transport": self.transport.summary(),
             "packets": self.transport.active_packets() + self._vis_export(),
             "chain": self.chain_net.export_info(),

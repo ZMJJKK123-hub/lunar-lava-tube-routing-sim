@@ -20,6 +20,7 @@ const KIND_STYLE = {
   SYNC_RESP: { color: '#B08CFF', size: 2.6, glow: 7, stream: 3 },    // 批量追块: 暗紫串点
   SYNC_REQ:  { color: '#8E7CFF', size: 2.0, glow: 5 },               // 追块请求: 暗紫微点
   TX:        { color: '#E8C06E', size: 2.0, glow: 5 },               // 遥测交易: 暗金微点
+  SOS:       { color: '#FF8A5C', size: 3.2, glow: 12 },             // 呼救信标: 橙红点
 }
 // 零注册兜底: 未知 kind 按名称哈希取色 —— 后端新报文类型自动上屏
 function autoKindStyle(kind) {
@@ -254,7 +255,7 @@ export class Radar2D {
     this.snapshot.obstacles.forEach((o, i) => {
       const [x, y] = this._w2s(o.x, o.z)
       const d = Math.hypot(x - sx, y - sy)
-      if (d < Math.max(8, o.r * this.view.scale) && d < bd) { bd = d; best = i }
+      if (d < Math.max(8, o.r * this.view.scale * 1.05) && d < bd) { bd = d; best = i }
     })
     return best
   }
@@ -517,6 +518,7 @@ export class Radar2D {
     // 动态层: 渲染总线报文点 (链上泛洪等) + DATA 方块/活跃边/事件闪烁
     this._drawBusDots(ctx)
     if (this.showData) this._drawTransport(ctx)
+    this._drawRobot(ctx)
     // Hover 层: 高亮邻边 + 邻域信息 (悬停时)
     if (this.hoverId && this.hoverEdges.length) this._drawHoverGlow(ctx)
   }
@@ -533,7 +535,8 @@ export class Radar2D {
   _drawBusDots(ctx) {
     const snap = this.snapshot
     if (!snap || !this.showChain) return
-    const nodes = snap.nodes
+    const nodes = Object.assign(Object.create(null), snap.nodes)
+    if (snap.robot) nodes.ROBOT = { x: snap.robot.x, z: snap.robot.z }
     const pk = (snap.packets ?? []).filter((p) => p.kind && p.kind !== 'DATA')
     const bus = this._busHops ?? (this._busHops = { tick: -1, hops: [] })
     if (bus.tick !== snap.tick) {              // 新 tick: 换装下一批指令
@@ -595,7 +598,8 @@ export class Radar2D {
     ctx.scale(this.view.scale, this.view.scale)
     const lw = (px) => px / this.view.scale
     const pk = snap.packets ?? []
-    const nodes = snap.nodes
+    const nodes = Object.assign(Object.create(null), snap.nodes)
+    if (snap.robot) nodes.ROBOT = { x: snap.robot.x, z: snap.robot.z }
     const CHAN_COL = ['#00E8FF', '#FFC04D', '#B08CFF']
 
     // 1) 有真实流量的边自动亮起 (青色霓虹, 盖过静息暗绿; 仅 DATA, 链上点不染边)
@@ -833,20 +837,10 @@ export class Radar2D {
       o.moveTo(na.x, na.z); o.lineTo(nb.x, nb.z)
     }
     o.stroke()
-    // 机器人 (暗金点, 路径静息)
-    const rb = snap.robot
-    if (rb?.route?.path?.length) {
-      o.strokeStyle = 'rgba(200,160,90,0.15)'; o.lineWidth = lw(1)
-      o.beginPath(); o.moveTo(rb.x, rb.z)
-      for (const nid of rb.route.path) {
-        const n = snap.nodes[nid]
-        if (n) o.lineTo(n.x, n.z)
-      }
-      o.stroke()
-    }
+    // (机器人已移至动态层: 移动平滑 + 覆盖圈 + SOS 脉冲 —— 见 _drawRobot)
 
     // ---- 节点 (静态图标, 无呼吸动画) ----
-    this._drawNodes(o, snap, lw, rb)
+    this._drawNodes(o, snap, lw)
     o.restore()
   }
 
@@ -948,7 +942,7 @@ export class Radar2D {
   }
 
   _rockPath(o, idx) {
-    const key = idx + ':' + o.r
+    const key = idx + ':' + o.x + ':' + o.z + ':' + o.r   // 含坐标: 拖动后轮廓必须重建
     if (this._seedPath[key]) return this._seedPath[key]
     const p = new Path2D()
     const N = 9
@@ -964,18 +958,19 @@ export class Radar2D {
     return p
   }
 
-  _drawNodes(o, snap, lw, rb) {
+  _drawNodes(o, snap, lw) {
     for (const [id, n] of Object.entries(snap.nodes)) {
-      const r = lw(id === 'NODE-00' ? 10 : 6.5)
+      const r = lw(id === 'NODE-00' ? 10 : (n.role === 'beacon' ? 5 : 6.5))
       const hot = n.temp_c > 60
       const lowbat = n.battery_soc < 25
       let color = '#39d7c4'
       if (n.state === 'DEAD') color = '#4a5260'
       else if (hot) color = '#FF6050'
       else if (lowbat || n.state === 'DEGRADED') color = '#FFC04D'
+      else if (n.role === 'beacon') color = '#D8B860'   // 道钉: 金色系
 
       o.strokeStyle = color
-      o.fillStyle = '#0A0F1A'
+      o.fillStyle = n.role === 'beacon' ? 'rgba(120,95,40,0.55)' : '#0A0F1A'
       o.lineWidth = lw(id === this.selectedId ? 2.2 : 1.5)
       o.beginPath()
       if (id === 'NODE-00') {
@@ -985,6 +980,10 @@ export class Radar2D {
           k === 0 ? o.moveTo(x, z) : o.lineTo(x, z)
         }
         o.closePath()
+      } else if (n.role === 'beacon') {
+        // 道钉: 实心小方块 (机器人投放的永久中继)
+        const s = r * 0.8
+        o.rect(n.x - s, n.z - s, s * 2, s * 2)
       } else if (n.role === 'sensor') {
         o.moveTo(n.x, n.z - r); o.lineTo(n.x + r, n.z)
         o.lineTo(n.x, n.z + r); o.lineTo(n.x - r, n.z); o.closePath()
@@ -1018,15 +1017,80 @@ export class Radar2D {
       if (this.view.scale > 0.22) {
         o.fillStyle = 'rgba(150,190,220,0.66)'
         o.font = Math.max(8, lw(9)) + 'px Consolas,monospace'
-        o.fillText(id.replace('NODE-', 'N-'), n.x + r + lw(3), n.z - r - lw(2))
+        o.fillText(id.startsWith('BEACON') ? '📍' + id.slice(-2) : id.replace('NODE-', 'N-'),
+                   n.x + r + lw(3), n.z - r - lw(2))
       }
     }
-    if (rb) {
-      o.fillStyle = '#E8D9A8'
-      o.beginPath(); o.arc(rb.x, rb.z, lw(4.5), 0, Math.PI * 2); o.fill()
-      o.font = Math.max(8, lw(9)) + 'px Consolas,monospace'
-      o.fillText('BOT', rb.x + lw(6), rb.z + lw(3))
+  }
+
+  /* ---------- 机器人 + SOS 呼救 (动态层: 快照 5Hz -> 帧间平滑) ---------- */
+  _drawRobot(ctx) {
+    const snap = this.snapshot
+    if (!snap) return
+    const nodes = snap.nodes
+    ctx.save()
+    ctx.translate(this.view.x, this.view.y)
+    ctx.scale(this.view.scale, this.view.scale)
+    const lw = (px) => px / this.view.scale
+    ctx.textAlign = 'center'
+
+    // SOS 呼救节点: 红色脉冲扩散环 + SOS 字样 (救到自动消失)
+    const tt = performance.now() / 1000
+    for (const [id, n] of Object.entries(nodes)) {
+      if (!n.sos) continue
+      const ph = (tt * 1.6 + (parseInt(id.slice(-2), 10) || 0) * 0.13) % 1
+      ctx.strokeStyle = 'rgba(255,90,60,' + (0.85 * (1 - ph)).toFixed(3) + ')'
+      ctx.lineWidth = lw(1.8)
+      ctx.beginPath(); ctx.arc(n.x, n.z, lw(6) + ph * lw(34), 0, Math.PI * 2); ctx.stroke()
+      ctx.fillStyle = 'rgba(255,130,100,0.95)'
+      ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
+      ctx.fillText('SOS', n.x, n.z - lw(14))
     }
+
+    const rb = snap.robot
+    if (rb) {
+      // 面包屑轨迹: 核查/救援途中逐 tick 记录 (绿=此处可见主网, 红=无网)
+      if (rb.trail) {
+        for (const [tx, tz, c] of rb.trail) {
+          ctx.fillStyle = c ? 'rgba(80,255,160,0.5)' : 'rgba(255,110,90,0.3)'
+          ctx.beginPath(); ctx.arc(tx, tz, lw(1.7), 0, Math.PI * 2); ctx.fill()
+        }
+      }
+      // 位置平滑 (快照 5Hz, 帧间插值)
+      if (!this._robotPos) this._robotPos = { x: rb.x, z: rb.z }
+      this._robotPos.x += (rb.x - this._robotPos.x) * 0.18
+      this._robotPos.z += (rb.z - this._robotPos.z) * 0.18
+      const x = this._robotPos.x, z = this._robotPos.z
+      // 通信覆盖圈 (300 世界米)
+      ctx.setLineDash([lw(10), lw(8)])
+      ctx.strokeStyle = 'rgba(232,200,110,0.32)'
+      ctx.lineWidth = lw(1.2)
+      ctx.beginPath(); ctx.arc(x, z, 300, 0, Math.PI * 2); ctx.stroke()
+      ctx.setLineDash([])
+      // 救援线: 机器人 -> 呼救目标
+      if ((rb.state === 'RESCUE' || rb.state === 'INVESTIGATE' || rb.state === 'FALLBACK') && rb.target && nodes[rb.target]) {
+        const t = nodes[rb.target]
+        ctx.setLineDash([lw(6), lw(6)])
+        ctx.strokeStyle = 'rgba(255,150,80,0.7)'
+        ctx.lineWidth = lw(1.4)
+        ctx.beginPath(); ctx.moveTo(x, z); ctx.lineTo(t.x, t.z); ctx.stroke()
+        ctx.setLineDash([])
+      }
+      // 本体: 金色菱形 + 状态标签
+      const r = lw(7)
+      ctx.shadowColor = '#F0D080'; ctx.shadowBlur = lw(14)
+      ctx.fillStyle = '#E8C860'
+      ctx.beginPath()
+      ctx.moveTo(x, z - r); ctx.lineTo(x + r, z)
+      ctx.lineTo(x, z + r); ctx.lineTo(x - r, z); ctx.closePath()
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.fillStyle = 'rgba(240,215,150,0.95)'
+      ctx.font = Math.max(8, lw(9)) + 'px Consolas,monospace'
+      ctx.fillText('BOT·' + (rb.state === 'RESCUE' ? '救援' : rb.state === 'INVESTIGATE' ? '核查' : rb.state === 'FALLBACK' ? '回撤' : '巡逻') + ' 钉×' + rb.stock,
+                   x, z - lw(12))
+    }
+    ctx.restore()
   }
 
   setWallMode(on) {
