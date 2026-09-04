@@ -35,6 +35,8 @@ ROBOT_CHAIN_INTEL = True  # 链上情报: 用自身世界状态的心跳超时, 
 STALE_AFTER = 150          # 遥测停更超过此 tick 视为失联嫌疑 (遥测周期 60)
 INVESTIGATE_COOLDOWN = 300 # 查无实据(已死/深隔断)后的冷却, 防反复空趟
 TRAIL_MAX = 240            # 面包屑轨迹上限 (tick): (x, z, 是否连通主网)
+TURN_RATE = 0.26            # 每拍最大转向 (rad ≈ 15°) —— 路径为圆弧而非折线
+WAYPOINT_PATIENCE = 200     # 巡逻路点超时换点, 不在死角里磨
 ROBOT_LINK_PENALTY = 50.0  # 机器人边代价罚: 健康流量永不借道 (走它不如绕路),
                           # 只有孤岛 (无路可走) 才经它回流 -> 桥接检测精确
 BEACON_STOCK = 6         # 携带道钉数
@@ -89,7 +91,8 @@ class PatrolRobot:
         self._deaf_until = 0
         self._checked_until: dict = {}   # nid -> 已核查冷却截止 tick
         self._deployed_at = -1           # 最近一次落钉 tick
-        self._slide = 0                  # 沿墙绕行方向记忆 (0=直行, ±1=左/右)
+        self._heading = random.uniform(0, math.pi * 2)   # 当前航向 (持续存在 -> 圆弧路径)
+        self._wp_since = 0                 # 当前巡逻路点的起始 tick
         self.trail: list = []            # 面包屑: [(x,z,conn)] 核查/救援/回撤途中逐 tick 记录
         self._iso: dict[str, int] = {}      # nid -> 连续失联 tick 数
         self.sos_active: set[str] = set()   # 正在呼救的节点
@@ -444,7 +447,11 @@ class PatrolRobot:
         else:
             if self.waypoint is None or self._near(self.waypoint):
                 self.waypoint = self._rand_waypoint()
-            self._move_toward(self.waypoint)
+                self._wp_since = tick
+            elif tick - self._wp_since > WAYPOINT_PATIENCE:
+                self.waypoint = None            # 路点超时 (死角): 下拍换新
+            if self.waypoint:
+                self._move_toward(self.waypoint)
 
     def _giveup(self, eng, tid, tick, why):
         self.state = "PATROL"
@@ -455,6 +462,41 @@ class PatrolRobot:
                   f"🤖 放弃救援 ({why}): 超出单枚道钉可桥范围, 机器人撤离",
                   narration="🤖 机器人无法同时连通两侧网络,"
                             "本次救援放弃——它将驶离该区域继续巡逻。")
+
+    def _near(self, p, dist=30.0):
+        return math.hypot(self.node.x - p[0], self.node.z - p[1]) <= dist
+
+    def _rand_waypoint(self):
+        c = self.eng.chambers[0]
+        for _ in range(30):            # 避开巨石内部采样
+            ang = random.uniform(0, math.pi * 2)
+            rr = math.sqrt(random.uniform(0.05, 0.85))
+            p = (c["x"] + math.cos(ang) * rr * c["r"] * 0.92,
+                 c["z"] + math.sin(ang) * rr * c["rz"] * 0.92)
+            if not any(math.hypot(p[0] - o["x"], p[1] - o["z"]) < o["r"] + 20
+                       for o in self.eng.obstacles):
+                return p
+        return (c["x"], c["z"])
+
+    def _move_toward(self, dest):
+        """平滑航行: 先把航向朝目标修正 (每拍限幅 TURN_RATE), 再沿航向前进;
+        受阻则自航向逐级加偏避障 (航向持续存在 -> 路径是圆弧, 不是折线)。"""
+        cur = (self.node.x, self.node.z)
+        d = math.hypot(dest[0] - cur[0], dest[1] - cur[1])
+        if d < 1.0:
+            return
+        step = min(SPEED, d)
+        want = math.atan2(dest[1] - cur[1], dest[0] - cur[0])
+        diff = (want - self._heading + math.pi) % (2 * math.pi) - math.pi
+        self._heading += max(-TURN_RATE, min(TURN_RATE, diff))
+        for da in (0.0, 0.3, -0.3, 0.6, -0.6, 1.0, -1.0, 1.5, -1.5):
+            ang = self._heading + da
+            nxt = (cur[0] + math.cos(ang) * step, cur[1] + math.sin(ang) * step)
+            if not self._walk_blocked(cur, nxt):
+                self._heading = ang
+                self.node.x, self.node.z = nxt
+                return
+        self.waypoint = None           # 四面受阻: 换路点
 
     def _near(self, p, dist=30.0):
         return math.hypot(self.node.x - p[0], self.node.z - p[1]) <= dist
@@ -536,4 +578,9 @@ class PatrolRobot:
                 "state": self.state,
                 "target": self.target[0] if self.target else None,
                 "stock": self.stock, "sos": sorted(self.sos_active),
-                "trail": self.trail[::2]}
+                "trail": self.trail[::2],
+                "dest": ([round(self.waypoint[0], 1), round(self.waypoint[1], 1)]
+                         if self.state == "PATROL" and self.waypoint else
+                         [round(self.target[1], 1), round(self.target[2], 1)]
+                         if self.target else None),
+                "heading": round(self._heading, 3)}

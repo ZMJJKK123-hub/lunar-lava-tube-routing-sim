@@ -13,6 +13,8 @@
 //   6. 性能: 静息层缓存到离屏 canvas, 仅数据/视图变化时重绘;
 //      未 Hover 时 rAF 只做一次位图拷贝, 零动画开销。
 
+const DATA_HOP_S = 0.625   // DATA 方块每跳视觉耗时 (后端真实 0.25s, 放慢 2.5 倍便于观看)
+
 // 样式表 (可选覆盖): 链上四种泛洪报文的视觉语言, 与 DATA 方块严格区分
 // (稳态 SYNC 流量每 tick 上百跳, 紫系一律小而暗 —— BLOCK 才是主角)
 const KIND_STYLE = {
@@ -666,7 +668,8 @@ export class Radar2D {
       if (path.length < 2) continue
       const total = path.length - 1
       let s = this._pkSmooth.get(key)
-      if (!s) { s = { h: p.ph }; this._pkSmooth.set(key, s) }
+      if (!s) { s = { h: p.ph, path, total, chan: p.chan }; this._pkSmooth.set(key, s) }
+      s.path = path; s.total = total; s.chan = p.chan
       if (p.t < 0) {
         // 排队中: 不上路绘制 (节点徽章已示意), 静默把进度对齐到节点,
         // 恢复飞行时从节点起飞 —— 消灭"冻在半路"的观感
@@ -674,7 +677,7 @@ export class Radar2D {
         continue
       }
       // 纯匀速模型: 进度 = 已飞跳数 s.h, 飞行时每 0.25s 匀速前进一跳。
-      s.h = Math.min(total, s.h + dt / 0.25)
+      s.h = Math.min(total, s.h + dt / DATA_HOP_S)
       const f = total > 0 ? Math.min(1, Math.max(0, s.h / total)) : 1
       // 按路程比例在折线上取点 (各段按欧氏长度加权)
       const lens = []
@@ -707,7 +710,34 @@ export class Radar2D {
       const fmtB = (b) => (b >= 1024 ? (b / 1024).toFixed(b % 1024 ? 1 : 0) + 'KB' : b + 'B')
       ctx.fillText('DATA ' + fmtB(p.bytes), x, z - lw(10))
     }
-    for (const k of this._pkSmooth.keys()) if (!alive.has(k)) this._pkSmooth.delete(k)
+    // 孤儿方块: 报文已从快照消失 (送达/作废) 但视觉未到终点 -> 飞完再消失
+    for (const [k, s] of this._pkSmooth) {
+      if (alive.has(k) || !s.path || s.h >= s.total) continue
+      s.h = Math.min(s.total, s.h + dt / DATA_HOP_S)
+      const f = Math.min(1, Math.max(0, s.h / s.total))
+      const path = s.path, total = s.total
+      let want = f * (s._len ?? (s._len = path.reduce(
+        (a, n, i) => i ? a + Math.hypot(n.x - path[i-1].x, n.z - path[i-1].z) : 0, 0))), x = path[0].x, z = path[0].z
+      for (let i = 0; i < total; i++) {
+        const seg = Math.hypot(path[i+1].x - path[i].x, path[i+1].z - path[i].z)
+        if (want <= seg || i === total - 1) {
+          const q = seg > 0 ? Math.min(1, want / seg) : 1
+          x = path[i].x + (path[i+1].x - path[i].x) * q
+          z = path[i].z + (path[i+1].z - path[i].z) * q
+          break
+        }
+        want -= seg
+      }
+      const col = CHAN_COL[s.chan ?? 0] ?? '#00E8FF'
+      ctx.shadowColor = col; ctx.shadowBlur = 10; ctx.fillStyle = col
+      const w = lw(6.5)
+      ctx.beginPath()
+      if (ctx.roundRect) ctx.roundRect(x - w / 2, z - w / 2, w, w, lw(1.5))
+      else ctx.rect(x - w / 2, z - w / 2, w, w)
+      ctx.fill(); ctx.shadowBlur = 0
+    }
+    for (const [k, s] of this._pkSmooth)
+      if (!alive.has(k) && (!s.path || s.h >= s.total)) this._pkSmooth.delete(k)
 
     // 4) 在途报文的源/目的节点标记环
     for (const tr of snap.traffic ?? []) {
@@ -1066,33 +1096,41 @@ export class Radar2D {
           ctx.beginPath(); ctx.arc(tx, tz, lw(1.7), 0, Math.PI * 2); ctx.fill()
         }
       }
-      // 航位推算: 后端每 tick(0.25s)离散步进, 前端由最近两采样求速度,
-      // 渲染"此刻应在哪" (匀速外推, 上限 1.5 周期, 10% 阻尼) —— 消除 5Hz 阶梯
-      const nowRb = performance.now()
-      if (!this._rb || this._rb.tick !== snap.tick) {
-        const jump = this._rb ? Math.hypot(rb.x - this._rb.cx, rb.z - this._rb.cz)
-                              : Infinity
-        this._rb = {
-          tick: snap.tick,
-          px: this._rb ? this._rb.cx : rb.x, pz: this._rb ? this._rb.cz : rb.z,
-          cx: rb.x, cz: rb.z,
-          tPrev: this._rb ? this._rb.tCurr : nowRb - 200,
-          tCurr: nowRb,
-          teleport: jump > 400,            // 瞬移(测试传送/重生): 不插值
+      // 飞行员渲染: 前端自主匀速航行 —— 朝后端意图目的地连续飞行
+      // (每帧限幅转向 -> 永远圆滑), 每帧向后端真实位置轻校正 (分叉有界);
+      // 瞬移/状态切换/落钉时刻直接吸附对齐, 关键瞬间零误差
+      const nowP = performance.now()
+      const dtP = Math.min(0.05, (nowP - (this._pilotT || nowP)) / 1000)
+      this._pilotT = nowP
+      if (!this._pilot) this._pilot = { x: rb.x, z: rb.z, heading: rb.heading || 0 }
+      const P = this._pilot
+      const keyState = rb.state + ':' + rb.stock
+      if (this._rbLast && (Math.hypot(rb.x - this._rbLast.x, rb.z - this._rbLast.z) > 400
+                           || keyState !== this._rbLast.key)) {
+        P.x = rb.x; P.z = rb.z; P.heading = rb.heading || 0   // 吸附: 瞬移/换状态/落钉
+      }
+      this._rbLast = { x: rb.x, z: rb.z, key: keyState }
+      if (rb.dest) {
+        const dLeft = Math.hypot(rb.dest[0] - P.x, rb.dest[1] - P.z)
+        if (dLeft > 40) {
+          const want = Math.atan2(rb.dest[1] - P.z, rb.dest[0] - P.x)
+          let diff = (want - P.heading) % (Math.PI * 2)
+          if (diff > Math.PI) diff -= Math.PI * 2
+          if (diff < -Math.PI) diff += Math.PI * 2
+          const TURN = 5.2 * dtP          // 转向速率 ~300°/s, 与后端 15°/tick 等效
+          P.heading += Math.max(-TURN, Math.min(TURN, diff))
+          const SPD = 240 * dtP           // 与后端 60 单位/tick 同速
+          P.x += Math.cos(P.heading) * SPD
+          P.z += Math.sin(P.heading) * SPD
         }
-      }
-      const S = this._rb
-      let x, z
-      if (S.teleport || S.tCurr - S.tPrev < 30) {
-        x = S.cx; z = S.cz                 // 瞬移/采样异常: 直接吸附
+        P.x += (rb.x - P.x) * 0.008      // 轻校正: 分叉收敛 (绕石时最多偏一个石头直径)
+        P.z += (rb.z - P.z) * 0.008
       } else {
-        // 实体插值: 沿上一段采样 (px,pz)->(cx,cz) 行进, 相位 f 随时间 0->1。
-        // 滞后一个周期但永不过冲 —— 转向/急停不再"冲出去又弹回" (抽搐根除)
-        const f = Math.max(0, Math.min(1,
-                  (nowRb - S.tCurr) / (S.tCurr - S.tPrev)))
-        x = S.px + (S.cx - S.px) * f
-        z = S.pz + (S.cz - S.pz) * f
+        P.x += (rb.x - P.x) * 0.04       // 无目的地: 直接缓向真值
+        P.z += (rb.z - P.z) * 0.04
       }
+      const x = P.x, z = P.z
+
       // 通信覆盖圈 (300 世界米)
       ctx.setLineDash([lw(10), lw(8)])
       ctx.strokeStyle = 'rgba(232,200,110,0.32)'
