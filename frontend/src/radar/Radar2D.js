@@ -1104,31 +1104,18 @@ export class Radar2D {
           ctx.beginPath(); ctx.arc(tx, tz, lw(1.7), 0, Math.PI * 2); ctx.fill()
         }
       }
-      // 实体插值: 沿后端真实路径的上一采样段行进 (路径=后端真实轨迹,
-      // 墙石绝不穿; 后端已圆弧化, 折点<=15° 天然顺滑)
-      const nowRb = performance.now()
-      if (!this._rb || this._rb.tick !== snap.tick) {
-        const jump = this._rb ? Math.hypot(rb.x - this._rb.cx, rb.z - this._rb.cz)
-                              : Infinity
-        this._rb = {
-          tick: snap.tick,
-          px: this._rb ? this._rb.cx : rb.x, pz: this._rb ? this._rb.cz : rb.z,
-          cx: rb.x, cz: rb.z,
-          tPrev: this._rb ? this._rb.tCurr : nowRb - 200,
-          tCurr: nowRb,
-          teleport: jump > 400,            // 瞬移(重置/传送): 不插值
-        }
+      // 最简步进播放: 后端每 tick 走一步, 前端用 0.25s 把这步平滑播完。
+      // 路径 = 后端真实轨迹 (无障直线 / 有障贴障), 前端零自主、零预测
+      const nowMs = performance.now()
+      if (!this._rbStep) this._rbStep = { x0: rb.x, z0: rb.z, x1: rb.x, z1: rb.z, t0: nowMs }
+      const st = this._rbStep
+      if (rb.x !== st.x1 || rb.z !== st.z1) {         // 新一步: 从旧位置播到新位置
+        st.x0 = st.x1; st.z0 = st.z1
+        st.x1 = rb.x; st.z1 = rb.z; st.t0 = nowMs
       }
-      const S = this._rb
-      let x, z
-      if (S.teleport || S.tCurr - S.tPrev < 30) {
-        x = S.cx; z = S.cz
-      } else {
-        const f = Math.max(0, Math.min(1,
-                  (nowRb - S.tCurr) / (S.tCurr - S.tPrev)))
-        x = S.px + (S.cx - S.px) * f
-        z = S.pz + (S.cz - S.pz) * f
-      }
+      const f = Math.min(1, (nowMs - st.t0) / 250)
+      const x = st.x0 + (st.x1 - st.x0) * f
+      const z = st.z0 + (st.z1 - st.z0) * f
 
       // 通信覆盖圈 (300 世界米)
       ctx.setLineDash([lw(10), lw(8)])

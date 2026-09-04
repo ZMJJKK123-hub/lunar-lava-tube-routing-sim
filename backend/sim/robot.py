@@ -578,9 +578,4 @@ class PatrolRobot:
                 "state": self.state,
                 "target": self.target[0] if self.target else None,
                 "stock": self.stock, "sos": sorted(self.sos_active),
-                "trail": self.trail[::2],
-                "dest": ([round(self.waypoint[0], 1), round(self.waypoint[1], 1)]
-                         if self.state == "PATROL" and self.waypoint else
-                         [round(self.target[1], 1), round(self.target[2], 1)]
-                         if self.target else None),
-                "heading": round(self._heading, 3)}
+                "trail": self.trail[::2]}
