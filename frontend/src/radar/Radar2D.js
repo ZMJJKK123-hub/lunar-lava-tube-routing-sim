@@ -15,6 +15,7 @@
 
 const DATA_HOP_S = 0.625   // DATA 方块每跳视觉耗时 (后端真实 0.25s, 放慢 2.5 倍便于观看)
 const BUS_HOP_S = 0.625    // 链上泛洪点每跳视觉耗时 (同上, 放慢 2.5 倍)
+const BUS_HOP_MS = BUS_HOP_S * 1000   // 上式对应毫秒数 (总线点计时全部用毫秒!)
 
 // 样式表 (可选覆盖): 链上四种泛洪报文的视觉语言, 与 DATA 方块严格区分
 // (稳态 SYNC 流量每 tick 上百跳, 紫系一律小而暗 —— BLOCK 才是主角)
@@ -549,10 +550,10 @@ export class Radar2D {
       const now = performance.now()
       for (const p of pk) {
         pool.push({ a: p.a, b: p.b, kind: p.kind, r: p.r,
-                    born: now - p.t * BUS_HOP_S })
+                    born: now - p.t * BUS_HOP_MS })
       }
     }
-    const nowCut = performance.now() - 150 - BUS_HOP_S * 1.3
+    const nowCut = performance.now() - 150 - BUS_HOP_MS * 1.3
     for (let i = pool.length - 1; i >= 0; i--) if (pool[i].born < nowCut) pool.splice(i, 1)
     let hops = pool
     if (!hops.length) return
@@ -576,7 +577,7 @@ export class Radar2D {
       const dim = p.kind === 'BLOCK' ? 0.95 : (p.r === false ? 0.3 : 0.6)
       const trail = st.stream || 1              // 串点: 批量报文 (如 SYNC_RESP)
       for (let k = 0; k < trail; k++) {
-        const f = (now - p.born) / BUS_HOP_S - k * 0.09
+        const f = (now - p.born) / BUS_HOP_MS - k * 0.09
         if (f <= 0 || f >= 1) continue
         const fade = Math.min(1, f / 0.12, (1 - f) / 0.15)   // 两端淡入淡出
         if (fade <= 0) continue
