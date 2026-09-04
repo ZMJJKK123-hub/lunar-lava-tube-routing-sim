@@ -601,7 +601,8 @@ class SimulationEngine:
         elif params:
             self._emit("override", "info",
                        f"⚑ 上帝模式: {node_id} 参数覆写 {params}")
-        self.compute_network()
+        # 不做即时 compute_network: 引擎每 0.25s 全量重算, 滑块拖动风暴下
+        # 每条消息重算是把事件循环打满的元凶 (参数最迟下一拍生效)
         return {"ok": True}
 
     def add_wall(self, x1: float, z1: float, x2: float, z2: float):

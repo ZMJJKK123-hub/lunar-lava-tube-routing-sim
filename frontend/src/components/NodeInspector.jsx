@@ -1,5 +1,5 @@
 // 节点属性监视器 (Node Inspector): 全部底层物理参数暴露为双向绑定滑块
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const slider = (label, key, min, max, step, unit, fmt = (v) => v) => ({
   label, key, min, max, step, unit, fmt,
@@ -41,17 +41,27 @@ const PARAM_GROUPS = [
 
 export default function NodeInspector({ node, routes, links, onSetParam, onClose, onReplayWave }) {
   const [pending, setPending] = useState({})
+  const throttle = useRef({ last: 0, timer: null })
 
   // 后端每帧回传最新值, 未在拖动中的滑块跟随刷新
   useEffect(() => setPending({}), [node?.id])
+  useEffect(() => () => clearTimeout(throttle.current.timer), [])
 
   if (!node) return null
   const val = (key, fallback) =>
     key in pending ? pending[key] : (node[key] ?? fallback)
 
   const push = (key, v) => {
-    setPending((p) => ({ ...p, [key]: v }))
-    onSetParam(node.id, { [key]: v })   // 瞬间下发后端, 下一 Tick 立即重算
+    setPending((p) => ({ ...p, [key]: v }))     // 本地立即回显
+    // 提交节流: 拖动时 <=8 次/秒下发, 尾值 120ms 后必达 —— 防参数风暴
+    const ref = throttle.current
+    const fire = () => {
+      ref.last = performance.now()
+      onSetParam(node.id, { [key]: v })
+    }
+    clearTimeout(ref.timer)
+    if (performance.now() - ref.last > 120) fire()
+    else ref.timer = setTimeout(fire, 120)
   }
 
   const route = routes?.[node.id]

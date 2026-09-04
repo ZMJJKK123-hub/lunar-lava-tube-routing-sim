@@ -991,19 +991,29 @@ export class Radar2D {
         o.arc(n.x, n.z, r, 0, Math.PI * 2)
       }
       o.fill(); o.stroke()
-      // 积压弧: 节点外圈按 queue_pct 填充的青色弧 (发送缓冲有字节即显示,
-      // 满 100% 为整圈) —— 每个节点的排队积压一眼可见
-      if (n.queue_pct > 0.5 && n.state !== 'DEAD') {
-        o.strokeStyle = 'rgba(0,232,255,0.9)'
-        o.lineWidth = lw(1.6)
+      // 电量环: 节点外圈按 SoC 比例填充 (绿>50% / 黄25~50% / 红<25%)
+      if (n.state !== 'DEAD') {
+        const soc = Math.min(1, Math.max(0, (n.battery_soc ?? 100) / 100))
+        o.strokeStyle = soc > 0.5 ? 'rgba(90,230,140,0.85)'
+                       : soc > 0.25 ? 'rgba(255,200,80,0.9)'
+                       : 'rgba(255,90,70,0.95)'
+        o.lineWidth = lw(1.5)
         o.beginPath()
-        o.arc(n.x, n.z, r + lw(3.5), -Math.PI / 2,
-              -Math.PI / 2 + Math.PI * 2 * Math.min(1, n.queue_pct / 100))
+        o.arc(n.x, n.z, r + lw(3.5), -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * soc)
+        o.stroke()
+      }
+      // 积压弧: 仅显示超出链流量配额(50%)的真实数据拥塞 (青色, 更外圈)
+      if (n.queue_pct > 50.5 && n.state !== 'DEAD') {
+        o.strokeStyle = 'rgba(0,232,255,0.95)'
+        o.lineWidth = lw(1.8)
+        o.beginPath()
+        o.arc(n.x, n.z, r + lw(6.5), -Math.PI / 2,
+              -Math.PI / 2 + Math.PI * 2 * Math.min(1, (n.queue_pct - 50) / 50))
         o.stroke()
       }
       if (id === this.selectedId) {
         o.strokeStyle = 'rgba(255,255,255,0.75)'; o.lineWidth = lw(1)
-        o.beginPath(); o.arc(n.x, n.z, r + lw(6), 0, Math.PI * 2); o.stroke()
+        o.beginPath(); o.arc(n.x, n.z, r + lw(9.5), 0, Math.PI * 2); o.stroke()
       }
       if (n.state === 'DEAD') {
         o.strokeStyle = '#FF5050'; o.lineWidth = lw(1.8)
@@ -1056,11 +1066,32 @@ export class Radar2D {
           ctx.beginPath(); ctx.arc(tx, tz, lw(1.7), 0, Math.PI * 2); ctx.fill()
         }
       }
-      // 位置平滑 (快照 5Hz, 帧间插值)
-      if (!this._robotPos) this._robotPos = { x: rb.x, z: rb.z }
-      this._robotPos.x += (rb.x - this._robotPos.x) * 0.18
-      this._robotPos.z += (rb.z - this._robotPos.z) * 0.18
-      const x = this._robotPos.x, z = this._robotPos.z
+      // 航位推算: 后端每 tick(0.25s)离散步进, 前端由最近两采样求速度,
+      // 渲染"此刻应在哪" (匀速外推, 上限 1.5 周期, 10% 阻尼) —— 消除 5Hz 阶梯
+      const nowRb = performance.now()
+      if (!this._rb || this._rb.tick !== snap.tick) {
+        const jump = this._rb ? Math.hypot(rb.x - this._rb.cx, rb.z - this._rb.cz)
+                              : Infinity
+        this._rb = {
+          tick: snap.tick,
+          px: this._rb ? this._rb.cx : rb.x, pz: this._rb ? this._rb.cz : rb.z,
+          cx: rb.x, cz: rb.z,
+          tPrev: this._rb ? this._rb.tCurr : nowRb - 200,
+          tCurr: nowRb,
+          teleport: jump > 400,            // 瞬移(测试传送/重生): 不插值
+        }
+      }
+      const S = this._rb
+      let x, z
+      if (S.teleport || S.tCurr - S.tPrev < 30) {
+        x = S.cx; z = S.cz                 // 瞬移/采样异常: 直接吸附
+      } else {
+        const vdt = S.tCurr - S.tPrev
+        const vx = (S.cx - S.px) / vdt, vz = (S.cz - S.pz) / vdt
+        const ahead = Math.min(nowRb - S.tCurr, vdt * 1.5) * 0.9
+        x = S.cx + vx * ahead
+        z = S.cz + vz * ahead
+      }
       // 通信覆盖圈 (300 世界米)
       ctx.setLineDash([lw(10), lw(8)])
       ctx.strokeStyle = 'rgba(232,200,110,0.32)'

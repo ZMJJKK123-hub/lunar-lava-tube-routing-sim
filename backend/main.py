@@ -84,8 +84,10 @@ async def ws_endpoint(ws: WebSocket):
             cmd = msg.get("cmd")
             if cmd == "set_param":
                 # 上帝模式: {"cmd":"set_param","node":"NODE-05","params":{"temp_c":80}}
+                # 只改参数+回 ack —— 不做即时 compute/broadcast: 滑块拖动可达
+                # 60+ msg/s, 每条全量重算(~10ms)+全量广播(127KB)会打满事件循环
+                # 把引擎拖到近停; 引擎每 0.25s 重算/每 0.2s 广播, 下个周期自然生效
                 resp = ENGINE.apply_override(msg["node"], msg.get("params", {}))
-                await broadcast(ENGINE.snapshot())
                 await ws.send_text(json.dumps({"cmd": "ack", "req_id": msg.get("req_id"), **resp}))
             elif cmd == "disaster":
                 ENGINE.inject_disaster(msg.get("kind"))
