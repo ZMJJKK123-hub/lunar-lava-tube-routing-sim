@@ -68,6 +68,7 @@ export default function App() {
         chainOpen={chainOpen}
         onToggleChain={() => setChainOpen(!chainOpen)}
         chainFlow={chainFlow}
+        onReset={() => clientRef.current?.send({ cmd: 'reset' })}
         onToggleChainFlow={() => { const v = !chainFlow; setChainFlow(v); radarRef.current?.setLayer('chain', v) }}
       />
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}

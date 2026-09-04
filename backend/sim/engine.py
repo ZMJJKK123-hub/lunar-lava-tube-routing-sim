@@ -821,6 +821,11 @@ class SimulationEngine:
         self.history.append({"t": self.tick, **snap["stats"]})
         return snap
 
+    def reset(self):
+        """上帝重置: 以同一种子原地重建整个世界 (节点/巨石/链/机器人/账本
+        全部回到初始, 墙体/灾害痕迹清空)。同步执行, 主循环无需重启。"""
+        self.__init__()
+
     async def run_forever(self, broadcaster):
         next_phys, next_bcast = 0.0, 0.0
         while True:

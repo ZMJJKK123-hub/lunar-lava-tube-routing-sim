@@ -115,7 +115,8 @@ async def ws_endpoint(ws: WebSocket):
                 ENGINE.clear_walls()
                 await broadcast(ENGINE.snapshot())
             elif cmd == "reset":
-                raise NotImplementedError
+                ENGINE.reset()
+                await broadcast(ENGINE.snapshot())
     except WebSocketDisconnect:
         CLIENTS.discard(ws)
     except Exception as e:
