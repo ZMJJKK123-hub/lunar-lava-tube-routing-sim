@@ -66,7 +66,8 @@ if DIST_DIR.is_dir():
 
     @app.get("/")
     async def serve_index():
-        return FileResponse(DIST_DIR / "index.html")
+        return FileResponse(DIST_DIR / "index.html",
+                            headers={"Cache-Control": "no-cache"})
 
 
 @app.websocket("/ws")
@@ -89,6 +90,14 @@ async def ws_endpoint(ws: WebSocket):
             elif cmd == "disaster":
                 ENGINE.inject_disaster(msg.get("kind"))
                 await broadcast(ENGINE.snapshot())
+            elif cmd == "send_msg":
+                # 任意两节点间发送真实报文:
+                # {"cmd":"send_msg","src":"NODE-38","dst":"NODE-07","bytes":2048}
+                resp = ENGINE.send_user_message(msg.get("src"), msg.get("dst"),
+                                                msg.get("bytes", 1024))
+                await broadcast(ENGINE.snapshot())
+                await ws.send_text(json.dumps(
+                    {"cmd": "ack", "req_id": msg.get("req_id"), **resp}))
             elif cmd == "add_wall":
                 # 2D 俯视图画墙: {"cmd":"add_wall","x1":..,"z1":..,"x2":..,"z2":..}
                 ENGINE.add_wall(msg["x1"], msg["z1"], msg["x2"], msg["z2"])

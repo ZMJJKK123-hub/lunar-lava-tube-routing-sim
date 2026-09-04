@@ -6,6 +6,7 @@ import { Radar2D } from './radar/Radar2D'
 import GlobalHUD from './components/GlobalHUD'
 import NodeInspector from './components/NodeInspector'
 import EventLog from './components/EventLog'
+import ChainPanel from './components/ChainPanel'
 import OnboardingGuide from './components/OnboardingGuide'
 import HelpPanel from './components/HelpPanel'
 
@@ -19,6 +20,7 @@ export default function App() {
   const [wallMode, setWallMode] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(true)
+  const [chainOpen, setChainOpen] = useState(true)
 
   useEffect(() => {
     const radar = new Radar2D(mountRef.current, {
@@ -62,8 +64,13 @@ export default function App() {
         onHelp={() => setHelpOpen(true)}
         logOpen={logOpen}
         onToggleLog={() => setLogOpen(!logOpen)}
+        chainOpen={chainOpen}
+        onToggleChain={() => setChainOpen(!chainOpen)}
       />
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+      {chainOpen && (
+        <ChainPanel chain={snapshot?.chain} onClose={() => setChainOpen(false)} />
+      )}
       {logOpen && (
         <EventLog events={snapshot?.events} mode={snapshot?.mode} onClose={() => setLogOpen(false)} />
       )}

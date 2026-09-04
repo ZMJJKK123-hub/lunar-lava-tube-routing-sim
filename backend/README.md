@@ -18,7 +18,9 @@
   - [2.2 sim/physics.py —— 物理层(6 个函数)](#22-simphysicspy--物理层6-个函数)
   - [2.3 sim/routing.py —— 路由算法(4 个函数)](#23-simroutingpy--路由算法4-个函数)
   - [2.4 sim/engine.py —— SimulationEngine 类(仿真引擎)](#24-simenginepy--simulationengine-类仿真引擎)
-  - [2.5 main.py —— FastAPI 入口](#25-mainpy--fastapi-入口)
+  - [2.5 sim/transport.py —— 传输层(真实报文)](#25-simtransportpy--传输层真实报文)
+  - [2.6 sim/blockchain.py —— 区块链全网状态同步](#26-simblockchainpy--区块链全网状态同步)
+  - [2.7 main.py —— FastAPI 入口](#27-mainpy--fastapi-入口)
 - [3. 对外接口(HTTP + WebSocket)](#3-对外接口http--websocket)
 - [4. 函数之间怎么组装(调用链)](#4-函数之间怎么组装调用链)
 - [5. 权重怎么算(link_cost 六项公式详解)](#5-权重怎么算link_cost-六项公式详解)
@@ -32,6 +34,8 @@
 | `sim/node.py` | `class Node` | 一根通信桩的全部物理参数 + 每 tick 的演化(耗电/辐射/温度) |
 | `sim/physics.py` | 模块(6 个函数) | 纯计算:距离/路径损耗/噪声/SNR/BER/链路熔断/路由代价 |
 | `sim/routing.py` | 模块(4 个函数) | 纯算法:Dijkstra 全网路由 + 波前记录 + RCSPA 信道分配 |
+| `sim/transport.py` | `class TransportLayer` | 真实报文传输:握手/重传/超时信号/逐跳字节计数 |
+| `sim/blockchain.py` | `class BlockchainNetwork` | 区块链全网状态同步:轮询PoA/泛洪/追块/分叉愈合 |
 | `sim/engine.py` | `class SimulationEngine` | 总指挥:世界生成、LOS 遮挡、每 tick 流水线、灾害、快照输出 |
 | `main.py` | `app = FastAPI()` | 网络入口:WebSocket 广播、HTTP 健康检查、托管前端页面 |
 | `README.md` | — | 本手册 |
@@ -65,7 +69,7 @@ band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
 | 方法 | 输入 → 输出 | 功能 |
 |---|---|---|
 | `effective_rx_sensitivity(band)` | 频段名 → dBm 数值 | **有效接收灵敏度** = kTB 热噪声底 + 解调门限(UWB 8dB / LoRa -15dB)+ 高温噪声系数恶化(>25°C 每度 +0.12dB)+ 老化偏置。"温度→噪声→灵敏度→熔断"这条耦合链的根基 |
-| `step(dt_hours)` | 时间步长 → 无(原地演化) | **每 tick 的物理演化**:①耗电 = 平均电流×时间×休眠系数(SLEEP 时 0.15)÷温度效率,同时 RTG 同位素电源涓流充电 240mAh/h,净结果一行写入电量;②电量≤1% → 判 DEAD;③超级电容:高负载放电、空闲充电;④辐射剂量累积 + 掷骰触发 SEU 单粒子翻转(翻转后进 SEU_RESET,50% 概率下 tick 恢复);⑤队列自然消散 6%/tick;⑥温度随机游走 ±0.15°C |
+| `step(dt_hours)` | 时间步长 → 无(原地演化) | **每 tick 的物理演化**:①耗电 = 平均电流×时间×休眠系数(SLEEP 时 0.15)÷温度效率,同时 RTG 同位素电源涓流充电 240mAh/h,净结果一行写入电量;②电量≤1% → 判 DEAD;③超级电容:高负载放电、空闲充电;④辐射剂量累积 + 掷骰触发 SEU 单粒子翻转(翻转后进 SEU_RESET,50% 概率下 tick 恢复);⑤温度随机游走 ±0.15°C(队列不再在此合成演化,由传输层每帧按真实缓冲回填) |
 | `to_dict()` | 无 → dict | 序列化为前端可用的 JSON(附算好的 soc/derating/灵敏度/电流,剔除缓存字段) |
 | `apply_override(key, value)` | 参数名+值 → 无(非法抛 KeyError) | 上帝模式改参数,只允许 `MUTABLE` 白名单里的键(temp_c / tx_power_dbm / band / state 等 12 个) |
 
@@ -139,10 +143,11 @@ band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
 |---|---|
 | `_emit(type, severity, msg, narration, **payload)` | 发事件:滚进 120 条的事件队列;关键类型(disaster/node_dead/healing_start/converged/isolated/rejoin)的解说另存 `last_narration`,防止被滚动队列挤出 |
 | `_zh(nid)` | "NODE-05" → "05号"(解说用语) |
-| `compute_network(quiet=False)` | **引擎心脏,一个函数串起十步**(详见第 4 章调用链):建边→链路生死事件→Dijkstra 路由→ACO 信息素→重路由事件→节点状态/队列→呼叫轮换→PAMAS 电台判定→遮挡清单→收敛状态机。`quiet=True` 时跳过全部事件(仅启动重建世界时用) |
+| `compute_network(quiet=False)` | **引擎心脏,一个函数串起十步**(详见第 4 章调用链):建边→链路生死事件→Dijkstra 路由→ACO 信息素→重路由事件→节点状态/队列→PAMAS 电台判定→遮挡清单→收敛状态机。队列不再合成:积压率直接取传输层各节点缓冲的真实字节数。`quiet=True` 时跳过全部事件(仅启动重建世界时用) |
 | `_coverage()` | 覆盖率 = 可达节点数 / 总节点数 ×100 |
 | `snapshot()` | **打包全网快照**(约 91KB):tick/mode/wave/events[-40]/巨石/墙体/links/nodes(含 blocked_nbrs)/routes/traffic/robot/stats,前端每 0.2s 收到的就是它 |
-| `run_forever(broadcaster)` | **引擎主循环**(async):每 0.25s 一个 tick(全部 Node.step + compute_network),每 0.2s 广播一次 snapshot;单 tick 异常只记日志不杀循环 |
+| `run_forever(broadcaster)` | **引擎主循环**(async):每 0.25s 一个 tick(全部 Node.step + compute_network + transport.step 报文推进),每 0.2s 广播一次 snapshot;单 tick 异常只记日志不杀循环 |
+| `send_user_message(src, dst, nbytes)` | 任意两节点发送真实报文(WS `send_msg` 指令入口),返回受理结果,送达/超时信号走事件流 |
 
 #### D. 上帝模式 / 用户交互
 
@@ -176,7 +181,77 @@ band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
 
 ---
 
-### 2.5 main.py —— FastAPI 入口
+### 2.5 sim/transport.py —— 传输层(真实报文,TCP 风格三次握手)
+
+报文生命周期:
+```
+① 三次握手(端到端, 控制帧沿全路径逐跳飞, 每帧 20B, 每跳 1 tick):
+     SYN → SYN-ACK(反向折返) → ACK, 真实消耗 tick 与字节,
+     但只在底层运行不参与渲染 —— 协议过程由事件日志解说
+② 数据传输: 按 MSS=256B 分段, 逐跳 store-and-forward, 每跳按当前 BER
+   掷骰判损坏(含 14B ACK 开销), 坏则重传, 连续 3 次作废
+     前端: 大发光方块(按信道配色)沿边飞行; 排队分段停驻节点旁堆叠
+③ 传完直接收场(无 FIN 挥手): DELIVERED 事件 + 结果信号
+④ 失败(超时/无路/重传耗尽/握手失败): 在出事节点显示红叉停留 2s 淡出
+```
+常量:`RETRIES_MAX=3`、`QUEUE_LIMIT_BYTES=8192`、`MAX_CONCURRENT=6`、
+`DEFAULT_TIMEOUT=90` tick、`AUTO_TELEMETRY=False`(自动遥测默认关,流量由用户手动发起)。
+
+#### 对外方法
+
+| 方法 | 输入 → 输出 | 功能 |
+|---|---|---|
+| `send_message(src, dst, bytes, timeout_ticks, kind)` | 起讫+字节数 → 受理结果 dict | **发送入口**:rscspa 选路+逐跳信道(在途报文占用的信道排斥新报文),先派 SYN 探路。立即返回 `{ok, msg_id, path, channels, segments}`;拒绝返回 `{ok:False, signal:...}`(NO_SUCH_NODE/SRC_DEAD/BUSY/NO_PATH) |
+| `step()` | 无 → 无 | **每 tick 推进**:①自动遥测(默认关);②半双工推进——每 tick 每节点一个发送名额(控制帧优先于数据段),排队即真实拥塞;③超时检查,**必然发出 TIMEOUT 信号**(注明卡在握手哪一步/数据阶段) |
+| `queue_pct(nid)` / `node_bytes(nid)` | 节点 → 积压率/字节数 | 真实队列积压率 = 缓冲中在途字节 ÷ 8192 × 100,每帧回填 node.queue_pct |
+| `active_packets()` | 无 → packets 数组 | 在途 DATA 分段 → 前端动画数据 `{a, b, t, kind, bytes, chan, msg, seg}`;t 为本跳进度(tick 内墙钟插值),t=-1 表示停驻节点排队。只下发 DATA——握手控制帧在底层真实运行但不下发 |
+| `active_nodes_edges()` / `active_traffic()` | 无 → 活跃集/流量表 | PAMAS 活跃集 = 真正有帧/分段要收发的节点;engine.traffic = 在途报文路径 |
+| `link_summary(edge)` / `summary()` | 边/无 → 计数 | 每条边的 tx/rx/pkts/retries/drops;全网汇总与最近 12 条结果信号 |
+
+#### 结果信号(results 双通道)
+
+报文完结必然落一条结果进 `results`(快照透传)并发事件:
+`DELIVERED`(送达,含耗时/重传/绕行)、`TIMEOUT`(超时,含滞留位置与阶段)、
+`NO_PATH`(无可达路径)、`BUFFER_FULL`(中继缓冲溢出)、`MAX_RETRIES`(数据重传耗尽)、
+`HANDSHAKE_FAIL`(握手帧重传耗尽)。
+事件类型:`msg_sent / msg_handshake(SYN 抵达·SYN-ACK 折返) / msg_connected(三次握手完成) /
+msg_delivered / msg_timeout / msg_reroute / msg_fail / msg_no_path`。
+链路中断时在途帧/分段从当前位置重新 rscspa 绕行(SYN/ACK 朝目的、SYN-ACK 朝源),即传输级自愈。
+
+---
+
+### 2.6 sim/blockchain.py —— 区块链全网状态同步
+
+每个节点运行一条链(`ChainNode`),各自维护**全网所有节点参数**的世界状态。
+关键设计:**全部规则只依赖链内共识数据,各节点视角恒一致**(不用本地时钟):
+- **数据模型**:`Transaction`(robot_id/seq/tick/payload/tx_id=SHA-256)、
+  `Block`(index/prev_hash/tick/creator/txs/block_hash)、泛洪信封(4 种类型:
+  TX / BLOCK / SYNC_REQ / SYNC_RESP,含 msg_id/ttl/from_node)。
+- **调度(轮询 PoA)**:`leader(H) = 全体ID排序[H % N]`,纯高度轮询;
+  出块条件 = 轮到自己 ∧ mempool 非空 ∧ 块龄 ≥ 3 tick,单块 ≤ 10 笔。
+- **Leader 阵亡兜底**:块龄 ≥ SKIP_AFTER(12) 时由"时间窗轮值"节点出
+  空块推进轮询(出块人 = sorted[(H + tick//12) % N],窗口内唯一,链内可验),
+  杀死 Leader 不会让链停摆。
+- **泛洪**:seen LRU(4096) + TTL=12 抑制风暴,一跳一 tick;
+  请求与响应都全网转发,远端节点也能响应。
+- **世界状态**:链 = 有序日志;world_state 只在上链时按序重放,
+  `tx.seq > latest_seq[robot]` 才应用(防乱序/防重放);
+  遥测 payload = 节点真实物理参数(坐标/SoC/温度/状态/队列/电台)。
+- **追块**:收到 index > 本地高度的块,或每 20 tick 错峰心跳 SYNC_REQ,
+  邻居按请求高度回批(≤12 块)逐块验证补链。
+- **分叉愈合**:同高度竞争块(画墙分区两边各自出块所致)→ 请求对方
+  完整链 → 从创世整链重验 → 按"更高者胜/同高尾部哈希小者胜"全序裁决,
+  双方对称执行必然收敛。
+- **快照导出** `chain` 字段:最高高度/已对齐数/状态一致数/最新块/
+  每节点高度与哈希/基准世界状态/分歧节点状态(上限12),供前端 ⛓ 账本侧边栏。
+- 事件:`chain_block`(每6块)/`chain_heal`(分叉愈合)进入 EventLog。
+
+离线验证:正常运行 60/60 节点距链顶 ≤2 块;画墙割裂→拆墙后 60/60 追平
+(分叉自动愈合);杀死轮值 Leader 链继续推进;单 tick 增量 43-65ms(预算 250ms)。
+
+---
+
+### 2.7 main.py —— FastAPI 入口
 
 | 函数/对象 | 功能 |
 |---|---|
@@ -206,7 +281,7 @@ band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
 | 帧 | 内容 |
 |---|---|
 | `{cmd:"geology", geology}` | 连接时一次:腔室/隧道/巨柱/巨石/墙体 |
-| snapshot(无 cmd) | 每 0.2s:tick / mode / wave / events[-40] / obstacles / walls / links / nodes / routes / traffic / robot / stats |
+| snapshot(无 cmd) | 每 0.2s:tick / mode / wave / events[-40] / obstacles / walls / links / nodes / routes / traffic / **packets(在途报文方块)** / robot / stats |
 
 **客户端指令**(JSON,`cmd` 字段区分):
 
@@ -218,6 +293,7 @@ band="UWB"、snr_db、ber)、**环境**(radiation_rad、seu_flips)、
 | `remove_wall` | `{index}` | 撤销第 index 堵墙(Ctrl+Z / 点墙) |
 | `clear_walls` | — | 清空全部墙 |
 | `move_obstacle` | `{index, x, z}` | 拖巨石,回 `{ack, cut:切断对数}` |
+| `send_msg` | `{src:"NODE-38", dst:"NODE-07", bytes:2048}` | 任意两节点发送真实报文;回受理 ack,送达/超时信号走事件流 |
 
 ---
 
@@ -237,12 +313,13 @@ main.startup() 起任务(持强引用)
             3. routing.routing_step(...)          ← 全网 Dijkstra + 波前
             4. ACO 信息素平滑 link_load            ← 0.82×旧 + 0.18×新
             5. 重路由/孤岛/重新入网事件
-            6. 节点状态回填 + 队列增长/消散 + DEGRADED 判定
-            7. 呼叫轮换 → traffic(每 6 tick 换一半 sensor)
-            8. PAMAS 判定 → 每桩 radio(TXRX/SLEEP/IDLE)
+            6. 节点状态回填 + 队列真化(积压 = 传输层缓冲里的真实字节)+ DEGRADED 判定
+            7. traffic = 传输层在途报文(真实路径与字节)
+            8. PAMAS 判定 → 每桩 radio(TXRX/SLEEP/IDLE,活跃集 = 真有报文的节点)
             9. blocked_info 遮挡清单(喂前端红虚线)
             10. 收敛状态机(mode: STABLE/HEALING/CONVERGED)
-       └─ 每 0.2s: broadcast(engine.snapshot())  ← ③发后即忘推给前端
+       └─ transport.step()                       ← ③报文逐跳推进(握手/重传/超时/自动遥测)
+       └─ 每 0.2s: broadcast(engine.snapshot())  ← ④发后即忘推给前端
 ```
 
 **三个跨 tick 反馈回路**(系统的自组织就来自这里):
@@ -293,16 +370,13 @@ main.startup() 起任务(持强引用)
 这个参数非常简单,只由节点队列的积压程度给出一个参数。每个节点都有这个积压参数
 `queue_pct`(0~100 的百分比),它的决定过程:
 
-1. 首先判断节点是否在活跃转发路径上。判断的方法:引擎构建路由的时候,维护着一个
-   `self.routes`(所有到 sink 的路径),并统计出所有路径经过的链路计数 `usage`;
-   节点只要出现在这个集合的某条链路里,就算在活跃路径上;
-2. 当节点在某条正在传输数据的链路中,它的队列就会积压递增(queue_pct 增加),
-   增加的幅度根据本轮的信道质量决定:恶劣链路(该节点参与的链路 SNR<10dB 或已熔断)
-   单步 +8.0%,正常链路单步 +1.5%,即正常承载转发流量的平缓增长。
-   这里的"单步"就是 0.25 秒一个轮回,也就是代码重新计算的一次轮回(一个 tick);
-3. 每一个回合所有节点都会减 6,就是每一个回合默认能发出去的信息量。
-   增减相抵之后,就是 queue_pct 这个值的决定性因素;
-4. queue_pct 在这一轮已经决定之后,congestion = 出发点 queue_pct ÷ 100 × 2.5
+1. 每个节点有一个真实的发送缓冲,里面排着在途报文的分段(每段 256 字节),
+   缓冲上限 8192 字节;
+2. queue_pct = 缓冲里排队字节数 ÷ 8192 × 100。报文每跳到站就入队排队,
+   发出一段就出队。节点是半双工的,每一个回合(0.25 秒,也就是代码重新计算的
+   一次轮回/一个 tick)只能推进队首一个分段,所以多条流共用同一个节点时,
+   队列就会真实地排队、真实地积压;
+3. queue_pct 在这一轮已经决定之后,congestion = 出发点 queue_pct ÷ 100 × 2.5
    + 接收点 queue_pct ÷ 100 × 1.5,最后就得到这个参数。
 
 ### reliability(可靠性项)

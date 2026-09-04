@@ -3,8 +3,11 @@
 // 设计原则:
 //   1. 纯净画布: 纯 #0A0F1A 背景, 只画 溶洞边界/障碍物/节点/连线, 零装饰图案。
 //   2. 全局静息: 默认所有连线 opacity 0.15 暗绿实线, 无发光无动画 —— 若隐若现的暗网。
-//   3. Hover 激发: 悬停节点 A -> 仅 A 的直连边变 #00FFFF 高亮发光,
-//      并从 A 沿每条边播放波浪脉冲传向邻居; 移出立即恢复静息。
+//   3. Hover 激发: 悬停节点 A -> 仅 A 的直连边高亮发光 + 邻域信息
+//      (通信范围圈/超距衰减线/被挡视线)。
+//   4. 真实数据流: 数据包以匀速发光方块沿路径滑动 (本地时钟, 每跳 0.25s),
+//      有真实流量的边自动亮起; 连接接纳在发送瞬间完成;
+//      报文失败(超时/无路/重传耗尽)在出事位置显示红叉。
 //   4. 性能: 静息层缓存到离屏 canvas, 仅数据/视图变化时重绘;
 //      未 Hover 时 rAF 只做一次位图拷贝, 零动画开销。
 export class Radar2D {
@@ -14,12 +17,15 @@ export class Radar2D {
     this.onSelect = onSelect
     this.snapshot = null
     this.geology = null
-    this.time = 0
     this.selectedId = null
     this.hoverId = null
     this.hoverEdges = []           // [{na: A端, nb: 邻居端}]
-    this.pulseT = 0
     this.drag = null
+    this.sendFrom = null           // 发消息模式: 已选源节点, 等待点目标
+    this._pkSmooth = new Map()     // 报文方块平滑进度 key -> {t}
+    this.flashes = []              // 真实报文事件触发的节点闪烁圈
+    this.crosses = []              // 报文失败位置的红叉 (发不出去一眼可见)
+    this._lastEvId = -1
     this.view = { x: 0, y: 0, scale: 0.32 }
     this._seedPath = {}
     this.staticDirty = true
@@ -112,7 +118,40 @@ export class Radar2D {
     this.snapshot = snapshot
     this.staticDirty = true          // 节点/边数据 5Hz 变化 -> 静息层重绘
     this._refreshHoverEdges()
+    this._collectFlashes()           // 真实报文事件 -> 送达闪烁 / 失败红叉
     if (this.infoPanel) this._fillInfoPanel()
+  }
+
+  /* 真实报文事件: 送达 -> 青绿闪烁圈; 失败/超时 -> 红圈 + 红叉停在出事节点 */
+  _collectFlashes() {
+    const evs = this.snapshot?.events ?? []
+    if (this._lastEvId < 0 && evs.length) this._lastEvId = evs[evs.length - 1].id
+    for (const e of evs) {
+      if (e.id <= this._lastEvId) continue
+      this._lastEvId = e.id
+      if (e.type === 'msg_delivered' || e.type === 'msg_timeout'
+          || e.type === 'msg_fail' || e.type === 'msg_no_path') {
+        const n = this.snapshot?.nodes?.[e.node]
+        if (!n) continue
+        const ok = e.type === 'msg_delivered'
+        this.flashes.push({ x: n.x, z: n.z, age: 0, ok })
+        if (!ok) this.crosses.push({ x: n.x, z: n.z, age: 0 })
+      }
+    }
+  }
+
+  /* 真实报文事件 -> 节点闪烁圈 (送达=青绿, 超时/失败=红) */
+  _collectFlashes() {
+    const evs = this.snapshot?.events ?? []
+    if (this._lastEvId < 0 && evs.length) this._lastEvId = evs[evs.length - 1].id
+    for (const e of evs) {
+      if (e.id <= this._lastEvId) continue
+      this._lastEvId = e.id
+      if (e.type === 'msg_delivered' || e.type === 'msg_timeout' || e.type === 'msg_fail') {
+        const n = this.snapshot?.nodes?.[e.node]
+        if (n) this.flashes.push({ x: n.x, z: n.z, age: 0, ok: e.type === 'msg_delivered' })
+      }
+    }
   }
   _noise(i) { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s) }
 
@@ -145,6 +184,7 @@ export class Radar2D {
         e.preventDefault()
         this.client?.send({ cmd: 'remove_wall', index: this.snapshot.walls.length - 1 })
       }
+      if (e.key === 'Escape' && this.sendFrom) this._cancelSend()
     })
     cv.addEventListener('wheel', (e) => {
       e.preventDefault()
@@ -205,6 +245,19 @@ export class Radar2D {
       if (nid) this._showMenu(e.clientX, e.clientY, nid)
       return
     }
+    if (this.sendFrom) {                          // 发消息模式: 点击选择目标节点
+      const nid = this._hitNode(sx, sy)
+      if (nid && nid !== this.sendFrom
+          && this.snapshot.nodes[nid].state !== 'DEAD') {
+        this.client?.send({ cmd: 'send_msg', src: this.sendFrom, dst: nid, bytes: 2048 })
+        this._sendHint('📤 已发送 ' + this.sendFrom.replace('NODE-', 'N-')
+          + ' → ' + nid.replace('NODE-', 'N-') + ' (2KB, 观察方块沿线传输)', 2600)
+      } else {
+        this._sendHint('已取消发送', 900)
+      }
+      this._cancelSend()
+      return
+    }
     if (this.wallMode) {                          // 放墙模式
       // 先判定是否点在已有墙上 -> 撤销该堵
       const wi = this._hitWall(sx, sy)
@@ -257,9 +310,6 @@ export class Radar2D {
     const nid = this._hitNode(sx, sy)
     if (nid !== this.hoverId) {
       this.hoverId = nid
-      this.pulseT = 0
-      this._edgePh = []
-      this.hoverRipples = []
       this._refreshHoverEdges()
       if (!this.wallMode) this.canvas.style.cursor = nid ? 'pointer' : 'crosshair'
     }
@@ -365,6 +415,7 @@ export class Radar2D {
     } else {
       mk('☠ 手动破坏此节点', '#ff8a8a', () => this.client?.send({ cmd: 'set_param', node: nid, params: { state: 'DEAD' } }))
       mk('🔥 过热测试 (+80°C)', '#ffb060', () => this.client?.send({ cmd: 'set_param', node: nid, params: { temp_c: Math.min(120, n.temp_c + 80) } }))
+      mk('📤 发送消息到…', '#7fd8ff', () => this._startSendTo(nid))
     }
     this.container.appendChild(this.menu)
     // 点击菜单外任意位置收起菜单。延迟一帧注册: 弹出菜单的那次右键事件
@@ -382,6 +433,36 @@ export class Radar2D {
       document.removeEventListener('mousedown', this._menuAway)
       this._menuAway = null
     }
+  }
+
+  /* ================= 发消息模式 (右键菜单发起, 两步点击) ================= */
+  _startSendTo(nid) {
+    this.sendFrom = nid
+    this.canvas.style.cursor = 'crosshair'
+    this._sendHint('📡 源 ' + nid.replace('NODE-', 'N-')
+      + ' — 点击目标节点发送 2KB 报文 (Esc 取消)', 0)
+  }
+  _cancelSend() {
+    this.sendFrom = null
+    this.canvas.style.cursor = this.wallMode ? this.cursorWall : 'crosshair'
+    this._hideSendHint()
+  }
+  _sendHint(text, ms) {
+    this._hideSendHint()
+    const d = document.createElement('div')
+    d.textContent = text
+    d.style.cssText = 'position:absolute; z-index:38; left:50%; top:14px; transform:translateX(-50%);' +
+      'background:rgba(8,16,30,0.92); border:1px solid #1f4a6f; border-radius:4px;' +
+      'font:12px Consolas,monospace; color:#9fe8ff; padding:7px 16px; pointer-events:none;' +
+      'box-shadow:0 0 14px rgba(0,80,120,0.4); white-space:nowrap'
+    this.container.appendChild(d)
+    this._sendHintEl = d
+    if (ms > 0) this._sendHintTimer = setTimeout(() => this._hideSendHint(), ms)
+  }
+  _hideSendHint() {
+    clearTimeout(this._sendHintTimer)
+    this._sendHintEl?.remove()
+    this._sendHintEl = null
   }
 
   /* ================= 渲染主循环 ================= */
@@ -407,11 +488,177 @@ export class Radar2D {
     ctx.clearRect(0, 0, W, H)
     ctx.drawImage(this.off, 0, 0, W, H)
 
-    // Hover 层: 高亮邻边 + 波浪脉冲 (只在悬停时逐帧绘制)
-    if (this.hoverId && this.hoverEdges.length) {
-      this.time += 0.016
-      this._drawHoverGlow(ctx)
+    // 动态层: 真实报文方块/活跃边/事件闪烁/发消息标记 (每帧绘制)
+    this._drawTransport(ctx)
+    // Hover 层: 高亮邻边 + 邻域信息 (悬停时)
+    if (this.hoverId && this.hoverEdges.length) this._drawHoverGlow(ctx)
+  }
+
+  /* ---------- 动态层: 真实数据包可视化 (握手在底层, 画面只演数据) ---------- */
+  _drawTransport(ctx) {
+    const snap = this.snapshot
+    if (!snap) return
+    const now = performance.now()
+    const dt = Math.min(0.05, (now - (this._tprev ?? now)) / 1000)
+    this._tprev = now
+    ctx.save()
+    ctx.translate(this.view.x, this.view.y)
+    ctx.scale(this.view.scale, this.view.scale)
+    const lw = (px) => px / this.view.scale
+    const pk = snap.packets ?? []
+    const nodes = snap.nodes
+    const CHAN_COL = ['#00E8FF', '#FFC04D', '#B08CFF']
+
+    // 1) 有真实流量的边自动亮起 (青色霓虹, 盖过静息暗绿)
+    const seen = new Set()
+    for (const p of pk) {
+      if (p.t < 0) continue
+      seen.add(p.a < p.b ? p.a + '|' + p.b : p.b + '|' + p.a)
     }
+    if (seen.size) {
+      ctx.strokeStyle = 'rgba(0, 220, 215, 0.55)'
+      ctx.lineWidth = lw(2.2)
+      ctx.shadowColor = '#00CEC9'
+      ctx.shadowBlur = 14
+      ctx.beginPath()
+      for (const k of seen) {
+        const [a, b] = k.split('|')
+        const na = nodes[a], nb = nodes[b]
+        if (!na || !nb) continue
+        ctx.moveTo(na.x, na.z); ctx.lineTo(nb.x, nb.z)
+      }
+      ctx.stroke()
+      ctx.shadowBlur = 0
+    }
+
+    ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
+    ctx.textAlign = 'center'
+
+    // 2) 停驻分段: 节点旁小方块堆叠 (排队等发送名额, "一直没过去"的真实样子)
+    const parkedIdx = {}
+    for (const p of pk) {
+      if (p.t >= 0 || p.kind !== 'DATA') continue
+      const n = nodes[p.a]
+      if (!n) continue
+      const i = (parkedIdx[p.a] = (parkedIdx[p.a] ?? -1) + 1)
+      const col = CHAN_COL[p.chan ?? 0] ?? '#00E8FF'
+      const w = lw(4.2)
+      const ox = lw(13) + (i % 5) * lw(6.5)
+      const oy = -lw(6) + Math.floor(i / 5) * lw(6.5)
+      ctx.globalAlpha = 0.75
+      ctx.fillStyle = col
+      ctx.fillRect(n.x + ox - w / 2, n.z + oy - w / 2, w, w)
+      ctx.globalAlpha = 1
+    }
+
+    // 3) DATA 分段: 匀速直发动画 —— 纯本地时钟推进(每跳 0.25s), 零回拉零纠偏。
+    //    快照只负责: 路径形状 / 停驻等待(真实拥塞) / 生命周期 / 严重超前校正。
+    const alive = new Set()
+    for (const p of pk) {
+      if (p.kind !== 'DATA') continue
+      const key = p.msg + ':' + p.seg          // 跨跳稳定的旅程键
+      alive.add(key)
+      const path = (p.path ?? []).map(id => nodes[id]).filter(Boolean)
+      if (path.length < 2) continue
+      const total = path.length - 1
+      const speed = 1 / (total * 0.25)         // 匀速: 与引擎 tick 节奏一致
+      const truth = p.t >= 0
+        ? Math.min(1, (p.ph + p.t) / total)    // 后端真实进度(仅用于状态判定)
+        : Math.min(1, p.ph / total)            // 停驻的真实位置 = 节点上
+      let s = this._pkSmooth.get(key)
+      if (!s) { s = { t: truth }; this._pkSmooth.set(key, s) }
+      if (p.t >= 0) {
+        // 飞行: 匀速前进; 仅当超前真实进度半跳以上(重传弹回)才校正一次
+        s.t = Math.min(1, s.t + dt * speed)
+        if (s.t > truth + 0.5 / total) s.t = truth
+      } else {
+        // 停驻: 快速滑到节点原地等待 (排队可视化)
+        const gap = truth - s.t
+        if (Math.abs(gap) < 0.005) s.t = truth
+        else s.t += Math.sign(gap) * Math.min(Math.abs(gap), dt * speed * 3)
+      }
+      // 按路程比例在折线上取点 (各段按欧氏长度加权)
+      const lens = []
+      let L = 0
+      for (let i = 0; i < total; i++) {
+        const d = Math.hypot(path[i + 1].x - path[i].x, path[i + 1].z - path[i].z)
+        lens.push(d); L += d
+      }
+      let want = s.t * L, x = path[0].x, z = path[0].z
+      for (let i = 0; i < total; i++) {
+        if (want <= lens[i] || i === total - 1) {
+          const q = lens[i] > 0 ? Math.min(1, want / lens[i]) : 1
+          x = path[i].x + (path[i + 1].x - path[i].x) * q
+          z = path[i].z + (path[i + 1].z - path[i].z) * q
+          break
+        }
+        want -= lens[i]
+      }
+      const col = CHAN_COL[p.chan ?? 0] ?? '#00E8FF'
+      ctx.shadowColor = col
+      ctx.shadowBlur = 10
+      ctx.fillStyle = col
+      const w = lw(6.5)
+      ctx.beginPath()
+      if (ctx.roundRect) ctx.roundRect(x - w / 2, z - w / 2, w, w, lw(1.5))
+      else ctx.rect(x - w / 2, z - w / 2, w, w)
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.fillStyle = 'rgba(220,245,255,0.9)'
+      ctx.fillText('DATA ' + (p.seg + 1), x, z - lw(10))
+    }
+    for (const k of this._pkSmooth.keys()) if (!alive.has(k)) this._pkSmooth.delete(k)
+
+    // 4) 在途报文的源/目的节点标记环
+    for (const tr of snap.traffic ?? []) {
+      const dst = tr.path?.[tr.path.length - 1]
+      const s1 = nodes[tr.src], s2 = nodes[dst]
+      if (s1) this._ring(ctx, s1.x, s1.z, lw(12), 'rgba(0,232,255,0.8)', lw(1.4))
+      if (s2 && dst !== tr.src) this._ring(ctx, s2.x, s2.z, lw(14), 'rgba(255,255,255,0.7)', lw(1.4))
+    }
+
+    // 5) 发消息模式: 源节点常亮大环
+    if (this.sendFrom) {
+      const s1 = nodes[this.sendFrom]
+      if (s1) this._ring(ctx, s1.x, s1.z, lw(16), '#00E8FF', lw(2))
+    }
+
+    // 6) 事件闪烁圈: 送达=青绿扩散 / 失败=红
+    for (let i = this.flashes.length - 1; i >= 0; i--) {
+      const f = this.flashes[i]
+      f.age += dt
+      if (f.age > 0.7) { this.flashes.splice(i, 1); continue }
+      const t = f.age / 0.7
+      ctx.strokeStyle = (f.ok ? 'rgba(53,255,158,' : 'rgba(255,90,80,')
+        + ((1 - t) * 0.9).toFixed(3) + ')'
+      ctx.lineWidth = lw(2.4 * (1 - t) + 0.4)
+      ctx.beginPath(); ctx.arc(f.x, f.z, lw(6) + t * lw(40), 0, Math.PI * 2); ctx.stroke()
+    }
+
+    // 7) 失败红叉: 报文死在哪 (超时/无路/重传耗尽/握手失败), 红叉停 2s 淡出
+    for (let i = this.crosses.length - 1; i >= 0; i--) {
+      const c = this.crosses[i]
+      c.age += dt
+      if (c.age > 2) { this.crosses.splice(i, 1); continue }
+      const a = c.age < 1.6 ? 1 : (2 - c.age) / 0.4
+      const s = lw(9)
+      ctx.strokeStyle = 'rgba(255, 80, 64, ' + (a * 0.95).toFixed(3) + ')'
+      ctx.lineWidth = lw(2.8)
+      ctx.shadowColor = '#FF4030'
+      ctx.shadowBlur = 12
+      ctx.beginPath()
+      ctx.moveTo(c.x - s, c.z - s); ctx.lineTo(c.x + s, c.z + s)
+      ctx.moveTo(c.x + s, c.z - s); ctx.lineTo(c.x - s, c.z + s)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      ctx.fillStyle = 'rgba(255, 150, 140, ' + (a * 0.9).toFixed(3) + ')'
+      ctx.fillText('✗ 报文失败', c.x, c.z + lw(20))
+    }
+    ctx.restore()
+  }
+  _ring(ctx, x, z, r, col, w) {
+    ctx.strokeStyle = col; ctx.lineWidth = w
+    ctx.beginPath(); ctx.arc(x, z, r, 0, Math.PI * 2); ctx.stroke()
   }
 
   /* ---------- 静息层 (离屏) ---------- */
@@ -524,7 +771,7 @@ export class Radar2D {
     ctx.beginPath(); ctx.arc(A.x, A.z, R_COMM, 0, Math.PI * 2); ctx.stroke()
     ctx.setLineDash([])
 
-    // 高亮邻边: 半透明底线 + 霓虹光晕 (光纤通道质感, 高光留给流光)
+    // 高亮邻边: 半透明底线 + 霓虹光晕 (真实报文方块由动态层负责)
     ctx.strokeStyle = 'rgba(0, 206, 201, 0.4)'
     ctx.lineWidth = lw(2)
     ctx.shadowColor = '#00CEC9'
@@ -535,62 +782,6 @@ export class Radar2D {
     }
     ctx.stroke()
     ctx.shadowBlur = 0
-
-    // ---- 彗星流光 (Data Stream): 渐变流星尾迹替代圆点 ----
-    // 速度: 约 2.6 秒走完一条边 (原 1.35/s 放慢 3.5 倍, 用户可看清)
-    this.pulseT += 0.016 * 0.38
-    const t = this.pulseT % 1
-    if (!this._edgePh) this._edgePh = []
-    ctx.shadowColor = '#00FFFF'
-    ctx.shadowBlur = 12
-    ctx.lineCap = 'round'
-    this.hoverEdges.forEach((e, i) => {
-      const ph = (t + i * 0.09) % 1
-      const ease = ph * ph * (3 - 2 * ph)          // smoothstep 起步快末端缓
-      // 当前头部坐标 (na=悬停节点端 -> nb=邻居端)
-      const hx = e.na.x + (e.nb.x - e.na.x) * ease
-      const hz = e.na.z + (e.nb.z - e.na.z) * ease
-      // 运动方向角: atan2(dz, dx), 拖尾沿反方向拉出
-      const ang = Math.atan2(e.nb.z - e.na.z, e.nb.x - e.na.x)
-      const TAIL = lw(42)                          // 42px 流星尾迹长
-      const tx = hx - Math.cos(ang) * TAIL
-      const tz = hz - Math.sin(ang) * TAIL
-      // 宽度阶梯衰减: 从发射点出发最粗, 每走 1/4 路程降一档 (能量分段耗散),
-      // 视觉上呈现"信号发出时很强, 越传越弱"
-      const step = Math.min(3, Math.floor(ease * 4))          // 0..3 四档
-      const wNow = lw(3.8 * (1 - step * 0.24) + 0.55)         // 3.8 -> 2.9 -> 2.0 -> 1.1px
-      // 渐变: 尾部完全透明 -> 青色 -> 头部高亮 (头部亮度随档位微降)
-      const headA = (1 - step * 0.18).toFixed(3)
-      const grad = ctx.createLinearGradient(tx, tz, hx, hz)
-      grad.addColorStop(0, 'rgba(0,255,255,0)')
-      grad.addColorStop(0.7, 'rgba(0,255,255,' + (0.85 - step * 0.12).toFixed(3) + ')')
-      grad.addColorStop(1, 'rgba(255,255,255,' + headA + ')')
-      ctx.strokeStyle = grad
-      ctx.lineWidth = wNow
-      ctx.beginPath(); ctx.moveTo(tx, tz); ctx.lineTo(hx, hz); ctx.stroke()
-      // 到达检测: 进度回绕 = 流光抵达邻居 -> 触发涟漪
-      const prev = this._edgePh[i]
-      if (prev !== undefined && ph < prev) {
-        if (!this.hoverRipples) this.hoverRipples = []
-        this.hoverRipples.push({ x: e.nb.x, z: e.nb.z, age: 0 })
-      }
-      this._edgePh[i] = ph
-    })
-    ctx.shadowBlur = 0
-
-    // ---- 到达涟漪: 空心圆快速扩散 + 透明度衰减 (数据送达打击感) ----
-    if (this.hoverRipples?.length) {
-      const dt = 0.016
-      for (let k = this.hoverRipples.length - 1; k >= 0; k--) {
-        const rp = this.hoverRipples[k]
-        rp.age += dt
-        if (rp.age > 0.45) { this.hoverRipples.splice(k, 1); continue }
-        const p = rp.age / 0.45
-        ctx.strokeStyle = 'rgba(0,255,255,' + ((1 - p) * 0.85).toFixed(3) + ')'
-        ctx.lineWidth = lw(2 * (1 - p) + 0.4)
-        ctx.beginPath(); ctx.arc(rp.x, rp.z, lw(5) + p * lw(34), 0, Math.PI * 2); ctx.stroke()
-      }
-    }
 
     // 超距邻居: 锥形衰减线 —— 模拟"信号从悬停节点出发, 传到一半因距离过远而衰竭"
     // 画法: 分 8 段, 宽度与透明度同步递减 (起点粗亮 -> 终点细到消失)
@@ -737,6 +928,6 @@ export class Radar2D {
     if (id) this._showInfoPanel(id)
   }
   dispose() {
-    this.canvas.remove(); this._hideInfoPanel(); this._hideMenu()
+    this.canvas.remove(); this._hideInfoPanel(); this._hideMenu(); this._hideSendHint()
   }
 }

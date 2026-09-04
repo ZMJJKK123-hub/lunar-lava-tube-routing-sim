@@ -98,6 +98,10 @@ class SimulationEngine:
         self.heal_started_tick = 0
         self._pre_collapse_routes: dict = {}
 
+        # 传输层: 真实报文 store-and-forward (握手/重传/超时/字节计数)
+        from .transport import TransportLayer
+        self.transport = TransportLayer(self)
+
         # 地质生成 (失败自动换种子重试, 保证覆盖率)
         for attempt in range(8):
             self._seed = SEED + attempt * 1000
@@ -107,6 +111,9 @@ class SimulationEngine:
             self.compute_network(quiet=True)
             if self._coverage() >= 96.0:
                 break
+        # 区块链网络: 全节点世界状态同步 (须在节点生成之后挂载)
+        from .blockchain import BlockchainNetwork
+        self.chain_net = BlockchainNetwork(self)
 
     # ==================================================================
     # 地质: 腔室 / 隧道 / 巨柱 / 散布节点
@@ -390,44 +397,25 @@ class SimulationEngine:
             n.neighbors = sum(1 for (a, b), l in links.items()
                               if n.id in (a, b) and l["up"])
             n.hop_count = self.routes.get(n.id, {}).get("hop_count", -1)
+        # 队列真化: 积压率直接来自传输层各节点缓冲中的真实字节数
         for n in self.nodes.values():
-            on_path = any(n.id in key for key in usage)
-            if on_path:
-                bad_link = any(
-                    n.id in (a, b) and (l["snr_db"] < 10 or not l["up"])
-                    for (a, b), l in links.items())
-                n.queue_pct = min(100.0, n.queue_pct + (8.0 if bad_link else 1.5))
-                if n.queue_pct > 85 and not quiet and random.random() < 0.3:
-                    self._emit("congestion", "warn",
-                               f"⚠ {n.id} 队列积压 {n.queue_pct:.0f}% (吞吐瓶颈)",
-                               narration=f"⚠️ {self._zh(n.id)} 的数据包排队越来越长(积压 "
-                                         f"{n.queue_pct:.0f}%),算法正在考虑分流。", node=n.id)
+            n.queue_pct = self.transport.queue_pct(n.id)
+            if n.queue_pct > 85 and not quiet and random.random() < 0.3:
+                self._emit("congestion", "warn",
+                           f"⚠ {n.id} 队列积压 {n.queue_pct:.0f}% "
+                           f"({self.transport.node_bytes(n.id)}B 待发)",
+                           narration=f"⚠️ {self._zh(n.id)} 的数据包排队越来越长(积压 "
+                                     f"{n.queue_pct:.0f}%),算法正在考虑分流。", node=n.id)
             if n.state not in ("DEAD", "SEU_RESET"):
                 n.state = "DEGRADED" if (n.queue_pct > 70 or n.snr_db < 8) else "ACTIVE"
 
-        # 活跃呼叫接纳: 传感器以占空比轮流发起呼叫 (模拟 RCSPA 的"新呼叫接纳"),
-        # 静默周期内的节点不在任何路径上 -> PAMAS 判定其休眠省电
-        sensors = [nid for nid, n in self.nodes.items()
-                   if n.role == "sensor" and n.state != "DEAD"
-                   and self.routes.get(nid, {}).get("hop_count", -1) > 0]
-        if self.tick % 6 == 0 or not getattr(self, "_active_calls", None):
-            random.shuffle(sensors)
-            self._active_calls = set(sensors[:max(4, len(sensors) // 2)])
-        else:  # 剔除失联/死亡
-            self._active_calls &= set(sensors)
-        self.traffic = [
-            {"src": nid, "path": self.routes[nid]["path"]}
-            for nid in sorted(self._active_calls)
-        ]
+        # 活跃流量 = 传输层在途报文 (真实路径与字节)
+        self.traffic = self.transport.active_traffic()
 
         # ---- PAMAS 独立关机判定: 激活路径外的节点若邻居正在收发 -> 休眠省电 ----
-        active_nodes = {self.sink_id}
-        active_edges = set()
-        for tr in self.traffic:
-            path = tr.get("path") or []
-            for k in range(len(path) - 1):
-                active_edges.add(tuple(sorted((path[k], path[k + 1]))))
-            active_nodes.update(path)
+        # 活跃集 = 传输层缓冲里真正有报文要收发的节点
+        active_nodes, active_edges = self.transport.active_nodes_edges()
+        active_nodes.add(self.sink_id)
         if self.robot and self.robot.get("route"):
             rp = self.robot["route"].get("path") or []
             active_nodes.update(rp)
@@ -621,6 +609,11 @@ class SimulationEngine:
     # ==================================================================
     # 上帝模式 / 灾害
     # ==================================================================
+    def send_user_message(self, src: str, dst: str, nbytes: int = 1024):
+        """对外: 任意两节点间发送真实报文 (WS send_msg 指令入口)
+        返回受理结果; 最终送达/超时信号走 events 与 transport.results"""
+        return self.transport.send_message(src, dst, int(nbytes), kind="user")
+
     def apply_override(self, node_id: str, params: dict):
         node = self.nodes.get(node_id)
         if node is None:
@@ -792,6 +785,7 @@ class SimulationEngine:
                     "snr_db": l["snr_db"], "up": l["up"],
                     "margin_db": l["margin_db"], "ber": l["ber"],
                     "cost": l["cost_ab"], "band": l["band"], "load": l["load"],
+                    "tr": self.transport.link_summary((a, b)),
                 }
                 for (a, b), l in self.links.items()
                 if physics.distance(self.nodes[a], self.nodes[b]) < 70 * physics.WORLD_SCALE
@@ -807,6 +801,9 @@ class SimulationEngine:
                 "u": self.robot["u"], "v": self.robot["v"], "t": round(self.robot["t"], 3),
                 "route": self.robot.get("route"),
             } if self.robot else None),
+            "transport": self.transport.summary(),
+            "packets": self.transport.active_packets(),
+            "chain": self.chain_net.export_info(),
             "stats": {
                 "alive": len(alive), "total": len(self.nodes),
                 "reachable": sum(1 for r in self.routes.values() if r.get("hop_count", -1) >= 0),
@@ -832,6 +829,8 @@ class SimulationEngine:
                     for n in self.nodes.values():
                         n.step(dt_hours=0.004)
                     self.compute_network()
+                    self.transport.step()   # 报文逐跳推进 (握手/重传/超时)
+                    self.chain_net.step(self.tick)  # 区块链泛洪/出块/追块
                 except Exception as e:      # 单 tick 异常不杀死引擎
                     import traceback
                     print("[engine] tick error (ignored):", repr(e))

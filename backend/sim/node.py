@@ -126,8 +126,8 @@ class Node:
         if self.state == "SEU_RESET" and random.random() < 0.5:
             self.state = "ACTIVE"
 
-        # 队列自然消散 (正常转发) / 温度向环境基准回归的微扰
-        self.queue_pct = max(0.0, self.queue_pct - 6.0)
+        # 队列由传输层真实维护 (compute_network 每帧按缓冲字节数回填)
+        # 温度向环境基准回归的微扰
         self.temp_c += random.uniform(-0.15, 0.15)
 
     def to_dict(self) -> dict:

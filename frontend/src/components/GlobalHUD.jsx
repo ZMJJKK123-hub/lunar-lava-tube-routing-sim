@@ -1,5 +1,5 @@
 // 全局 HUD: 网络统计 + 网络模式 + 灾害注入 + 放墙模式 + 帮助
-export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode, onToggleWall, onHelp, logOpen, onToggleLog }) {
+export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain }) {
   const box = (label, v, color = '#cfe9ff') => (
     <div style={{ marginRight: 16 }}>
       <span style={{ color: '#5d7ea3' }}>{label} </span>
@@ -53,6 +53,14 @@ export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode
             color: wallMode ? '#ffd76e' : '#9fb8d0',
             border: wallMode ? '1px solid #8a6a1e' : '1px solid #1d3a5f', borderRadius: 4,
           }}>🧱 放墙模式{wallMode ? ' ●' : ''}</button>
+        <button id="guide-chain-btn" onClick={onToggleChain}
+          title="区块链账本侧边栏: 每个节点存储的全网状态、链高度与同步进度 (画墙分区可见分叉, 拆墙后自动愈合)"
+          style={{
+            padding: '5px 10px', cursor: 'pointer', fontSize: 12,
+            background: chainOpen ? '#0e2a4a' : '#12203a',
+            color: chainOpen ? '#7fd8ff' : '#9fb8d0',
+            border: chainOpen ? '1px solid #1d5a8a' : '1px solid #1d3a5f', borderRadius: 4,
+          }}>⛓ 账本{chainOpen ? ' ●' : ''}</button>
         {disasters.map(([k, label, tip]) => (
           <button key={k} onClick={() => onDisaster(k)} title={tip}
             style={{
