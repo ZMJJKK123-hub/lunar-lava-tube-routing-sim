@@ -1,5 +1,5 @@
 // 全局 HUD: 网络统计 + 网络模式 + 灾害注入 + 放墙模式 + 帮助
-export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, onReset }) {
+export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, resetArmed, onArmReset }) {
   const box = (label, v, color = '#cfe9ff') => (
     <div style={{ marginRight: 16 }}>
       <span style={{ color: '#5d7ea3' }}>{label} </span>

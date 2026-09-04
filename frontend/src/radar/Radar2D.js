@@ -145,7 +145,7 @@ export class Radar2D {
     if (this.snapshot && snapshot.tick < this.snapshot.tick - 100) {
       this._pkSmooth.clear?.() ?? (this._pkSmooth = new Map())
       this._busPool = []; this._busTick = -1
-      this._rbStep = null; this._rbLast = null; this._pilot = null
+      this._rbQ = null; this._rbStep = null; this._rbLast = null; this._pilot = null
       this.flashes = []; this.crosses = []; this._lastEvId = -1
     }
     this.snapshot = snapshot
@@ -1112,18 +1112,28 @@ export class Radar2D {
           ctx.beginPath(); ctx.arc(tx, tz, lw(1.7), 0, Math.PI * 2); ctx.fill()
         }
       }
-      // 最简步进播放: 后端每 tick 走一步, 前端用 0.25s 把这步平滑播完。
-      // 路径 = 后端真实轨迹 (无障直线 / 有障贴障), 前端零自主、零预测
+      // 步进队列 + 单调 250ms 播放时钟 (jitter buffer):
+      // 位置到达间隔因 tick(250ms)与快照(200ms)差拍而在 200/400ms 交替,
+      // 固定时长播放会被截断(微跳)或空窗(停顿) —— 即"流畅一段卡一段"。
+      // 严格每 0.25s 播一步, 队列吸收到达抖动, 速率 ±15% 微调维持 ~1.5 步水位
       const nowMs = performance.now()
-      if (!this._rbStep) this._rbStep = { x0: rb.x, z0: rb.z, x1: rb.x, z1: rb.z, t0: nowMs }
-      const st = this._rbStep
-      if (rb.x !== st.x1 || rb.z !== st.z1) {         // 新一步: 从旧位置播到新位置
-        st.x0 = st.x1; st.z0 = st.z1
-        st.x1 = rb.x; st.z1 = rb.z; st.t0 = nowMs
+      if (!this._rbQ) this._rbQ = { pts: [{ x: rb.x, z: rb.z }], lx: rb.x, lz: rb.z,
+                                    clock: 0, last: nowMs }
+      const Q = this._rbQ
+      if (rb.x !== Q.lx || rb.z !== Q.lz) {           // 新位置入队 (去重)
+        Q.lx = rb.x; Q.lz = rb.z
+        Q.pts.push({ x: rb.x, z: rb.z })
+        if (Q.pts.length > 6) Q.pts.shift()           // 保险丝
       }
-      const f = Math.min(1, (nowMs - st.t0) / 250)
-      const x = st.x0 + (st.x1 - st.x0) * f
-      const z = st.z0 + (st.z1 - st.z0) * f
+      const dtMs = nowMs - Q.last; Q.last = nowMs
+      const water = Q.pts.length - 1                  // 待播步数
+      const spd = 250 * (1 + 0.15 * Math.max(-1, Math.min(1, 1.5 - water)))
+      Q.clock += dtMs
+      while (Q.clock >= spd && Q.pts.length > 1) { Q.pts.shift(); Q.clock -= spd }
+      if (Q.pts.length < 2) Q.clock = Math.min(Q.clock, spd)   // 停驻: 时钟封顶防跳
+      const f = Q.pts.length >= 2 ? Math.min(1, Q.clock / spd) : 1
+      const x = Q.pts[0].x + (Q.pts[1].x - Q.pts[0].x) * f
+      const z = Q.pts[0].z + (Q.pts[1].z - Q.pts[0].z) * f
 
       // 通信覆盖圈 (300 世界米)
       ctx.setLineDash([lw(10), lw(8)])
