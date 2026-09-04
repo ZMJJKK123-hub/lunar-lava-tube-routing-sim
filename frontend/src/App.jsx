@@ -22,6 +22,8 @@ export default function App() {
   const [logOpen, setLogOpen] = useState(true)
   const [chainOpen, setChainOpen] = useState(true)
   const [chainFlow, setChainFlow] = useState(true)
+  const [resetArmed, setResetArmed] = useState(false)
+  const resetTimer = useRef(null)
 
   useEffect(() => {
     const radar = new Radar2D(mountRef.current, {
@@ -68,7 +70,17 @@ export default function App() {
         chainOpen={chainOpen}
         onToggleChain={() => setChainOpen(!chainOpen)}
         chainFlow={chainFlow}
-        onReset={() => clientRef.current?.send({ cmd: 'reset' })}
+        resetArmed={resetArmed}
+        onArmReset={() => {
+          if (resetArmed) {
+            setResetArmed(false); clearTimeout(resetTimer.current)
+            clientRef.current?.send({ cmd: 'reset' })
+          } else {
+            setResetArmed(true)
+            clearTimeout(resetTimer.current)
+            resetTimer.current = setTimeout(() => setResetArmed(false), 3000)
+          }
+        }}
         onToggleChainFlow={() => { const v = !chainFlow; setChainFlow(v); radarRef.current?.setLayer('chain', v) }}
       />
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}

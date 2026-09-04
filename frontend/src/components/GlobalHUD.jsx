@@ -76,12 +76,13 @@ export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode
               background: '#20101a', color: '#ffb8c8', border: '1px solid #5c2030', borderRadius: 4,
             }}>{label}</button>
         ))}
-        <button onClick={() => { if (window.confirm('确定重置? 整个世界将回到初始状态(灾害/画墙/道钉全部清除)')) onReset() }}
-          title="以初始种子重建整个世界: 节点电量/位置/区块链/机器人/巨石/墙体全部复原"
+        <button onClick={onArmReset}
+          title="以初始种子重建整个世界: 节点电量/位置/区块链/机器人/巨石/墙体全部复原 (点两次确认)"
           style={{
             padding: '5px 10px', cursor: 'pointer', fontSize: 12,
-            background: '#20101a', color: '#ffb8c8', border: '1px solid #5c2030', borderRadius: 4,
-          }}>↺ 重置</button>
+            background: resetArmed ? '#5c1420' : '#20101a',
+            color: '#ffb8c8', border: '1px solid #7a2030', borderRadius: 4,
+          }}>{resetArmed ? '!! 再点确认' : '↺ 重置'}</button>
         <button id="guide-help" onClick={onHelp} title="灾害按钮/巨石/堵路机制 说明"
           style={{
             padding: '5px 10px', cursor: 'pointer', fontSize: 12,

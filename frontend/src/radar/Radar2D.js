@@ -141,6 +141,13 @@ export class Radar2D {
     this.staticDirty = true
   }
   update(snapshot) {
+    // 世界重置检测: tick 骤降(上帝重置) -> 清空全部动画缓存, 杜绝跨世界残影
+    if (this.snapshot && snapshot.tick < this.snapshot.tick - 100) {
+      this._pkSmooth.clear?.() ?? (this._pkSmooth = new Map())
+      this._busPool = []; this._busTick = -1
+      this._rbStep = null; this._rbLast = null; this._pilot = null
+      this.flashes = []; this.crosses = []; this._lastEvId = -1
+    }
     this.snapshot = snapshot
     this._snapPerf = performance.now()
     this.staticDirty = true          // 节点/边数据 5Hz 变化 -> 静息层重绘
