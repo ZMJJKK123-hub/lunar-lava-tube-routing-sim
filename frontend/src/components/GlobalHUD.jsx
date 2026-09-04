@@ -1,5 +1,5 @@
 // 全局 HUD: 网络统计 + 网络模式 + 灾害注入 + 放墙模式 + 帮助
-export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain }) {
+export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow }) {
   const box = (label, v, color = '#cfe9ff') => (
     <div style={{ marginRight: 16 }}>
       <span style={{ color: '#5d7ea3' }}>{label} </span>
@@ -53,6 +53,14 @@ export default function GlobalHUD({ stats, mode, connected, onDisaster, wallMode
             color: wallMode ? '#ffd76e' : '#9fb8d0',
             border: wallMode ? '1px solid #8a6a1e' : '1px solid #1d3a5f', borderRadius: 4,
           }}>🧱 放墙模式{wallMode ? ' ●' : ''}</button>
+        <button id="guide-chain-flow" onClick={onToggleChainFlow}
+          title="链上报文流量可视化: 金点=遥测交易, 青白大点=新块广播, 紫点=追块请求/响应 (画墙拆墙时可见同步风暴)"
+          style={{
+            padding: '5px 10px', cursor: 'pointer', fontSize: 12,
+            background: chainFlow ? '#2a1a4a' : '#12203a',
+            color: chainFlow ? '#c9b0ff' : '#9fb8d0',
+            border: chainFlow ? '1px solid #5a3a9a' : '1px solid #1d3a5f', borderRadius: 4,
+          }}>⛓ 链流量{chainFlow ? ' ●' : ''}</button>
         <button id="guide-chain-btn" onClick={onToggleChain}
           title="区块链账本侧边栏: 每个节点存储的全网状态、链高度与同步进度 (画墙分区可见分叉, 拆墙后自动愈合)"
           style={{

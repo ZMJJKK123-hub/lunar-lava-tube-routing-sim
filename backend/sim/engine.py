@@ -22,6 +22,11 @@ TICK_PHYS_S = 0.25
 TICK_BROADCAST_S = 0.2
 HEALING_HOLD_TICKS = 4
 
+# ---- 渲染总线: 任意层在收发点调 vis_packet() 上报, 前端自动绘制 ----
+VIS_MAX = 260                 # 单 tick 快照最多下发的包跳数 (防爆量)
+VIS_PRIORITY = ("BLOCK", "SYNC_RESP", "SYNC_REQ", "TX")   # 截断时保留优先级
+VIS_RESERVE = 40              # 为未登记类型保留的名额 (零注册兜底, 风暴时也不被挤光)
+
 SEED = 42
 UWB_RANGE = 30.0
 
@@ -47,11 +52,13 @@ def _cross(ox, oz, ax, az, bx, bz):
 
 
 def _seg2d_intersect(p1, p2, w1, w2) -> bool:
-    """2D 线段相交判定 (叉积法): 节点连线 vs 墙体"""
-    d1 = _cross(w1[0], w1[1], p2[0], p2[1], p1[0], p1[1])
-    d2 = _cross(w1[0], w1[1], w2[0], w2[1], p1[0], p1[1])
-    d3 = _cross(p1[0], p1[1], w2[0], w2[1], w1[0], w1[1])
-    d4 = _cross(p1[0], p1[1], p2[0], p2[1], w1[0], w1[1])
+    """2D 线段相交判定 (严格叉积法): 节点连线 vs 墙体
+    d1/d2: 墙两端点分别在连线 p1->p2 两侧; d3/d4: 线两端点分别在墙 w1->w2 两侧;
+    双侧同时成立 = 真穿越。端点恰触墙 (d=0) 或共线不算相交 (严格判定)。"""
+    d1 = _cross(p1[0], p1[1], p2[0], p2[1], w1[0], w1[1])
+    d2 = _cross(p1[0], p1[1], p2[0], p2[1], w2[0], w2[1])
+    d3 = _cross(w1[0], w1[1], w2[0], w2[1], p1[0], p1[1])
+    d4 = _cross(w1[0], w1[1], w2[0], w2[1], p2[0], p2[1])
     return ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0))
 
 
@@ -101,6 +108,9 @@ class SimulationEngine:
         # 传输层: 真实报文 store-and-forward (握手/重传/超时/字节计数)
         from .transport import TransportLayer
         self.transport = TransportLayer(self)
+        # 渲染总线: 收发点调 vis_packet() 即自动上屏, 新报文类型零注册
+        self.packets_vis: list[dict] = []
+        self._vis_at = 0.0
 
         # 地质生成 (失败自动换种子重试, 保证覆盖率)
         for attempt in range(8):
@@ -475,6 +485,10 @@ class SimulationEngine:
                 elif any(_seg_blocked_by_sphere(pa, pb, (s[0], s[1], s[2]), s[3])
                          for s in self.pillar_spheres):
                     cause = "巨柱遮挡"
+                elif any(_seg2d_intersect((pa[0], pa[2]), (pb[0], pb[2]),
+                                          (w["x1"], w["z1"]), (w["x2"], w["z2"]))
+                         for w in self.walls):
+                    cause = "墙体遮挡"
                 elif not self._seg_in_tube(pa, pb):
                     cause = "岩壁阻隔"
                 else:
@@ -775,6 +789,29 @@ class SimulationEngine:
         self.compute_network()
 
     # ==================================================================
+    def vis_packet(self, a: str, b: str, kind: str, relayed: bool = True):
+        """渲染总线固定注册函数: 一个报文从 a 飞到 b 的单跳。
+        任何层在任何收发点调用它即可上屏; 前端按 kind 自动配色绘制
+        (样式表只是美化覆盖, 未登记的类型按名称哈希取色) —— 零注册。
+        (列表每 tick 清空, 控量靠 _vis_export 截断; 此处仅留病态保险丝)"""
+        if len(self.packets_vis) >= 5000:       # 保险丝: 正常 tick 量级 <1k
+            return
+        self.packets_vis.append({"a": a, "b": b, "kind": kind, "r": relayed})
+
+    def _vis_export(self) -> list:
+        """总线快照导出: 标注 tick 内进度 t (0..1), 按类型优先级截断;
+        未登记类型走保留名额, 保证零注册上报在风暴中也不丢。"""
+        if not self.packets_vis:
+            return []
+        frac = (min(1.0, max(0.0, (time.monotonic() - self._vis_at) / TICK_PHYS_S))
+                if self._vis_at else 0.0)
+        order = {k: i for i, k in enumerate(VIS_PRIORITY)}
+        known = sorted((p for p in self.packets_vis if p["kind"] in order),
+                       key=lambda p: order[p["kind"]])
+        others = [p for p in self.packets_vis if p["kind"] not in order]
+        items = known[:VIS_MAX - VIS_RESERVE] + others[:VIS_RESERVE]
+        return [{**p, "t": round(frac, 3)} for p in items]
+
     def snapshot(self) -> dict:
         alive = [n for n in self.nodes.values() if n.state != "DEAD"]
         avg_snr = (sum(n.snr_db for n in alive) / len(alive)) if alive else 0
@@ -811,7 +848,7 @@ class SimulationEngine:
                 "route": self.robot.get("route"),
             } if self.robot else None),
             "transport": self.transport.summary(),
-            "packets": self.transport.active_packets(),
+            "packets": self.transport.active_packets() + self._vis_export(),
             "chain": self.chain_net.export_info(),
             "stats": {
                 "alive": len(alive), "total": len(self.nodes),
@@ -834,6 +871,8 @@ class SimulationEngine:
             now = time.monotonic()
             if now >= next_phys:
                 self.tick += 1
+                self.packets_vis.clear()        # 渲染总线: 每 tick 重建
+                self._vis_at = time.monotonic()
                 try:
                     for n in self.nodes.values():
                         n.step(dt_hours=0.004)

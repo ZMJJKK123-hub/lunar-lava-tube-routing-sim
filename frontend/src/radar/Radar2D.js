@@ -8,8 +8,25 @@
 //   4. 真实数据流: 数据包以匀速发光方块沿路径滑动 (本地时钟, 每跳 0.25s),
 //      有真实流量的边自动亮起; 连接接纳在发送瞬间完成;
 //      报文失败(超时/无路/重传耗尽)在出事位置显示红叉。
-//   4. 性能: 静息层缓存到离屏 canvas, 仅数据/视图变化时重绘;
+//   5. 渲染总线: 后端任意层上报的报文跳 (kind 区分) 由通用绘制器自动上屏;
+//      样式表只是美化覆盖, 未知 kind 按名称哈希自动配色 —— 新类型零注册。
+//   6. 性能: 静息层缓存到离屏 canvas, 仅数据/视图变化时重绘;
 //      未 Hover 时 rAF 只做一次位图拷贝, 零动画开销。
+
+// 样式表 (可选覆盖): 链上四种泛洪报文的视觉语言, 与 DATA 方块严格区分
+// (稳态 SYNC 流量每 tick 上百跳, 紫系一律小而暗 —— BLOCK 才是主角)
+const KIND_STYLE = {
+  BLOCK:     { color: '#A5F4FF', size: 5.5, glow: 18 },              // 出块波: 亮青白大光点
+  SYNC_RESP: { color: '#B08CFF', size: 2.6, glow: 7, stream: 3 },    // 批量追块: 暗紫串点
+  SYNC_REQ:  { color: '#8E7CFF', size: 2.0, glow: 5 },               // 追块请求: 暗紫微点
+  TX:        { color: '#E8C06E', size: 2.0, glow: 5 },               // 遥测交易: 暗金微点
+}
+// 零注册兜底: 未知 kind 按名称哈希取色 —— 后端新报文类型自动上屏
+function autoKindStyle(kind) {
+  let h = 0
+  for (let i = 0; i < kind.length; i++) h = (h * 31 + kind.charCodeAt(i)) >>> 0
+  return { color: `hsl(${h % 360} 85% 72%)`, size: 3.2, glow: 9 }
+}
 export class Radar2D {
   constructor(container, { client, onSelect }) {
     this.container = container
@@ -41,6 +58,9 @@ export class Radar2D {
 
     this.infoPanel = null          // 点击节点的极客数据面板
     this.wallMode = false          // 放墙模式: 关闭时左键=平移画面, 开启时左键拖=画墙
+    this.showChain = true          // 渲染总线: 链上报文跳 (TX/BLOCK/SYNC_*) 显示开关
+    this.showData = true           // 传输层 DATA 方块显示开关
+    this._snapPerf = 0             // 最近一次快照到达的本地时刻 (总线点本地续走用)
     // 放墙模式光标: 砖墙图标; 悬停到已放置的墙上 -> 红叉(点击即删除)
     this.cursorWall = this._svgCursor(
       "<rect x='2' y='5' width='22' height='7' fill='#9fb2c8' stroke='#1a2230' stroke-width='1.4'/>" +
@@ -117,6 +137,7 @@ export class Radar2D {
   }
   update(snapshot) {
     this.snapshot = snapshot
+    this._snapPerf = performance.now()
     this.staticDirty = true          // 节点/边数据 5Hz 变化 -> 静息层重绘
     this._refreshHoverEdges()
     this._collectFlashes()           // 真实报文事件 -> 送达闪烁 / 失败红叉
@@ -489,10 +510,60 @@ export class Radar2D {
     ctx.clearRect(0, 0, W, H)
     ctx.drawImage(this.off, 0, 0, W, H)
 
-    // 动态层: 真实报文方块/活跃边/事件闪烁/发消息标记 (每帧绘制)
-    this._drawTransport(ctx)
+    // 动态层: 渲染总线报文点 (链上泛洪等) + DATA 方块/活跃边/事件闪烁
+    this._drawBusDots(ctx)
+    if (this.showData) this._drawTransport(ctx)
     // Hover 层: 高亮邻边 + 邻域信息 (悬停时)
     if (this.hoverId && this.hoverEdges.length) this._drawHoverGlow(ctx)
+  }
+
+  /* ---------- 通用渲染总线绘制器: 非 DATA 报文跳一律自动上屏 ----------
+     样式表可选覆盖, 未知 kind 按名称哈希自动配色 (零注册);
+     r=false 的跳半透明 (接收方已去重吸收, 波前止步);
+     t 为后端快照时刻的进度, 此后用本地时钟续走, 消除 0.2s 快照间隔的顿挫 */
+  _drawBusDots(ctx) {
+    const snap = this.snapshot
+    if (!snap || !this.showChain) return
+    const nodes = snap.nodes
+    let pk = (snap.packets ?? []).filter((p) => p.kind && p.kind !== 'DATA')
+    if (!pk.length) return
+    // 显示采样: BLOCK 全保留, 其余超过 ~160 时等距抽样 (保风暴氛围, 不铺满屏)
+    const blocks = pk.filter((p) => p.kind === 'BLOCK')
+    const rest = pk.filter((p) => p.kind !== 'BLOCK')
+    if (rest.length > 160) {
+      const step = rest.length / 160, sampled = []
+      for (let i = 0; i < rest.length; i += step) sampled.push(rest[Math.floor(i)])
+      pk = blocks.concat(sampled)
+    }
+    const extra = (performance.now() - (this._snapPerf || performance.now())) / 250
+    ctx.save()
+    ctx.translate(this.view.x, this.view.y)
+    ctx.scale(this.view.scale, this.view.scale)
+    const lw = (px) => px / this.view.scale
+    for (const p of pk) {
+      const na = nodes[p.a], nb = nodes[p.b]
+      if (!na || !nb || typeof p.t !== 'number' || p.t < 0) continue
+      const st = KIND_STYLE[p.kind] ?? autoKindStyle(p.kind)
+      const base = Math.min(1, p.t + extra)
+      const dim = p.kind === 'BLOCK' ? 0.95 : (p.r === false ? 0.3 : 0.6)
+      const trail = st.stream || 1              // 串点: 批量报文 (如 SYNC_RESP)
+      for (let k = 0; k < trail; k++) {
+        const f = base - k * 0.09
+        if (f < 0 || f > 1) continue
+        const x = na.x + (nb.x - na.x) * f
+        const z = na.z + (nb.z - na.z) * f
+        ctx.globalAlpha = dim * (1 - k * 0.25)
+        ctx.shadowColor = st.color
+        ctx.shadowBlur = lw(st.glow)
+        ctx.fillStyle = st.color
+        ctx.beginPath()
+        ctx.arc(x, z, lw(st.size), 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    ctx.globalAlpha = 1
+    ctx.shadowBlur = 0
+    ctx.restore()
   }
 
   /* ---------- 动态层: 真实数据包可视化 (握手在底层, 画面只演数据) ---------- */
@@ -510,10 +581,10 @@ export class Radar2D {
     const nodes = snap.nodes
     const CHAN_COL = ['#00E8FF', '#FFC04D', '#B08CFF']
 
-    // 1) 有真实流量的边自动亮起 (青色霓虹, 盖过静息暗绿)
+    // 1) 有真实流量的边自动亮起 (青色霓虹, 盖过静息暗绿; 仅 DATA, 链上点不染边)
     const seen = new Set()
     for (const p of pk) {
-      if (p.t < 0) continue
+      if (p.t < 0 || p.kind !== 'DATA') continue
       seen.add(p.a < p.b ? p.a + '|' + p.b : p.b + '|' + p.a)
     }
     if (seen.size) {
@@ -562,22 +633,13 @@ export class Radar2D {
       const path = (p.path ?? []).map(id => nodes[id]).filter(Boolean)
       if (path.length < 2) continue
       const total = path.length - 1
-      const speed = 1 / (total * 0.25)         // 匀速: 与引擎 tick 节奏一致
-      const truth = p.t >= 0
-        ? Math.min(1, (p.ph + p.t) / total)    // 后端真实进度(仅用于状态判定)
-        : Math.min(1, p.ph / total)            // 停驻的真实位置 = 节点上
+      // 纯匀速模型: 进度 = 已飞跳数 s.h, 飞行时每 0.25s 匀速前进一跳。
+      // 后端只提供生命周期与路径形状, 不再做"向真实进度对齐"的校正 ——
+      // 排队/重传 (t=-1) 表现为原地暂停, 恢复飞行后继续匀速, 永不倒退。
       let s = this._pkSmooth.get(key)
-      if (!s) { s = { t: truth }; this._pkSmooth.set(key, s) }
-      if (p.t >= 0) {
-        // 飞行: 匀速前进; 仅当超前真实进度半跳以上(重传弹回)才校正一次
-        s.t = Math.min(1, s.t + dt * speed)
-        if (s.t > truth + 0.5 / total) s.t = truth
-      } else {
-        // 停驻: 快速滑到节点原地等待 (排队可视化)
-        const gap = truth - s.t
-        if (Math.abs(gap) < 0.005) s.t = truth
-        else s.t += Math.sign(gap) * Math.min(Math.abs(gap), dt * speed * 3)
-      }
+      if (!s) { s = { h: p.ph }; this._pkSmooth.set(key, s) }
+      if (p.t >= 0) s.h = Math.min(total, s.h + dt / 0.25)
+      const f = total > 0 ? Math.min(1, Math.max(0, s.h / total)) : 1
       // 按路程比例在折线上取点 (各段按欧氏长度加权)
       const lens = []
       let L = 0
@@ -585,7 +647,7 @@ export class Radar2D {
         const d = Math.hypot(path[i + 1].x - path[i].x, path[i + 1].z - path[i].z)
         lens.push(d); L += d
       }
-      let want = s.t * L, x = path[0].x, z = path[0].z
+      let want = f * L, x = path[0].x, z = path[0].z
       for (let i = 0; i < total; i++) {
         if (want <= lens[i] || i === total - 1) {
           const q = lens[i] > 0 ? Math.min(1, want / lens[i]) : 1
@@ -606,7 +668,8 @@ export class Radar2D {
       ctx.fill()
       ctx.shadowBlur = 0
       ctx.fillStyle = 'rgba(220,245,255,0.9)'
-      ctx.fillText('DATA ' + (p.seg + 1), x, z - lw(10))
+      const fmtB = (b) => (b >= 1024 ? (b / 1024).toFixed(b % 1024 ? 1 : 0) + 'KB' : b + 'B')
+      ctx.fillText('DATA ' + fmtB(p.bytes), x, z - lw(10))
     }
     for (const k of this._pkSmooth.keys()) if (!alive.has(k)) this._pkSmooth.delete(k)
 
@@ -927,6 +990,12 @@ export class Radar2D {
   setWallMode(on) {
     this.wallMode = !!on
     this.canvas.style.cursor = this.wallMode ? this.cursorWall : 'crosshair'
+  }
+
+  /* 渲染总线分层开关: 'chain' = 链上报文点, 'data' = 传输层 DATA 方块 */
+  setLayer(layer, on) {
+    if (layer === 'chain') this.showChain = !!on
+    if (layer === 'data') this.showData = !!on
   }
 
   select(id) {

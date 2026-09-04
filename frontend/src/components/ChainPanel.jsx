@@ -17,9 +17,11 @@ function StateDot({ r, hMax, baseHash }) {
 export default function ChainPanel({ chain, onClose }) {
   const [open, setOpen] = useState(null)
   if (!chain || !chain.per) return null
-  const { h_max: hMax, n, aligned, lag1, agree, base_hash: baseHash,
+  const { h_max: hMax, n, na, aligned, lag1, agree, base_hash: baseHash,
           tip, per, world, diffs, stats } = chain
-  const synced = lag1 >= n - 1 && agree >= n - 1
+  // 链前缀一致 (后端判定): 全部活跃节点的链尾都在基准链最近几块内。
+  // 正常传播波不闪; 真分叉/掉队 -> agree < na -> 显示"同步中"。
+  const synced = agree >= na
 
   const expand = (r) => {
     const mine = r.sh === baseHash ? world : (diffs[r.id] ?? null)
@@ -70,7 +72,7 @@ export default function ChainPanel({ chain, onClose }) {
                 style={{ marginLeft: 'auto', cursor: 'pointer', color: '#5d7ea3' }}>✕</span>
         </div>
         <div style={{ color: '#7fa8c8', fontSize: 11, marginTop: 2 }}>
-          高度 {hMax} · 已对齐 {lag1}/{n} · 状态一致 {agree}/{n}
+          高度 {hMax} · 活跃 {na}/{n} · 已对齐 {lag1}/{na} · 前缀一致 {agree}/{na}
         </div>
         {tip && (
           <div style={{ color: '#4d7298', fontSize: 10, lineHeight: '15px' }}>

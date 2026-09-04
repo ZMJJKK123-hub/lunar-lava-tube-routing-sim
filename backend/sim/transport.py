@@ -4,13 +4,14 @@
 ================================================================
 报文生命周期:
   1) 连接接纳 (零时间开销的"握手"): send_message 瞬间跑 rscspa 选路,
-     有路 = 连接建立, 数据分段立即出发; 无路 = NO_PATH, 报文拒绝。
-  2) 数据传输: 报文按 MSS=256B 分段, 沿路径逐跳 store-and-forward;
-     每 hop 1 tick, 按当前 BER 掷骰判定分段/ACK 损坏, 坏则重传;
-     每跳伴随 14B ACK 开销; 中继队列空闲时 cut-through 直通续飞。
+     有路 = 连接建立, 报文立即出发; 无路 = NO_PATH, 报文拒绝。
+  2) 数据传输: 报文**整包不分段**, 沿路径逐跳 store-and-forward;
+     每 hop 1 tick, 按当前 BER 对整包字节掷骰判损坏(含 14B ACK 开销),
+     坏则重传; 队列/缓冲/逐跳计数全部按报文完整字节数计 —— 负载语义
+     与分段时代完全等价 (2KB 报文仍占 2048B 缓冲), 只是画面一包一点。
   3) 传完直接收场 (无 FIN 挥手): DELIVERED 事件 + 结果信号。
-- 半双工: 每 tick 每节点只推进一个分段, 排队即真实拥塞。
-- 链路中断: 分段从当前位置重新 rscspa 绕行 (传输级自愈)。
+- 半双工: 每 tick 每节点只推进一个报文, 排队即真实拥塞。
+- 链路中断: 报文从当前位置重新 rscspa 绕行 (传输级自愈)。
 - 结果信号: DELIVERED / TIMEOUT / NO_PATH / BUFFER_FULL / MAX_RETRIES,
   全部走 events + results 双通道; 超时必然带 TIMEOUT 信号。
 """
@@ -20,8 +21,7 @@ from collections import deque
 
 from .routing import rscspa
 
-MSS = 256                   # 每段最大字节数
-RETRIES_MAX = 3             # 每段每跳最大重传次数
+RETRIES_MAX = 3             # 每包每跳最大重传次数
 QUEUE_LIMIT_BYTES = 8192    # 节点发送缓冲上限 (queue_pct = 积压/8192*100)
 MAX_CONCURRENT = 6          # 在途报文上限 (防洪)
 DEFAULT_TIMEOUT = 90        # 报文超时 (tick, 1 tick = 0.25s)
@@ -38,7 +38,7 @@ def _damage_prob(ber: float, nbytes: int) -> float:
 
 
 class Segment:
-    """一个 MSS 数据分段, 沿路径逐跳搬运"""
+    """一个完整报文 (整包), 沿路径逐跳搬运"""
     __slots__ = ("mid", "seq", "nbytes", "cur", "nxt", "wire", "retries",
                  "guard", "hops")
 
@@ -67,7 +67,7 @@ class Message:
         self.chan = {}                       # edge(排序元组) -> 信道
         for k in range(len(path) - 1):
             self.chan[tuple(sorted((path[k], path[k + 1])))] = channels[k]
-        self.total_segs = max(1, (total + MSS - 1) // MSS)
+        self.total_segs = 1                  # 整包单段: 不再按 MSS 分段
         self.done = 0                        # 已送达终点的分段数
         self.retries = 0
         self.hops_done = 0
@@ -120,7 +120,7 @@ class TransportLayer:
         return nodes, edges
 
     def active_packets(self):
-        """在途 DATA 分段 -> 前端动画数据。
+        """在途 DATA 报文 -> 前端动画数据。
         t 为本跳进度 0..1 (tick 内墙钟插值); t=-1 表示停驻在节点 a 排队。
         握手控制帧(SYN/SYNACK/ACK)在底层真实运行 (消耗 tick 与字节),
         但不下发 —— 画面只呈现数据包本体, 协议过程交给事件日志解说。"""
@@ -170,7 +170,7 @@ class TransportLayer:
         return adj
 
     def _busy_channels(self):
-        """在途数据分段占用的信道 (供 rscspa 干扰排斥, 新报文自动避开)"""
+        """在途报文占用的信道 (供 rscspa 干扰排斥, 新报文自动避开)"""
         busy = {}
         for q in self.node_queues.values():
             for s in q:
@@ -191,7 +191,7 @@ class TransportLayer:
         """
         发送入口: 立即返回受理结果。
         连接接纳 (= 握手语义, 零时间开销): rscspa 选到路 = 连接建立,
-        数据分段即刻出发; 选不到路 = NO_PATH 拒绝。
+        报文整包即刻出发; 选不到路 = NO_PATH 拒绝。
         最终 DELIVERED / TIMEOUT 等结果信号通过 events 与 results 双通道给出。
         """
         eng = self.eng
@@ -213,13 +213,12 @@ class TransportLayer:
         m = Message(mid, src, dst, int(payload_bytes), res["path"],
                     res["channels"], eng.tick, eng.tick + timeout_ticks)
         self.messages[mid] = m
-        # 连接接纳通过: 数据分段立即全部进入源节点发送队列
-        for seq in range(m.total_segs):
-            nbytes = min(MSS, m.total - seq * MSS)
-            self.node_queues.setdefault(src, deque()).append(
-                Segment(mid, seq, nbytes, src, m.path[1]))
+        # 连接接纳通过: 报文整包 (不再分段) 进入源节点发送队列;
+        # 队列/逐跳计数仍按完整字节数计, 负载语义与分段时代等价
+        self.node_queues.setdefault(src, deque()).append(
+            Segment(mid, 0, m.total, src, m.path[1]))
         eng._emit("msg_sent", "info",
-                  f"📤 {src} → {dst}: 连接建立, {m.total}B 分 {m.total_segs} 段出发 "
+                  f"📤 {src} → {dst}: 连接建立, {m.total}B 整包出发 "
                   f"(路径 {len(m.path) - 1} 跳, 信道 {''.join(map(str, res['channels']))})",
                   src=src, dst=dst, msg_id=mid)
         return {"ok": True, "msg_id": mid, "path": m.path,
@@ -284,9 +283,9 @@ class TransportLayer:
                 self._purge(m)
                 self._record(m, m.src, m.dst, m.total, "MAX_RETRIES",
                              self.eng.tick - m.created, m.retries, s.cur,
-                             f"数据段 #{s.seq + 1} 连续重传失败")
+                             f"整包连续重传失败")
                 self.eng._emit("msg_fail", "error",
-                               f"✗ 报文#{m.id} 数据段 #{s.seq + 1} 在 {s.cur}↔{s.nxt} "
+                               f"✗ 报文#{m.id} 在 {s.cur}↔{s.nxt} "
                                f"连续 {RETRIES_MAX} 次损坏, 报文作废",
                                msg_id=m.id, node=s.cur)
                 return
@@ -307,7 +306,7 @@ class TransportLayer:
 
     # ================= 绕行 / 送达 / 失败 =================
     def _arrive(self, s: Segment, m: Message):
-        """分段成功落到 s.nxt: 终点则记交付, 否则入中继队继续转发"""
+        """报文成功落到 s.nxt: 终点则记交付, 否则入中继队继续转发"""
         if s.nxt == m.dst:
             m.done += 1
             if m.done >= m.total_segs:
@@ -339,7 +338,7 @@ class TransportLayer:
         q2 = self.node_queues.setdefault(s.cur, deque())
         if not q2:
             # 中继队列空闲: 立即续飞下一跳 (cut-through 直通转发)
-            # —— 分段全程贴线飞行不再"消失一拍", 画面连续;
+            # —— 报文全程贴线飞行不再"消失一拍", 画面连续;
             #    队列忙则正常停靠排队 (真实拥塞)
             link = self.eng.links.get(tuple(sorted((s.cur, s.nxt))))
             if link is not None and link["up"]:
@@ -352,7 +351,7 @@ class TransportLayer:
         q2.append(s)
 
     def _reroute_or_fail(self, s: Segment, m: Message):
-        """数据段的下一跳链路已断: 从当前位置重规划"""
+        """报文的下一跳链路已断: 从当前位置重规划"""
         if self._reroute_from(s.cur, m):
             try:
                 idx = m.path.index(s.cur)
@@ -375,7 +374,7 @@ class TransportLayer:
         m.path_history.append(res["path"])
         for k in range(len(m.path) - 1):
             m.chan[tuple(sorted((m.path[k], m.path[k + 1])))] = res["channels"][k]
-        # 报文内所有分段改道: 在新路径上的按新路径取下一跳, 不在的送回 at
+        # 报文改道: 在新路径上的按新路径取下一跳, 不在的送回 at
         for q in self.node_queues.values():
             for seg in q:
                 if seg.mid != m.id:
@@ -414,7 +413,7 @@ class TransportLayer:
                        msg_id=m.id, node=stuck, signal="TIMEOUT")
 
     def _purge(self, m: Message):
-        """把该报文的在途分段从所有节点队列清除"""
+        """把该报文从所有节点队列清除"""
         self.messages.pop(m.id, None)
         for q in self.node_queues.values():
             if any(s.mid == m.id for s in q):

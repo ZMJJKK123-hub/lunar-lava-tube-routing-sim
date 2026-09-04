@@ -37,6 +37,7 @@ SYNC_BATCH = 12             # 普通追块单批最大区块数
 RESP_CD = 5                 # 追块响应限频 (同一请求方, tick)
 FORK_RESP_CD = 6           # 整链响应限频 (同一请求方, tick)
 FORK_REQ_CD = 8             # fork 请求重发限频 (自身, tick)
+SYNC_PREFIX_BLOCKS = 3      # 前缀一致容差: 链尾落在基准链最近 K 块内算一致 (允许落后 K-1)
 GENESIS_PREV = "0" * 64
 
 
@@ -433,13 +434,18 @@ class BlockchainNetwork:
     def step(self, tick: int):
         self._adj = {}
         emitted = []
-        # 1) 投递上一 tick 的包 (一跳一 tick)
+        # 1) 投递上一 tick 的包 (一跳一 tick); 只上报真实转发的跳 (r 标记)。
+        #    吸收跳 (seen 去重后不再转发) 每 tick 上万, 上报会淹没有效流量
+        #    且把排在投递序列末尾的 BLOCK 挤出总线 —— 故不进总线。
         for from_node, pkt in self.inflight:
             for nb in self._neighbors(from_node):
                 if not self._alive(nb):
                     continue
-                for out in self.nodes[nb].handle_packet(pkt, tick):
+                outs = self.nodes[nb].handle_packet(pkt, tick)
+                for out in outs:
                     emitted.append((nb, out))
+                if outs:
+                    self.eng.vis_packet(from_node, nb, pkt["type"], relayed=True)
         self.inflight = emitted
         # 2) 节点主动行为: 遥测 / 心跳 / 出块 (全部错峰)
         for i, nid in enumerate(self.sorted_ids):
@@ -469,21 +475,27 @@ class BlockchainNetwork:
             per.append({"id": nid, "h": nd.height,
                         "sh": nd.state_hash()[:8], "mp": len(nd.mempool)})
             h_max = max(h_max, nd.height)
-        # 基准 = 链顶层(h_max)多数派哈希; 父层(h_max-1)多数派哈希单独取。
-        # 黄波传播期间新/旧两个合法相位 (链顶态 / 父块态) 都计入"状态一致",
-        # 横幅不闪; 只有真分叉 (两相都不匹配) 才不一致。
+        # 基准 = 活跃节点中链顶层(h_max)多数派状态哈希。
+        # 全网一致性用「链前缀」判定 (见 agree): 节点链尾哈希落在基准链最近
+        # SYNC_PREFIX_BLOCKS 块内 = "我的链是基准链的前缀 (允许落后 K-1 块)"。
+        # 正常传播波 (落后 1~2 块) 仍算一致, 横幅不闪; 分叉侧即使只落后 1 块,
+        # 其块哈希也不在基准链前缀内 -> 立即判不一致, 横幅转"同步中"。
+        # (旧方案按"状态哈希相位"判定, 传播波与真分叉不可区分, 横幅几乎恒绿)
+        alive = {nid for nid in self.sorted_ids if self._alive(nid)}
         top, ph = {}, {}
         for r in per:
+            if r["id"] not in alive:
+                continue
             if r["h"] == h_max:
                 top[r["sh"]] = top.get(r["sh"], 0) + 1
             elif r["h"] == h_max - 1:
                 ph[r["sh"]] = ph.get(r["sh"], 0) + 1
         base = max(top, key=top.get) if top else (max(ph, key=ph.get) if ph else "")
-        parent_sh = max(ph, key=ph.get) if ph else ""
-        world, tip = {}, None
+        ref_hashes, world, tip = set(), {}, None
         for nid in self.sorted_ids:
             nd = self.nodes[nid]
-            if nd.height == h_max and nd.state_hash()[:8] == base:
+            if nid in alive and nd.height == h_max and nd.state_hash()[:8] == base:
+                ref_hashes = {b.block_hash for b in nd.chain[-SYNC_PREFIX_BLOCKS:]}
                 world = {rid: dict(st) for rid, st in nd.world_state.items()}
                 tip = {"index": nd.tail.index, "creator": nd.tail.creator,
                        "tick": nd.tail.tick,
@@ -498,11 +510,14 @@ class BlockchainNetwork:
                               for rid, st in nd.world_state.items()}
                 if len(diffs) >= 12:
                     break
-        lag1 = sum(1 for r in per if r["h"] >= h_max - 1)   # 传播容差: 距顶<=1块
-        return {"h_max": h_max, "n": len(self.sorted_ids),
-                "aligned": sum(1 for r in per if r["h"] == h_max),
+        # 一致/对齐/掉队只统计活跃节点: DEAD 节点已退出共识, 不阻塞横幅
+        per_alive = [r for r in per if r["id"] in alive]
+        lag1 = sum(1 for r in per_alive if r["h"] >= h_max - 1)   # 距顶<=1块
+        agree = sum(1 for nid in alive
+                    if self.nodes[nid].tail.block_hash in ref_hashes)
+        return {"h_max": h_max, "n": len(self.sorted_ids), "na": len(alive),
+                "aligned": sum(1 for r in per_alive if r["h"] == h_max),
                 "lag1": lag1,
-                "agree": sum(1 for r in per
-                             if r["sh"] == base or r["sh"] == parent_sh),
+                "agree": agree,
                 "base_hash": base, "tip": tip, "per": per,
                 "world": world, "diffs": diffs, "stats": dict(self.stats)}

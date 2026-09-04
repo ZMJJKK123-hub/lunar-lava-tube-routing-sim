@@ -21,6 +21,7 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(true)
   const [chainOpen, setChainOpen] = useState(true)
+  const [chainFlow, setChainFlow] = useState(true)
 
   useEffect(() => {
     const radar = new Radar2D(mountRef.current, {
@@ -66,6 +67,8 @@ export default function App() {
         onToggleLog={() => setLogOpen(!logOpen)}
         chainOpen={chainOpen}
         onToggleChain={() => setChainOpen(!chainOpen)}
+        chainFlow={chainFlow}
+        onToggleChainFlow={() => { const v = !chainFlow; setChainFlow(v); radarRef.current?.setLayer('chain', v) }}
       />
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
       {chainOpen && (
