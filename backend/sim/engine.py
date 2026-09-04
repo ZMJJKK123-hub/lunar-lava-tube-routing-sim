@@ -22,10 +22,11 @@ TICK_PHYS_S = 0.25
 TICK_BROADCAST_S = 0.2
 HEALING_HOLD_TICKS = 4
 
-# ---- 渲染总线: 任意层在收发点调 vis_packet() 上报, 前端自动绘制 ----
+# 渲染总线: 任意层在收发点调 vis_packet() 上报, 前端自动绘制
 VIS_MAX = 260                 # 单 tick 快照最多下发的包跳数 (防爆量)
 VIS_PRIORITY = ("BLOCK", "SYNC_RESP", "SYNC_REQ", "TX")   # 截断时保留优先级
 VIS_RESERVE = 40              # 为未登记类型保留的名额 (零注册兜底, 风暴时也不被挤光)
+CHAIN_QUEUE_CAP = 4096        # 链上报文计入 queue_pct 的字节上限 (控制平面配额, 50%)
 
 SEED = 42
 UWB_RANGE = 30.0
@@ -416,13 +417,19 @@ class SimulationEngine:
             n.neighbors = sum(1 for (a, b), l in links.items()
                               if n.id in (a, b) and l["up"])
             n.hop_count = self.routes.get(n.id, {}).get("hop_count", -1)
-        # 队列真化: 积压率直接来自传输层各节点缓冲中的真实字节数
+        # 队列真化: 积压率 = 传输层缓冲字节 + 链上待发字节 (区块链报文真实计账,
+        # 上限 CHAIN_QUEUE_CAP 作为"控制平面配额" —— 足额会计会令全网常态饱和:
+        # 链的追块流量(心跳×多持有者响应×逐跳转发 8~15KB 批)实测均值 91% 积压)
+        chain_net = getattr(self, "chain_net", None)
+        chain_load = ({nid: min(b, CHAIN_QUEUE_CAP)
+                       for nid, b in chain_net.tx_load.items()}
+                      if chain_net else {})
         for n in self.nodes.values():
-            n.queue_pct = self.transport.queue_pct(n.id)
+            n.queue_pct = self.transport.queue_pct(n.id, chain_load.get(n.id, 0))
             if n.queue_pct > 85 and not quiet and random.random() < 0.3:
+                total_b = self.transport.node_bytes(n.id) + chain_load.get(n.id, 0)
                 self._emit("congestion", "warn",
-                           f"⚠ {n.id} 队列积压 {n.queue_pct:.0f}% "
-                           f"({self.transport.node_bytes(n.id)}B 待发)",
+                           f"⚠ {n.id} 队列积压 {n.queue_pct:.0f}% ({total_b}B 待发)",
                            narration=f"⚠️ {self._zh(n.id)} 的数据包排队越来越长(积压 "
                                      f"{n.queue_pct:.0f}%),算法正在考虑分流。", node=n.id)
             if n.state not in ("DEAD", "SEU_RESET"):
@@ -432,9 +439,12 @@ class SimulationEngine:
         self.traffic = self.transport.active_traffic()
 
         # ---- PAMAS 独立关机判定: 激活路径外的节点若邻居正在收发 -> 休眠省电 ----
-        # 活跃集 = 传输层缓冲里真正有报文要收发的节点
+        # 活跃集 = 传输层缓冲里真正有报文要收发的节点 + 链上有待发报文的节点
         active_nodes, active_edges = self.transport.active_nodes_edges()
         active_nodes.add(self.sink_id)
+        for nid, b in chain_load.items():
+            if b > 0:
+                active_nodes.add(nid)      # 链上待发 = 电台真实收发 (TXRX)
         if self.robot and self.robot.get("route"):
             rp = self.robot["route"].get("path") or []
             active_nodes.update(rp)

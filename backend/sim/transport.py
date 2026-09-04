@@ -92,9 +92,9 @@ class TransportLayer:
         q = self.node_queues.get(nid)
         return sum(s.nbytes for s in q) if q else 0
 
-    def queue_pct(self, nid: str) -> float:
-        """真实队列积压率: 缓冲中在途字节 / 上限"""
-        return min(100.0, self.node_bytes(nid) / QUEUE_LIMIT_BYTES * 100.0)
+    def queue_pct(self, nid: str, extra_bytes: int = 0) -> float:
+        """真实队列积压率: (缓冲中在途字节 + 链上待发字节) / 上限"""
+        return min(100.0, (self.node_bytes(nid) + extra_bytes) / QUEUE_LIMIT_BYTES * 100.0)
 
     def link_summary(self, edge) -> dict:
         return self.link_stats.get(

@@ -488,8 +488,12 @@ export class Radar2D {
   }
 
   /* ================= 渲染主循环 ================= */
-  animate() {
+  animate(ts) {
     requestAnimationFrame(this.animate)
+    // 帧率封顶 ~70fps: 高刷屏下 rAF 可达 240Hz, 本画面 70fps 足够,
+    // 省 3 倍绘制/GPU 开销 (发光点是 shadowBlur 大户)
+    if (this._lastTs && ts - this._lastTs < 14) return
+    this._lastTs = ts
     try {
       this._frame()
     } catch (err) {
@@ -521,38 +525,51 @@ export class Radar2D {
      样式表可选覆盖, 未知 kind 按名称哈希自动配色 (零注册);
      r=false 的跳半透明 (接收方已去重吸收, 波前止步);
      t 为后端快照时刻的进度, 此后用本地时钟续走, 消除 0.2s 快照间隔的顿挫 */
+  /* ---------- 通用渲染总线绘制器 (指令模型, 前端完全自治) ----------
+     后端每 tick 只下发"这一跳从 a 飞往 b"的指令 (p.t=快照构建时已飞进度);
+     前端反推起飞时刻后, 位置完全由本地时钟推进 —— 快照早到/迟到/丢帧都
+     不影响运动。以 150ms 渲染延迟播放"过去的世界", 换取每跳从节点完整
+     出发 -> 到站淡出消失的全程动画 (无中途生成/钳制冻结)。 */
   _drawBusDots(ctx) {
     const snap = this.snapshot
     if (!snap || !this.showChain) return
     const nodes = snap.nodes
-    let pk = (snap.packets ?? []).filter((p) => p.kind && p.kind !== 'DATA')
-    if (!pk.length) return
-    // 显示采样: BLOCK 全保留, 其余超过 ~160 时等距抽样 (保风暴氛围, 不铺满屏)
-    const blocks = pk.filter((p) => p.kind === 'BLOCK')
-    const rest = pk.filter((p) => p.kind !== 'BLOCK')
-    if (rest.length > 160) {
-      const step = rest.length / 160, sampled = []
-      for (let i = 0; i < rest.length; i += step) sampled.push(rest[Math.floor(i)])
-      pk = blocks.concat(sampled)
+    const pk = (snap.packets ?? []).filter((p) => p.kind && p.kind !== 'DATA')
+    const bus = this._busHops ?? (this._busHops = { tick: -1, hops: [] })
+    if (bus.tick !== snap.tick) {              // 新 tick: 换装下一批指令
+      const now = performance.now()
+      bus.tick = snap.tick
+      bus.hops = pk.map((p) => ({ ...p, startAt: now - p.t * 250 }))
     }
-    const extra = (performance.now() - (this._snapPerf || performance.now())) / 250
+    let hops = bus.hops
+    if (!hops.length) return
+    // 显示采样: BLOCK 全保留, 其余超 ~140 跳时等距抽样 (保风暴氛围)
+    if (hops.length > 160) {
+      const blocks = hops.filter((h) => h.kind === 'BLOCK')
+      const rest = hops.filter((h) => h.kind !== 'BLOCK')
+      const step = rest.length / 140, sampled = []
+      for (let i = 0; i < rest.length; i += step) sampled.push(rest[Math.floor(i)])
+      hops = blocks.concat(sampled)
+    }
     ctx.save()
     ctx.translate(this.view.x, this.view.y)
     ctx.scale(this.view.scale, this.view.scale)
     const lw = (px) => px / this.view.scale
-    for (const p of pk) {
+    const now = performance.now() - 150        // 渲染延迟: 播放 150ms 前的世界
+    for (const p of hops) {
       const na = nodes[p.a], nb = nodes[p.b]
-      if (!na || !nb || typeof p.t !== 'number' || p.t < 0) continue
+      if (!na || !nb) continue
       const st = KIND_STYLE[p.kind] ?? autoKindStyle(p.kind)
-      const base = Math.min(1, p.t + extra)
       const dim = p.kind === 'BLOCK' ? 0.95 : (p.r === false ? 0.3 : 0.6)
       const trail = st.stream || 1              // 串点: 批量报文 (如 SYNC_RESP)
       for (let k = 0; k < trail; k++) {
-        const f = base - k * 0.09
-        if (f < 0 || f > 1) continue
+        const f = (now - p.startAt) / 250 - k * 0.09
+        if (f <= 0 || f >= 1) continue
+        const fade = Math.min(1, f / 0.12, (1 - f) / 0.15)   // 两端淡入淡出
+        if (fade <= 0) continue
         const x = na.x + (nb.x - na.x) * f
         const z = na.z + (nb.z - na.z) * f
-        ctx.globalAlpha = dim * (1 - k * 0.25)
+        ctx.globalAlpha = dim * (1 - k * 0.25) * fade
         ctx.shadowColor = st.color
         ctx.shadowBlur = lw(st.glow)
         ctx.fillStyle = st.color
@@ -606,21 +623,32 @@ export class Radar2D {
     ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
     ctx.textAlign = 'center'
 
-    // 2) 停驻分段: 节点旁小方块堆叠 (排队等发送名额, "一直没过去"的真实样子)
-    const parkedIdx = {}
+    // 2) 排队徽章: 节点缓冲中等待发送的报文数 (半双工: 每 tick 每节点仅一个
+    //    发送名额)。数字 = 排队中的报文 —— 不再在路上冻结/节点旁堆小方块
+    const queued = {}
     for (const p of pk) {
       if (p.t >= 0 || p.kind !== 'DATA') continue
-      const n = nodes[p.a]
+      queued[p.a] = (queued[p.a] ?? 0) + 1
+    }
+    ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
+    ctx.textAlign = 'center'
+    for (const [nid, cnt] of Object.entries(queued)) {
+      const n = nodes[nid]
       if (!n) continue
-      const i = (parkedIdx[p.a] = (parkedIdx[p.a] ?? -1) + 1)
-      const col = CHAN_COL[p.chan ?? 0] ?? '#00E8FF'
-      const w = lw(4.2)
-      const ox = lw(13) + (i % 5) * lw(6.5)
-      const oy = -lw(6) + Math.floor(i / 5) * lw(6.5)
-      ctx.globalAlpha = 0.75
-      ctx.fillStyle = col
-      ctx.fillRect(n.x + ox - w / 2, n.z + oy - w / 2, w, w)
-      ctx.globalAlpha = 1
+      const x = n.x + lw(16), z = n.z - lw(13)
+      const w = lw(cnt >= 10 ? 17 : 12), h = lw(11)
+      ctx.shadowColor = '#00E8FF'
+      ctx.shadowBlur = lw(6)
+      ctx.fillStyle = 'rgba(0,130,155,0.9)'
+      ctx.strokeStyle = 'rgba(130,240,255,0.95)'
+      ctx.lineWidth = lw(0.8)
+      ctx.beginPath()
+      if (ctx.roundRect) ctx.roundRect(x - w / 2, z - h / 2, w, h, lw(3))
+      else ctx.rect(x - w / 2, z - h / 2, w, h)
+      ctx.fill(); ctx.stroke()
+      ctx.shadowBlur = 0
+      ctx.fillStyle = '#EAFDFF'
+      ctx.fillText(String(cnt), x, z + lw(3))
     }
 
     // 3) DATA 分段: 匀速直发动画 —— 纯本地时钟推进(每跳 0.25s), 零回拉零纠偏。
@@ -633,12 +661,16 @@ export class Radar2D {
       const path = (p.path ?? []).map(id => nodes[id]).filter(Boolean)
       if (path.length < 2) continue
       const total = path.length - 1
-      // 纯匀速模型: 进度 = 已飞跳数 s.h, 飞行时每 0.25s 匀速前进一跳。
-      // 后端只提供生命周期与路径形状, 不再做"向真实进度对齐"的校正 ——
-      // 排队/重传 (t=-1) 表现为原地暂停, 恢复飞行后继续匀速, 永不倒退。
       let s = this._pkSmooth.get(key)
       if (!s) { s = { h: p.ph }; this._pkSmooth.set(key, s) }
-      if (p.t >= 0) s.h = Math.min(total, s.h + dt / 0.25)
+      if (p.t < 0) {
+        // 排队中: 不上路绘制 (节点徽章已示意), 静默把进度对齐到节点,
+        // 恢复飞行时从节点起飞 —— 消灭"冻在半路"的观感
+        s.h = Math.max(s.h, p.ph)
+        continue
+      }
+      // 纯匀速模型: 进度 = 已飞跳数 s.h, 飞行时每 0.25s 匀速前进一跳。
+      s.h = Math.min(total, s.h + dt / 0.25)
       const f = total > 0 ? Math.min(1, Math.max(0, s.h / total)) : 1
       // 按路程比例在折线上取点 (各段按欧氏长度加权)
       const lens = []
@@ -960,6 +992,16 @@ export class Radar2D {
         o.arc(n.x, n.z, r, 0, Math.PI * 2)
       }
       o.fill(); o.stroke()
+      // 积压弧: 节点外圈按 queue_pct 填充的青色弧 (发送缓冲有字节即显示,
+      // 满 100% 为整圈) —— 每个节点的排队积压一眼可见
+      if (n.queue_pct > 0.5 && n.state !== 'DEAD') {
+        o.strokeStyle = 'rgba(0,232,255,0.9)'
+        o.lineWidth = lw(1.6)
+        o.beginPath()
+        o.arc(n.x, n.z, r + lw(3.5), -Math.PI / 2,
+              -Math.PI / 2 + Math.PI * 2 * Math.min(1, n.queue_pct / 100))
+        o.stroke()
+      }
       if (id === this.selectedId) {
         o.strokeStyle = 'rgba(255,255,255,0.75)'; o.lineWidth = lw(1)
         o.beginPath(); o.arc(n.x, n.z, r + lw(6), 0, Math.PI * 2); o.stroke()

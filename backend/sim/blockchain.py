@@ -396,6 +396,8 @@ class BlockchainNetwork:
         self.inflight: list = []                # (from_node, pkt) 下一 tick 投递
         self.stats = {"blocks": 0, "fork_heals": 0, "catchups": 0}
         self._adj: dict = {}
+        self.tx_load: dict = {}                 # 节点 -> 本 tick 链上待发字节 (计入 queue_pct)
+        self._size_cache: dict = {}             # msg_id -> 报文字节 (同一泛洪包全网只算一次)
 
     # ---- 拓扑: 复用引擎链路表 (遮挡/画墙/断链全部生效) ----
     def _neighbors(self, nid):
@@ -423,6 +425,18 @@ class BlockchainNetwork:
                 "queue": round(n.queue_pct, 1), "radio": n.radio,
                 "hop": n.hop_count}
 
+    def _pkt_bytes(self, pkt) -> int:
+        """报文体积 ≈ payload 规范 JSON 长度; 按 msg_id 缓存
+        (同一泛洪包全网数千跳, 只序列化一次)"""
+        b = self._size_cache.get(pkt["msg_id"])
+        if b is None:
+            b = len(json.dumps(pkt["payload"], default=str,
+                               separators=(",", ":")))
+            if len(self._size_cache) > 4096:
+                self._size_cache.clear()
+            self._size_cache[pkt["msg_id"]] = b
+        return b
+
     # ---- 事件上报 (前端 EventLog 直观可见同步过程) ----
     def notify(self, type_, sev, msg):
         try:
@@ -434,6 +448,7 @@ class BlockchainNetwork:
     def step(self, tick: int):
         self._adj = {}
         emitted = []
+        load: dict = {}     # 节点 -> 本 tick 链上待发字节 (驱动 queue_pct/PAMAS/耗电)
         # 1) 投递上一 tick 的包 (一跳一 tick); 只上报真实转发的跳 (r 标记)。
         #    吸收跳 (seen 去重后不再转发) 每 tick 上万, 上报会淹没有效流量
         #    且把排在投递序列末尾的 BLOCK 挤出总线 —— 故不进总线。
@@ -444,10 +459,11 @@ class BlockchainNetwork:
                 outs = self.nodes[nb].handle_packet(pkt, tick)
                 for out in outs:
                     emitted.append((nb, out))
+                    load[nb] = load.get(nb, 0) + self._pkt_bytes(out)
                 if outs:
                     self.eng.vis_packet(from_node, nb, pkt["type"], relayed=True)
         self.inflight = emitted
-        # 2) 节点主动行为: 遥测 / 心跳 / 出块 (全部错峰)
+        # 2) 节点主动行为: 遥测 / 心跳 / 出块 (全部错峰; 字节同步记账)
         for i, nid in enumerate(self.sorted_ids):
             if not self._alive(nid):
                 continue
@@ -455,16 +471,20 @@ class BlockchainNetwork:
             if (tick + i) % TELEMETRY_EVERY == 0:
                 self.inflight.append(
                     (nid, node.emit_telemetry(tick, self._telemetry_payload(nid))))
+                load[nid] = load.get(nid, 0) + self._pkt_bytes(self.inflight[-1][1])
             if (tick + i) % HEARTBEAT_EVERY == 5:
                 self.inflight.append((nid, node.emit_heartbeat(tick)))
+                load[nid] = load.get(nid, 0) + self._pkt_bytes(self.inflight[-1][1])
             if node.try_mine(tick):
                 self.stats["blocks"] += 1
                 self.inflight.append((nid, node.out.pop()))
+                load[nid] = load.get(nid, 0) + self._pkt_bytes(self.inflight[-1][1])
                 if self.stats["blocks"] % 6 == 0:
                     self.notify("chain_block", "info",
                                 f"⛓ 链高度 {node.height} (出块 {nid}, "
                                 f"含 {len(node.tail.transactions)} 笔) "
                                 f"— 全网账本持续增长")
+        self.tx_load = load
 
     # ---- 快照导出 (前端账本侧边栏) ----
     def export_info(self):
@@ -502,10 +522,12 @@ class BlockchainNetwork:
                        "txs": len(nd.tail.transactions),
                        "hash": nd.tail.block_hash[:8]}
                 break
+        # 世界状态只随真分叉节点下发 (同高度不同哈希); 落后节点前端显示
+        # "追赶中"即可 —— 出块传播波几乎常驻, 逐帧整份下发曾使快照膨胀到 238KB
         diffs = {}
         for nid in self.sorted_ids:
             nd = self.nodes[nid]
-            if nd.state_hash()[:8] != base:
+            if (nd.height == h_max and nd.state_hash()[:8] != base):
                 diffs[nid] = {rid: dict(st)
                               for rid, st in nd.world_state.items()}
                 if len(diffs) >= 12:
