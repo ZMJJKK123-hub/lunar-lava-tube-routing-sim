@@ -1086,11 +1086,12 @@ export class Radar2D {
       if (S.teleport || S.tCurr - S.tPrev < 30) {
         x = S.cx; z = S.cz                 // 瞬移/采样异常: 直接吸附
       } else {
-        const vdt = S.tCurr - S.tPrev
-        const vx = (S.cx - S.px) / vdt, vz = (S.cz - S.pz) / vdt
-        const ahead = Math.min(nowRb - S.tCurr, vdt * 1.5) * 0.9
-        x = S.cx + vx * ahead
-        z = S.cz + vz * ahead
+        // 实体插值: 沿上一段采样 (px,pz)->(cx,cz) 行进, 相位 f 随时间 0->1。
+        // 滞后一个周期但永不过冲 —— 转向/急停不再"冲出去又弹回" (抽搐根除)
+        const f = Math.max(0, Math.min(1,
+                  (nowRb - S.tCurr) / (S.tCurr - S.tPrev)))
+        x = S.px + (S.cx - S.px) * f
+        z = S.pz + (S.cz - S.pz) * f
       }
       // 通信覆盖圈 (300 世界米)
       ctx.setLineDash([lw(10), lw(8)])
