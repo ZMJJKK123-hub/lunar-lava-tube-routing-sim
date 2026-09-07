@@ -60,8 +60,10 @@ export const robotDraw = {
     const spd = 250 * (1 + 0.15 * Math.max(-1, Math.min(1, 1.5 - water)))
     Q.clock += dtMs
     while (Q.clock >= spd && Q.pts.length > 1) { Q.pts.shift(); Q.clock -= spd }
-    if (Q.pts.length < 2) Q.clock = Math.min(Q.clock, spd)   // 停驻: 时钟封顶防跳
-    const f = Q.pts.length >= 2 ? Math.min(1, Q.clock / spd) : 1
+    // 停驻 (仅剩当前点): 时钟清零并原地返回, 严禁触碰不存在的 pts[1];
+    // 清零 (而非封顶 spd) 保证队列空窗后的下一步从 0 起满速播放, 不瞬跳
+    if (Q.pts.length < 2) { Q.clock = 0; return [Q.pts[0].x, Q.pts[0].z] }
+    const f = Math.min(1, Q.clock / spd)
     return [Q.pts[0].x + (Q.pts[1].x - Q.pts[0].x) * f,
             Q.pts[0].z + (Q.pts[1].z - Q.pts[0].z) * f]
   },

@@ -31,10 +31,20 @@ class SenseMixin:
     """
 
     def _update_sos(self, tick: int):
-        """逐节点判定失联: hop<0 连续 SOS_ARM_TICKS -> 呼救; 恢复可达 -> 停发"""
+        """逐节点判定失联: hop<0 连续 SOS_ARM_TICKS -> 呼救; 恢复可达或报废 -> 停发"""
         eng = self.eng
         for n in eng.nodes.values():
-            if n.role == "beacon" or n.id == eng.sink_id or n.state == "DEAD":
+            if n.role == "beacon" or n.id == eng.sink_id:
+                continue
+            if n.state == "DEAD":
+                # 报废即摘除: 否则 sos_active 残留 -> 画面一直画死人的 SOS 环,
+                # 且 _hear 不查存活会把机器人引向尸体
+                if n.id in self.sos_active:
+                    self.sos_active.discard(n.id)
+                    log.info("SOS 终止 %s: 节点已报废", n.id)
+                    eng._emit("sos_stop", "info", f"🕯 {n.id} 已报废, SOS 信标静默",
+                              node=n.id)
+                self._iso.pop(n.id, None)
                 continue
             hop = eng.routes.get(n.id, {}).get("hop_count", -1)
             if hop >= 0:

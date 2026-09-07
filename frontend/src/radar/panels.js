@@ -98,7 +98,11 @@ export const panels = {
       this.menu.appendChild(b)
     }
     if (n?.state === 'DEAD') {
-      mk('♻ 恢复此节点', '#9affc0', () => this.client?.send({ cmd: 'set_param', node: nid, params: { state: 'ACTIVE' } }))
+      // 复活包: 只改 state 救不活 —— 电量死亡下一拍再耗尽, 高温死亡被后端
+      // 烧毁门 (>=100°C, 见 api.py) 当场拦截; 必须同拍补满电量, 过热则先降温
+      const revive = { state: 'ACTIVE', battery_mah: n.battery_capacity }
+      if (n.temp_c >= 100) revive.temp_c = 20   // 降到烧毁门之下且脱离低温损耗区
+      mk('♻ 恢复此节点', '#9affc0', () => this.client?.send({ cmd: 'set_param', node: nid, params: revive }))
     } else {
       mk('☠ 手动破坏此节点', '#ff8a8a', () => this.client?.send({ cmd: 'set_param', node: nid, params: { state: 'DEAD' } }))
       mk('🔥 过热测试 (+80°C)', '#ffb060', () => this.client?.send({ cmd: 'set_param', node: nid, params: { temp_c: Math.min(120, n.temp_c + 80) } }))
