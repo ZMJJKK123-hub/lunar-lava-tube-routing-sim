@@ -14,7 +14,7 @@ export const robotDraw = {
     ctx.textAlign = 'center'
 
     // SOS 呼救节点: 红色脉冲扩散环 + SOS 字样 (救到自动消失)
-    const tt = performance.now() / 1000
+    const tt = this._pnow() / 1000
     for (const [id, n] of Object.entries(nodes)) {
       if (!n.sos) continue
       const ph = (tt * 1.6 + (parseInt(id.slice(-2), 10) || 0) * 0.13) % 1
@@ -46,7 +46,7 @@ export const robotDraw = {
   // 固定时长播放会被截断(微跳)或空窗(停顿) —— 即"流畅一段卡一段"。
   // 严格每 0.25s 播一步, 队列吸收到达抖动, 速率 ±15% 微调维持 ~1.5 步水位
   _robotPos(rb) {
-    const nowMs = performance.now()
+    const nowMs = this._pnow()
     if (!this._rbQ) this._rbQ = { pts: [{ x: rb.x, z: rb.z }], lx: rb.x, lz: rb.z,
                                   clock: 0, last: nowMs }
     const Q = this._rbQ

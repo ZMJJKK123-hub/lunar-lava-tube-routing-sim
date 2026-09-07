@@ -12,7 +12,7 @@ import time    # 标准库: monotonic 时钟 (前端飞行插值用)
 
 from collections import deque   # 标准库: 节点发送缓冲 (node_queues)
 
-from ..config import ROBOT_ID   # 协议标识: 机器人会移动, 不承载数据报文
+from ..config import ROBOT_ID, TICK_PHYS_S   # 协议标识: 机器人会移动, 不承载数据报文; 物理拍节拍 (飞行插值分母)
 from ..routing import rscspa    # 路由算法: 资源约束最短路径 (连接接纳选路)
 from .model import (AUTO_TELEMETRY, DEFAULT_TIMEOUT, MAX_CONCURRENT,   # 节拍上限
                     QUEUE_LIMIT_BYTES,                                 # 缓冲上限
@@ -114,7 +114,7 @@ class TransportLayer(RelayMixin):
         """
         frac = 0.0
         if self._tick_at:
-            frac = min(1.0, max(0.0, (time.monotonic() - self._tick_at) / 0.25))
+            frac = min(1.0, max(0.0, (self.eng._anim_now() - self._tick_at) / TICK_PHYS_S))
         out = []
         for q in self.node_queues.values():
             for s in q:

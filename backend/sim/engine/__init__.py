@@ -68,6 +68,8 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
         self.walls: list = []  # 用户在 2D 俯视图上画的墙体
         self.heal_started_tick = 0
         self._pre_collapse_routes: dict = {}
+        self.paused = False    # 仿真暂停标志 (True=物理拍冻结在当前帧)
+        self._paused_at = 0.0  # 暂停锚定时刻 (monotonic; 动画进度分数的冻结时钟)
         # 传输层: 真实报文 store-and-forward (接纳/重传/超时/字节计数)
         self.transport = TransportLayer(self)
         # 渲染总线: 收发点调 vis_packet() 即自动上屏, 新报文类型零注册
@@ -134,15 +136,20 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
         """
         self.__init__()
 
+    def _anim_now(self) -> float:
+        """动画时钟: 暂停时钉在暂停锚点 (进度分数冻结), 运行时即 monotonic。"""
+        return self._paused_at if self.paused else time.monotonic()
+
     async def run_forever(self, broadcaster):
-        """主循环: 物理拍 (0.25s) 与广播拍 (0.2s) 错峰推进。
+        """主循环: 物理拍 (0.25s) 与广播拍 (0.2s) 错峰推进;
+        暂停时物理拍整体冻结, 广播继续重发冻结帧。
         Globals Used: ENGINE 全部仿真状态。
         Calls: node.step / compute_network / transport.step /
         chain_net.step / snapshot / broadcaster (main.broadcast)。"""
         next_phys, next_bcast = 0.0, 0.0
         while True:
             now = time.monotonic()
-            if now >= next_phys:
+            if now >= next_phys and not self.paused:
                 self.tick += 1
                 self.packets_vis.clear()        # 渲染总线: 每 tick 重建
                 self._vis_at = time.monotonic()

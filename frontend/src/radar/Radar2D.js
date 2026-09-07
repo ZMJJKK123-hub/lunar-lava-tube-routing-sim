@@ -112,6 +112,9 @@ export class Radar2D {
   }
   _w2s(wx, wz) { return [wx * this.view.scale + this.view.x, wz * this.view.scale + this.view.y] }
   _s2w(sx, sy) { return [(sx - this.view.x) / this.view.scale, (sy - this.view.y) / this.view.scale] }
+  // 动画统一时钟: 暂停时钉在冻结锚点 (报文/机器人/SOS 脉冲全部停帧),
+  // 运行时即真实时钟 —— 所有绘制模块一律经它取时, 不直调 performance.now
+  _pnow() { return this._frozenAt ?? performance.now() }
 
   /* ================= 数据入口 ================= */
   setGeology(geo) {
@@ -139,7 +142,12 @@ export class Radar2D {
       this._busPool = []; this._busTick = -1
       this._rbQ = null; this._rbStep = null; this._rbLast = null; this._pilot = null
       this.flashes = []; this.crosses = []; this._lastEvId = -1
+      this._frozenAt = null
     }
+    // 暂停冻结锚: 后端 paused 置位瞬间锁定本地时钟, 一切动画停在当前相位;
+    // 解除后 _pnow 回到真实时钟, 动画原速续走 (无补偿跳变)
+    if (snapshot.paused) { this._frozenAt ??= performance.now() }
+    else this._frozenAt = null
     this.snapshot = snapshot
     this._snapPerf = performance.now()
     this.staticDirty = true          // 节点/边数据 5Hz 变化 -> 静息层重绘

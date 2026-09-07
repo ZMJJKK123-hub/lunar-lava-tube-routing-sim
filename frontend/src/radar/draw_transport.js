@@ -39,7 +39,7 @@ export const transportDraw = {
   _drawTransport(ctx) {
     const snap = this.snapshot
     if (!snap) return
-    const now = performance.now()
+    const now = this._pnow()
     const dt = Math.min(0.05, (now - (this._tprev ?? now)) / 1000)
     this._tprev = now
     ctx.save()

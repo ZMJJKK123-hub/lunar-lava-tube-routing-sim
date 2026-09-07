@@ -9,7 +9,6 @@
 依赖: physics (距离过滤), config (VIS_* 上限与优先级), robot 挂点。
 """
 import logging   # 标准库: 模块日志 (快照周期摘要)
-import time   # 标准库: monotonic 时钟 (总线导出的 tick 内飞行进度)
 
 from ..config import (ROBOT_ID, TICK_PHYS_S,          # 机器人标识/物理拍
                       VIS_MAX, VIS_PRIORITY, VIS_RESERVE)   # 总线截断策略
@@ -48,7 +47,7 @@ class SnapshotMixin:
         未登记类型走保留名额, 保证零注册上报在风暴中也不丢。"""
         if not self.packets_vis:
             return []
-        frac = (min(1.0, max(0.0, (time.monotonic() - self._vis_at) / TICK_PHYS_S))
+        frac = (min(1.0, max(0.0, (self._anim_now() - self._vis_at) / TICK_PHYS_S))
                 if self._vis_at else 0.0)
         order = {k: i for i, k in enumerate(VIS_PRIORITY)}
         known = sorted((p for p in self.packets_vis if p["kind"] in order),
@@ -69,7 +68,7 @@ class SnapshotMixin:
     def snapshot(self) -> dict:
         """全量快照 (WS 每 0.2s 广播一帧; 前端唯一数据源)。
 
-        Args: None。Returns: dict —— tick/mode/wave/events(尾部40)/links/
+        Args: None。Returns: dict —— tick/paused/mode/wave/events(尾部40)/links/
         nodes/routes/traffic/robot/transport/packets(在途+总线)/chain/stats。
         Globals Used: None。Calls: _snap_links/_snap_stats/transport.* /
         chain_net.export_info/_vis_export; 追加 history 曲线点。
@@ -77,6 +76,7 @@ class SnapshotMixin:
         alive = [n for n in self.nodes.values() if n.state != "DEAD"]
         snap = {
             "tick": self.tick,
+            "paused": self.paused,
             "disaster": self.disaster,
             "mode": self.mode,
             "wave": self.wave,

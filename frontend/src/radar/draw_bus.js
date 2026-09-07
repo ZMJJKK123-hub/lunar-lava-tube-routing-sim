@@ -22,13 +22,13 @@ export const busDraw = {
     const pool = this._busPool ?? (this._busPool = [])
     if (pk.length && this._busTick !== snap.tick) {
       this._busTick = snap.tick
-      const now = performance.now()
+      const now = this._pnow()
       for (const p of pk) {
         pool.push({ a: p.a, b: p.b, kind: p.kind, r: p.r,
                     born: now - p.t * BUS_HOP_MS })
       }
     }
-    const nowCut = performance.now() - 150 - BUS_HOP_MS * 1.3
+    const nowCut = this._pnow() - 150 - BUS_HOP_MS * 1.3
     for (let i = pool.length - 1; i >= 0; i--) if (pool[i].born < nowCut) pool.splice(i, 1)
     let hops = pool
     if (!hops.length) return
@@ -44,7 +44,7 @@ export const busDraw = {
     ctx.translate(this.view.x, this.view.y)
     ctx.scale(this.view.scale, this.view.scale)
     const lw = (px) => px / this.view.scale
-    const now = performance.now() - 150        // 渲染延迟: 播放 150ms 前的世界
+    const now = this._pnow() - 150        // 渲染延迟: 播放 150ms 前的世界
     for (const p of hops) {
       const na = nodes[p.a], nb = nodes[p.b]
       if (!na || !nb) continue

@@ -59,6 +59,8 @@ export default function App() {
         stats={snapshot?.stats}
         mode={snapshot?.mode}
         connected={connected}
+        paused={!!snapshot?.paused}
+        onTogglePause={() => clientRef.current?.send({ cmd: 'toggle_pause' })}
         onDisaster={disaster}
         wallMode={wallMode}
         onToggleWall={() => { const v = !wallMode; setWallMode(v); radarRef.current?.setWallMode(v) }}

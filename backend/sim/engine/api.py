@@ -9,6 +9,7 @@
 import logging   # 标准库: 模块日志 (上帝操作/灾害)
 import math    # 标准库: 巨石拖拽的节点重叠判定
 import random  # 标准库: 热浪/耀斑的随机强度
+import time    # 标准库: 暂停锚定时刻 (monotonic)
 
 from ..config import ROBOT_ID   # 协议标识: 机器人不作打击候选
 
@@ -35,6 +36,31 @@ class ApiMixin:
         信号走 events 与 transport.results 双通道)。
         """
         return self.transport.send_message(src, dst, int(nbytes), kind="user")
+
+    def toggle_pause(self):
+        """暂停/恢复仿真 (WS toggle_pause 指令入口): 翻转 paused 标志。
+        暂停 = 物理拍冻结在当前帧 (节点/网络/传输/链/机器人/tick 全停,
+        广播与上帝操作保留); 恢复 = 从冻结帧原速续走, 无快进堆积。
+
+        Args: None。
+        Returns: dict {ok, paused} —— paused 为切换后的状态。
+        Globals Used: None。Calls: _emit (暂停/恢复事件与解说词)。
+        """
+        self.paused = not self.paused
+        if self.paused:
+            self._paused_at = time.monotonic()   # 动画进度分数的冻结锚点
+        log.info("仿真%s @tick=%d", "暂停" if self.paused else "恢复", self.tick)
+        if self.paused:
+            self._emit("sim_paused", "info",
+                       f"⏸ 仿真已暂停 (tick={self.tick}), 所有计算冻结在这一帧",
+                       narration="⏸ 沙盘按下暂停键——所有计算与报文飞行定格在"
+                                 "此刻,你可以慢慢观察这张网络;再按一次继续。")
+        else:
+            self._emit("sim_resumed", "ok",
+                       f"▶ 仿真恢复 (tick={self.tick}), 从冻结帧继续",
+                       narration="▶ 沙盘恢复运行,所有计算从刚才定格的那一帧"
+                                 "原速继续。")
+        return {"ok": True, "paused": self.paused}
 
     def apply_override(self, node_id: str, params: dict):
         """上帝模式: 覆写节点可变参数; 温度/电量越界 -> 当场死亡播报。
