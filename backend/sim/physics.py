@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-物理层计算: 路径损耗 / 热噪声 / SNR / BER / 链路熔断判定
+物理层计算: 路径损耗 / 热噪声 / SNR / BER / 链路熔断判定 / 六项路由代价
+========================================================================
+纯函数层: 无状态、无副作用, 输入节点参数输出链路预算 —— 可独立测试。
 """
-import math
+import math   # 标准库: 对数/指数/三角, 支撑全部传播公式
+
+from .types import LinkBudget   # 类型契约: link_budget 的返回结构
 
 # 频段参数表: UWB 高速短距, LoRa 低速远距 (深空工程常用双模)
 BAND_PROFILE = {
@@ -62,10 +66,14 @@ def thermal_noise_floor_dbm(node, bandwidth_hz: float) -> float:
     return 10 * math.log10(noise_w / 1e-3) + 6.0   # +6dB 接收机噪声系数
 
 
-def link_budget(tx, rx) -> dict | None:
+def link_budget(tx, rx) -> LinkBudget | None:
     """
     计算 tx -> rx 单向链路。返回 SNR/BER/余量; 若链路物理不通返回 None。
     融合: 发射功率 + 双端天线增益 - 倾角失配惩罚 - 路径损耗 vs 有效灵敏度。
+    Globals Used: BAND_PROFILE / SNR_REQ_DB / PATH_LOSS_EXPONENT (只读)。
+    Calls: free_space_path_loss_db / thermal_noise_floor_db /
+    rx.effective_rx_sensitivity。
+    Args: tx/rx = Node 实例。Returns: LinkBudget dict 或 None (物理不通)。
     """
     if tx.state == "DEAD" or rx.state == "DEAD":
         return None

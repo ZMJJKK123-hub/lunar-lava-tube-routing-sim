@@ -1,12 +1,17 @@
 # 后端完全手册(backend/)
 
 > 月球熔岩管多智能体网络沙盘 —— 仿真引擎
-> 一句话:维护 60 根通信桩 + 26 块巨石的地下网络世界,每 0.25 秒重算一次
+> 一句话:维护 60 根通信桩 + ~15 块巨石(撒布上限 26)的地下网络世界,每 0.25 秒重算一次
 > "谁能连谁、数据怎么走、哪条链路熔断",通过 WebSocket 以 5Hz 推送给前端。
 >
 > 本手册按"**每个文件 → 每个类 → 每个函数**"组织:每个函数只讲**它干什么、
 > 输入什么、返回什么**,不需要读源码。最后两章统一讲**函数之间怎么组装**、
 > **路由代价的权重公式怎么算**。函数名可直接在编辑器里搜索定位。
+>
+> ⚠ 结构说明:四大模块已拆为**子包**(方法名与行为完全不变,只是文件拆细、
+> 每文件 ≤250 行):`sim/engine/`、`sim/transport/`、`sim/blockchain/`、`sim/robot/`。
+> 下文 2.4~2.6 的章节标题仍用旧平铺路径表述,函数手册照常适用 ——
+> 定位函数时按第 1 章的新文件总览跳转即可。
 
 ---
 
@@ -31,18 +36,22 @@
 
 | 文件 | 类/模块 | 一句话职责 |
 |---|---|---|
+| `sim/config.py` | 常量集 | 跨模块可调参数与协议标识(HOST/PORT/节拍/ROBOT_ID 等,零硬编码收敛点) |
+| `sim/types.py` | TypedDict 集 | 核心数据结构类型契约(LinkBudget/RouteInfo/VisPacket 等) |
 | `sim/node.py` | `class Node` | 一根通信桩的全部物理参数 + 每 tick 的演化(耗电/辐射/温度) |
 | `sim/physics.py` | 模块(6 个函数) | 纯计算:距离/路径损耗/噪声/SNR/BER/链路熔断/路由代价 |
 | `sim/routing.py` | 模块(4 个函数) | 纯算法:Dijkstra 全网路由 + 波前记录 + RCSPA 信道分配 |
-| `sim/transport.py` | `class TransportLayer` | 真实报文传输:握手/重传/超时信号/逐跳字节计数 |
-| `sim/blockchain.py` | `class BlockchainNetwork` | 区块链全网状态同步:轮询PoA/泛洪/追块/分叉愈合 |
-| `sim/robot.py` | `class PatrolRobot` | 巡检机器人:SOS 听测 + 道钉投放物理搭桥(独立模块,引擎只挂配置) |
-| `sim/engine.py` | `class SimulationEngine` | 总指挥:世界生成、LOS 遮挡、每 tick 流水线、灾害、快照输出 |
+| `sim/transport/` | `class TransportLayer` | 真实报文传输:连接接纳/重传/超时信号/逐跳字节计数(model+core+relay) |
+| `sim/blockchain/` | `class BlockchainNetwork` | 区块链全网状态同步:统一排他调度PoA/泛洪/追块/分叉愈合(model+chain_node+sync+network) |
+| `sim/robot/` | `class PatrolRobot` | 巡检机器人:SOS 听测 + 道钉投放物理搭桥(constants+motion+senses+robot+deploy) |
+| `sim/engine/` | `class SimulationEngine` | 总指挥:世界生成、LOS 遮挡、每 tick 流水线、灾害、快照输出(world+events+network+state_machine+api+snapshot+__init__) |
 | `main.py` | `app = FastAPI()` | 网络入口:WebSocket 广播、HTTP 健康检查、托管前端页面 |
+| `tests/` | unittest × 32 | 回归网:几何/路由/传输/账本调度择优/引擎冒烟(`python -m unittest discover -s tests`) |
 | `README.md` | — | 本手册 |
 
-依赖方向(单向,无循环):`main → engine → routing/physics/robot → node`。
-分层原则:**node 存状态,physics 只算数(纯函数),routing 只跑图,engine 负责编排**。
+依赖方向(单向,无循环):`main → engine → transport/blockchain/robot → routing/physics → node`,
+全部经 `sim/config` 取共享常量。分层原则:**node 存状态,physics 只算数(纯函数),
+routing 只跑图,engine 负责编排,config/types 零依赖居底**。
 
 ---
 

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { SimClient } from './ws'
 import { Radar2D } from './radar/Radar2D'
-// [3D 方案已废弃] 旧 Three.js 场景保留于 src/scene/LavaTubeScene.js, 不再挂载
-// import { LavaTubeScene } from './scene/LavaTubeScene'
 import GlobalHUD from './components/GlobalHUD'
 import NodeInspector from './components/NodeInspector'
 import EventLog from './components/EventLog'

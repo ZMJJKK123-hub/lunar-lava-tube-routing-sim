@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-自组织自愈路由: 多智能体 Dijkstra + 波前扩散记录。
+自组织自愈路由: 多智能体 Dijkstra + 波前扩散记录 + RCSPA 资源约束选路
+======================================================================
 每次路由计算都会记录节点被 "settle" 的顺序 (波前),
 供前端播放算法扩散过程动画; 同时输出跳数分层结构。
+纯函数层: 无状态、无副作用 —— 可独立测试。
 """
-import heapq
-import math
+import heapq   # 标准库: 优先队列, Dijkstra/RCSPA 的核心数据结构
+import math    # 标准库: inf 哨兵与路径代价计算
+
+from .types import RouteInfo, WaveInfo   # 类型契约: 路由条目与波前结构
 
 
 def build_graph(nodes, links):
@@ -45,10 +49,12 @@ def dijkstra(graph, source):
     return dist, prev, settle_order
 
 
-def routing_step(nodes, links, sink_id):
+def routing_step(nodes, links, sink_id) -> tuple[dict, WaveInfo]:
     """
     计算全网站到 sink 的路由。
-    返回: routes + wave(波前扩散数据: settle 顺序与跳数分层)
+    Globals Used: None。Calls: build_graph / dijkstra。
+    Args: nodes=Node 列表; links=链路表; sink_id=汇聚节点。
+    Returns: (routes: {nid: RouteInfo}, wave: WaveInfo 波前扩散数据)。
     """
     graph = build_graph(nodes, links)
     dist, prev, settle_order = dijkstra(graph, sink_id)

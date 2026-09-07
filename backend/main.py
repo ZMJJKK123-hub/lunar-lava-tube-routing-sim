@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
-"""FastAPI 入口: WebSocket 实时通道 + 前端静态页面托管 (单端口 5000)"""
-import asyncio
-import contextlib
-import json
-from pathlib import Path
+"""FastAPI 入口: WebSocket 实时通道 + 前端静态页面托管 (单端口 5000)。
+接入层职责: 协议转换/参数校验/路由分发 —— 不含任何仿真业务逻辑。"""
+import asyncio       # 标准库: 广播任务调度 (发后即忘 + 限时踢出)
+import contextlib    # 标准库: KeyboardInterrupt 静默收尾
+import json          # 标准库: WS 消息 JSON 编解码
+from pathlib import Path   # 标准库: 前端 dist 目录定位
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect   # Web 框架: 应用/WS 端点
+from fastapi.middleware.cors import CORSMiddleware           # 跨域中间件 (开发期 :5173)
+from fastapi.responses import FileResponse                   # index.html 文件响应
+from fastapi.staticfiles import StaticFiles                  # /assets 静态托管
 
-from sim.engine import ENGINE
+from sim.config import HOST, PORT, WS_BACKEND   # 配置层: 监听地址/端口/WS 实现
+from sim.engine import ENGINE                    # 仿真引擎单例 (业务全部委托给它)
 
 # 前端构建产物 (npm run build 后的 dist)
 DIST_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
@@ -136,4 +138,4 @@ if __name__ == "__main__":
     with contextlib.suppress(KeyboardInterrupt):
         # ws="wsproto": 规避 websockets 17.x legacy 协议在客户端断开时的
         # AssertionError (该异常曾逃逸并杀死整个进程)
-        uvicorn.run(app, host="0.0.0.0", port=5000, ws="wsproto")
+        uvicorn.run(app, host=HOST, port=PORT, ws=WS_BACKEND)

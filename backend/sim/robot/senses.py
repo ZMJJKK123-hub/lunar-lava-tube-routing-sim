@@ -1,0 +1,153 @@
+# -*- coding: utf-8 -*-
+"""
+机器人感知与任务挑选 (SenseMixin)
+====================================
+职责: PatrolRobot 的"耳目" —— SOS 听测/链上情报侦查/主网在望判定/
+任务开启判定。只读取引擎与账本状态, 不做任何移动或状态迁移决策
+(决策在 robot.py 的状态机)。
+依赖: MotionMixin._los_clear (视线判定), physics.distance (测距)。
+"""
+import math   # 标准库: 嫌疑目标距离计算 (_chain_intel)
+
+from ..config import ROBOT_ID                  # 协议标识: 自身节点 ID
+from .. import physics                         # 物理层: distance/link_budget
+from .constants import (RANGE, SOS_ARM_TICKS, SOS_BEACON_EVERY,  # 听测节拍
+                        ROBOT_CHAIN_INTEL, STALE_AFTER)          # 情报开关/超时
+
+
+class SenseMixin:
+    """PatrolRobot 的感知能力混入。
+
+    属性要求 (由 PatrolRobot.__init__ 提供): self.eng (引擎引用),
+    self.node (机器人伪节点), self.sos_active (呼救节点集合),
+    self._iso (连续失联计数), self._checked_until (核查冷却表),
+    self.trail (面包屑), self.state/self.target (任务状态)。
+
+    调用链: tick() -> _update_sos (呼救判定) ; _advance -> _hear (实时)
+    / _chain_intel (滞后情报) -> _start_mission (开任务)。
+    """
+
+    def _update_sos(self, tick: int):
+        """逐节点判定失联: hop<0 连续 SOS_ARM_TICKS -> 呼救; 恢复可达 -> 停发"""
+        eng = self.eng
+        for n in eng.nodes.values():
+            if n.role == "beacon" or n.id == eng.sink_id or n.state == "DEAD":
+                continue
+            hop = eng.routes.get(n.id, {}).get("hop_count", -1)
+            if hop >= 0:
+                if n.id in self.sos_active:
+                    self.sos_active.discard(n.id)
+                    eng._emit("sos_stop", "ok", f"✔ {n.id} 重新可达, SOS 停发",
+                              narration=f"✅ {eng._zh(n.id)} 重新接回网络,呼救解除。",
+                              node=n.id)
+                self._iso.pop(n.id, None)
+                continue
+            self._iso[n.id] = self._iso.get(n.id, 0) + 1
+            if self._iso[n.id] == SOS_ARM_TICKS:
+                self.sos_active.add(n.id)
+                eng._emit("sos_start", "error",
+                          f"🆘 {n.id} 失联 {SOS_ARM_TICKS} tick, 开始广播 SOS",
+                          narration=f"🆘 {eng._zh(n.id)} 已连续失联,开始向外广播 SOS 求援信号"
+                                    f"——巡检机器人若巡至其通信范围内就能听到。",
+                          node=n.id)
+            # 信标帧: 每 N tick 一帧 (错峰), 300m+LOS 内可闻 -> 渲染总线上报
+            if (n.id in self.sos_active
+                    and (tick + int(n.id.split("-")[1])) % SOS_BEACON_EVERY == 0):
+                self._emit_beacons(n)
+
+    def _emit_beacons(self, n):
+        """SOS 信标的物理呈现: 覆盖内最多 3 个邻居 + (若在圈内) 机器人"""
+        sent = 0
+        for m in self.eng.nodes.values():
+            if m.id == n.id or sent >= 3:
+                continue
+            if physics.distance(n, m) > RANGE:
+                continue
+            if not self._los_clear((n.x, n.z), (m.x, m.z)):
+                continue
+            self.eng.vis_packet(n.id, m.id, "SOS", relayed=False)
+            sent += 1
+        if (physics.distance(n, self.node) <= RANGE
+                and self._los_clear((n.x, n.z),
+                                        (self.node.x, self.node.z))):
+            self.eng.vis_packet(n.id, ROBOT_ID, "SOS", relayed=False)
+
+    def _connected(self) -> bool:
+        """当前位置是否看得见可达 (hop>=0) 邻居 —— "主网在望" (面包屑采样用)"""
+        eng = self.eng
+        for n in eng.nodes.values():
+            if n.state == "DEAD":
+                continue
+            if eng.routes.get(n.id, {}).get("hop_count", -1) < 0:
+                continue
+            if (physics.distance(self.node, n) <= RANGE
+                    and self._los_clear((self.node.x, self.node.z), (n.x, n.z))):
+                return True
+        return False
+
+    def _hear(self):
+        """听测: 覆盖内 (300m+LOS) 最近的呼救节点 -> (nid, node) 或 None"""
+        best, bd = None, RANGE
+        for nid in self.sos_active:
+            n = self.eng.nodes.get(nid)
+            if n is None:
+                continue
+            d = physics.distance(self.node, n)
+            if d <= bd and self._los_clear((self.node.x, self.node.z),
+                                               (n.x, n.z)):
+                bd, best = d, (nid, n)
+        return best
+
+    # ---- 链上情报: 心跳超时侦查 (机器人是全同步观察者, 这是它的本职) ----
+    def _chain_intel(self, tick):
+        """扫自身链上世界状态: 遥测停更超期的存活节点 = 失联嫌疑 (带最后已知
+        坐标)。返回 (距离, nid, x, z) 最近者或 None。
+        注意: 这是滞后情报 (失联 ~2.5 个遥测周期后显形), SOS 才是零滞时确认。"""
+        if not ROBOT_CHAIN_INTEL:
+            return None
+        me = self.eng.chain_net.nodes.get(ROBOT_ID)
+        if me is None:
+            return None
+        best = None
+        for nid, st in me.world_state.items():
+            if tick - st.get("tick", 0) < STALE_AFTER:
+                continue
+            if st.get("state") == "DEAD":
+                continue
+            if tick < self._checked_until.get(nid, 0):
+                continue
+            n = self.eng.nodes.get(nid)
+            if n is None or n.state == "DEAD":
+                continue
+            if self.eng.routes.get(nid, {}).get("hop_count", -1) >= 0:
+                continue               # 路由可达 (链只是慢): 不值得出任务
+            sx, sz = st.get("x", n.x), st.get("z", n.z)
+            d = math.hypot(sx - self.node.x, sz - self.node.z)
+            if best is None or d < best[0]:
+                best = (d, nid, sx, sz)
+        return best
+
+    # ---- 任务生命周期 ----
+    def _on_mission_for(self, nid) -> bool:
+        """同一目标的救援/核查/回撤是否正在进行 (防链上情报每拍重触发)"""
+        return (self.state in ("RESCUE", "INVESTIGATE", "FALLBACK")
+                and self.target is not None and self.target[0] == nid)
+
+    def _start_mission(self, state, nid, tick):
+        """开启/切换任务: 换目标才清面包屑 (INVESTIGATE<->FALLBACK 交接保留)"""
+        if not (self.target and self.target[0] == nid):
+            self.trail = []
+        self.state = state
+        self._rescue_since = tick
+        if state == "RESCUE":
+            self.eng._emit("robot_rescue", "info",
+                           f"🤖 机器人听到 {nid} 的 SOS, 前往救援",
+                           narration=f"🤖 巡检机器人听到了 {self.eng._zh(nid)} 的呼救!"
+                                     f"正在赶往事发区域,准备投放道钉搭建中继。",
+                           node=nid)
+        else:
+            self.eng._emit("robot_investigate", "info",
+                           f"🔎 链上心跳超时: {nid} 已 {STALE_AFTER}+ tick 未上报, 前往核查",
+                           narration=f"🔎 机器人的账本发现 {self.eng._zh(nid)} 很久没有上链心跳了"
+                                     f"——可能已失联。它正循着最后一次上报的位置前去看个究竟。",
+                           node=nid)
