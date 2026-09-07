@@ -6,6 +6,7 @@
 半双工推进编排与超时检查; 逐跳搬运细节在 relay.RelayMixin。
 分层: 业务逻辑层 —— 只经引擎公开属性读拓扑, 不做 I/O。
 """
+import logging   # 标准库: 模块日志 (发送受理/拒绝)
 import random  # 标准库: 自动遥测随机化 (默认关闭) 与 sensor 抽样
 import time    # 标准库: monotonic 时钟 (前端飞行插值用)
 
@@ -18,9 +19,11 @@ from .model import (AUTO_TELEMETRY, DEFAULT_TIMEOUT, MAX_CONCURRENT,   # 节拍�
                     Message, Segment)                                  # 报文实体
 from .relay import RelayMixin   # 逐跳推进/绕行/超时 (混入)
 
+log = logging.getLogger(__name__)   # 本模块日志器
+
 
 class TransportLayer(RelayMixin):
-    """端到端报文传输服务 (挂在 SimulationEngine 上)。
+    """职责: 端到端报文传输服务 (挂在 SimulationEngine 上)。
 
     核心属性:
     - eng: 仿真引擎引用 (读 links/nodes/tick, 写事件);
@@ -28,7 +31,7 @@ class TransportLayer(RelayMixin):
     - link_stats: 链路计账 {边: tx/rx/pkts/retries/drops};
     - results: 已完结报文结果信号 (deque maxlen=50)。
 
-    执行链路: engine.run_forever -> step (自动遥测+半双工推进+超时)
+    调用链: engine.run_forever -> step (自动遥测+半双工推进+超时)
     -> _step_segment (RelayMixin) -> engine.snapshot -> active_packets。
     """
 
@@ -43,31 +46,54 @@ class TransportLayer(RelayMixin):
 
     # ================= 查询接口 =================
     def node_bytes(self, nid: str) -> int:
-        """节点发送缓冲中的在途字节数"""
+        """节点发送缓冲中的在途字节数。
+
+        Args: nid: 节点 id。Returns: int, 字节 (无缓冲返回 0)。
+        Globals Used: None。Calls: None。
+        """
         q = self.node_queues.get(nid)
         return sum(s.nbytes for s in q) if q else 0
 
     def queue_pct(self, nid: str, extra_bytes: int = 0) -> float:
-        """真实队列积压率: (缓冲中在途字节 + 链上待发字节) / 上限"""
+        """真实队列积压率: (缓冲在途字节 + 链上待发字节) / 上限。
+        Args: nid: 节点 id; extra_bytes: 链上待发字节 (已按配额封顶)。
+        Returns: float ∈ [0,100]。Globals Used: QUEUE_LIMIT_BYTES。Calls: node_bytes。
+        """
         return min(100.0, (self.node_bytes(nid) + extra_bytes) / QUEUE_LIMIT_BYTES * 100.0)
 
     def link_summary(self, edge) -> dict:
-        """链路传输计账 (无记录时返回零值表)"""
+        """链路传输计账 (无记录时返回零值表)。
+
+        Args: edge: (a, b) 节点对 (内部按排序元组查键)。Returns: dict
+        {tx/rx/pkts/retries/drops}。Globals Used: None。Calls: None。
+        """
         return self.link_stats.get(
             tuple(sorted(edge)),
             {"tx": 0, "rx": 0, "pkts": 0, "retries": 0, "drops": 0})
 
     def inflight(self):
-        """在途报文列表"""
+        """在途报文列表。
+
+        Args: None。
+        Returns: list[Message] (status=INFLIGHT)。Globals Used: None。Calls: None。
+        """
         return [m for m in self.messages.values() if m.status == "INFLIGHT"]
 
     def active_traffic(self):
-        """在途报文 -> engine.traffic (源/目的标记环绘制)"""
+        """在途报文 -> engine.traffic (源/目的标记环绘制)。
+
+        Args: None。
+        Returns: list[{src, path, bytes}]。Globals Used: None。Calls: None。
+        """
         return [{"src": m.src, "path": m.path, "bytes": m.total}
                 for m in self.messages.values() if m.status == "INFLIGHT"]
 
     def active_nodes_edges(self):
-        """缓冲非空节点集 + 占用边集 (PAMAS 收发判定与信道忙碌表用)"""
+        """缓冲非空节点集 + 占用边集 (PAMAS 收发判定与信道忙碌表用)。
+
+        Args: None。
+        Returns: (set[节点id], set[排序边元组])。Globals Used: None。Calls: None。
+        """
         nodes, edges = set(), set()
         for q in self.node_queues.values():
             for s in q:
@@ -78,10 +104,14 @@ class TransportLayer(RelayMixin):
         return nodes, edges
 
     def active_packets(self):
-        """在途 DATA 报文 -> 前端动画数据。
-        t 为本跳进度 0..1 (tick 内墙钟插值); t=-1 表示停驻在节点 a 排队。
-        握手控制帧(SYN/SYNACK/ACK)在底层真实运行 (消耗 tick 与字节),
-        但不下发 —— 画面只呈现数据包本体, 协议过程交给事件日志解说。"""
+        """在途 DATA 报文 -> 前端动画数据 (t=本跳进度 0..1; -1=停驻排队)。
+        握手控制帧在底层真实运行但不下发 —— 画面只演数据包本体。
+
+        Args: None。
+        Returns: list[dict] —— a/b/t/kind/bytes/chan/msg/seg/ph(已飞跳数)/
+        path(完整路径, 前端全程折线插值用)。
+        Globals Used: None。Calls: None。
+        """
         frac = 0.0
         if self._tick_at:
             frac = min(1.0, max(0.0, (time.monotonic() - self._tick_at) / 0.25))
@@ -105,7 +135,12 @@ class TransportLayer(RelayMixin):
         return out
 
     def summary(self) -> dict:
-        """传输层总账 (快照 transport 字段)"""
+        """传输层总账 (快照 transport 字段)。
+
+        Args: None。
+        Returns: dict {totals: 五项字节/包计数 + delivered/timeout/inflight,
+        results: 最近 12 条结果信号}。Globals Used: None。Calls: inflight。
+        """
         tot = {"tx": 0, "rx": 0, "pkts": 0, "retries": 0, "drops": 0}
         for st in self.link_stats.values():
             for k in tot:
@@ -151,16 +186,25 @@ class TransportLayer(RelayMixin):
 
     def send_message(self, src, dst, payload_bytes,
                      timeout_ticks=DEFAULT_TIMEOUT, kind="telemetry"):
-        """发送入口: 立即返回受理结果。
-        连接接纳 (= 握手语义, 零时间开销): rscspa 选到路 = 连接建立,
-        报文整包即刻出发; 选不到路 = NO_PATH 拒绝。
-        最终 DELIVERED / TIMEOUT 等结果信号通过 events 与 results 双通道给出。"""
+        """发送入口: 连接接纳 (rscspa 选到路=连接建立, 零时间开销) ->
+        整包即刻出发; 无路=NO_PATH 拒绝。结果信号走 events+results 双通道。
+
+        Args: src/dst: 源/目的节点 id; payload_bytes: 字节数;
+              timeout_ticks: 超时拍数; kind: 业务类别 (telemetry/user)。
+        Returns: dict —— 成功 {ok, msg_id, path, channels, segments};
+                 拒绝 {ok:False, signal: NO_SUCH_NODE/SRC_DEAD/BUSY/NO_PATH}。
+        Globals Used: MAX_CONCURRENT/DEFAULT_TIMEOUT。Calls: inflight/_plan/
+        Message+Segment 构造 / engine._emit。
+        """
         eng = self.eng
         if src not in eng.nodes or dst not in eng.nodes:
+            log.warning("报文拒绝 %s->%s: NO_SUCH_NODE", src, dst)
             return {"ok": False, "signal": "NO_SUCH_NODE"}
         if eng.nodes[src].state == "DEAD":
+            log.warning("报文拒绝 %s->%s: SRC_DEAD", src, dst)
             return {"ok": False, "signal": "SRC_DEAD"}
         if len(self.inflight()) >= MAX_CONCURRENT:
+            log.warning("报文拒绝 %s->%s: BUSY (在途满)", src, dst)
             return {"ok": False, "signal": "BUSY"}
         res = self._plan(src, dst)
         if res is None:
@@ -178,6 +222,8 @@ class TransportLayer(RelayMixin):
         # 队列/逐跳计数仍按完整字节数计, 负载语义与分段时代等价
         self.node_queues.setdefault(src, deque()).append(
             Segment(mid, 0, m.total, src, m.path[1]))
+        log.info("报文#%s %s->%s %dB 受理: %d跳 信道%s",
+                 mid, src, dst, m.total, len(m.path) - 1, res["channels"])
         eng._emit("msg_sent", "info",
                   f"📤 {src} → {dst}: 连接建立, {m.total}B 整包出发 "
                   f"(路径 {len(m.path) - 1} 跳, 信道 {''.join(map(str, res['channels']))})",
@@ -187,7 +233,10 @@ class TransportLayer(RelayMixin):
 
     # ================= 逐 tick 推进 =================
     def step(self):
-        """编排一拍: 自动遥测(默认关) -> 半双工逐节点推进 -> 超时检查"""
+        """编排一拍: 自动遥测(默认关) -> 半双工逐节点推进 -> 超时检查。
+        Args: None。Returns: None (副作用: 队列/计账/结果信号)。
+        Globals Used: AUTO_TELEMETRY。Calls: _step_segment / _timeout。
+        """
         eng = self.eng
         self._tick_at = time.monotonic()
         # 1) 自动遥测 (默认关闭, 见 AUTO_TELEMETRY)

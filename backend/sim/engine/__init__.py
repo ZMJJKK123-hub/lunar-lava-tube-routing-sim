@@ -19,8 +19,8 @@ import time     # 标准库: monotonic 时钟 (物理拍/广播拍错峰调度)
 
 from collections import deque   # 标准库: history 滚动曲线 (定长)
 
-from ..config import (ROBOT_ENABLED, SEED,       # 功能开关/世界种子
-                      TICK_BROADCAST_S, TICK_PHYS_S)   # 主循环节拍
+from ..config import (LOG_TICK_EVERY, ROBOT_ENABLED,   # 日志采样/功能开关
+                      SEED, TICK_BROADCAST_S, TICK_PHYS_S)  # 种子/主循环节拍
 from ..node import Node                     # 节点数据类 (类型注解用)
 from ..transport import TransportLayer      # 传输层 (真实报文收发)
 from ..blockchain import BlockchainNetwork  # 账本网络 (全网状态同步)
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)   # 本模块日志器 (tick 异常可见, 不
 
 
 class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
-    """仿真引擎门面: 装配各层 + 主循环 + 上帝重置。
+    """职责: 仿真引擎门面: 装配各层 + 主循环 + 上帝重置。
 
     核心属性:
     - nodes/links/routes/traffic: 网络状态 (network 每拍重算);
@@ -43,7 +43,7 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
     - transport/chain_net/robot: 三大子系统挂点;
     - packets_vis/_vis_at: 渲染总线缓冲; mode: 自愈模式机状态。
 
-    执行链路: main.startup -> ENGINE.run_forever(broadcast)
+    调用链: main.startup -> ENGINE.run_forever(broadcast)
     -> [node.step -> compute_network -> transport.step -> chain_net.step]
     x每 0.25s -> snapshot x每 0.2s -> broadcast。
     """
@@ -86,16 +86,27 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
         self.chain_net = BlockchainNetwork(self)
         # 巡检机器人: SOS 听测 + 道钉投放 (独立模块, 引擎只挂两个挂点)
         self.robot = PatrolRobot(self) if ROBOT_ENABLED else None
+        log.info("世界构建完成: seed=%s 节点=%d 巨石=%d 链路=%d 覆盖率=%.1f%%",
+                 self._seed, len(self.nodes), len(self.obstacles),
+                 len(self.links), self._coverage())
 
     # ---------------- 事件总线便捷入口 (全引擎统一口径) ----------------
     @property
     def last_narration(self):
-        """最新关键解说 (真身在 hub, 属性保持旧引用路径可用)"""
+        """最新关键解说 (真身在 hub, 属性保持旧引用路径可用)。
+
+        Returns: dict {id, text} 或 None。Globals Used: None。Calls: None。
+        """
         return self.hub.last_narration
 
     def _emit(self, type_: str, severity: str, msg: str,
               narration: str | None = None, **payload):
-        """事件转发: 各层经引擎实例调用 (hub 为唯一真身)"""
+        """事件转发: 各层经引擎实例调用 (hub 为唯一真身)。
+
+        Args: type_: 事件类型; severity: info/ok/warn/error; msg: 日志文本;
+              narration: 通俗解说词 (可选); **payload: 结构化附加字段。
+        Returns: None。Globals Used: None。Calls: hub.emit。
+        """
         self.hub.emit(self.tick, type_, severity, msg, narration, **payload)
 
     @staticmethod
@@ -105,7 +116,10 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
 
     def _coverage(self) -> float:
         """全网覆盖率: 可达节点占比。
-        道钉是基础设施资产, 不计入覆盖率分子分母 (否则投放后永远到不了 100%)"""
+        道钉是基础设施资产, 不计入覆盖率分子分母 (否则投放后永远到不了 100%)。
+
+        Args: None。Returns: float ∈ [0, 100]。Globals Used: None。Calls: None。
+        """
         real = [nid for nid, n in self.nodes.items() if n.role != "beacon"]
         reach = sum(1 for nid in real
                     if self.routes.get(nid, {}).get("hop_count", -1) >= 0)
@@ -113,7 +127,11 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
 
     def reset(self):
         """上帝重置: 以同一种子原地重建整个世界 (节点/巨石/链/机器人/账本
-        全部回到初始, 墙体/灾害痕迹清空)。同步执行, 主循环无需重启。"""
+        全部回到初始, 墙体/灾害痕迹清空)。同步执行, 主循环无需重启。
+
+        Args: None。Returns: None。Globals Used: SEED (种子基线)。
+        Calls: self.__init__ (整世界重建)。
+        """
         self.__init__()
 
     async def run_forever(self, broadcaster):
@@ -134,6 +152,11 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
                     self.compute_network()
                     self.transport.step()   # 报文逐跳推进 (握手/重传/超时)
                     self.chain_net.step(self.tick)  # 区块链泛洪/出块/追块
+                    if self.tick % LOG_TICK_EVERY == 0:
+                        log.debug("心跳 tick=%s mode=%s links=%d cov=%.1f%% chain_h=%d",
+                                  self.tick, self.mode, len(self.links),
+                                  self._coverage(),
+                                  max(nd.height for nd in self.chain_net.nodes.values()))
                 except Exception as e:      # 单 tick 异常不杀死引擎 (显式记录)
                     log.exception("tick %s error (ignored)", self.tick)
                 next_phys = now + TICK_PHYS_S

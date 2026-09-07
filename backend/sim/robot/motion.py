@@ -16,7 +16,11 @@ from .constants import RANGE, TRAIL_MAX, SPEED   # 通信半径/轨迹上限/移
 
 def plan_robot_path(p_from, p_to):
     """路径规划占位符: 当前直线返回 [起点, 终点]。
-    保持签名 (起点, 终点) -> [路径点序列], 可整体替换为 A*/RCSPA/势场等。"""
+    保持签名 (起点, 终点) -> [路径点序列], 可整体替换为 A*/RCSPA/势场等。
+
+    Args: p_from/p_to: (x, z) 世界坐标点。Returns: list[(x, z)] 路径点序列。
+    Globals Used: None。Calls: None。
+    """
     return [tuple(p_from), tuple(p_to)]
 
 
@@ -46,7 +50,7 @@ def _seg_circle_hit(p1, p2, c, r) -> bool:
 
 
 class MotionMixin:
-    """PatrolRobot 的运动学能力混入。
+    """职责: PatrolRobot 的运动学能力混入。
 
     属性要求 (由 PatrolRobot.__init__ 提供):
     - eng: 仿真引擎引用 (只读其 walls/obstacles/pillar_spheres/chambers);

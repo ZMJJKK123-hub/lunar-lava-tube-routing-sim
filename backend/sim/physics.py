@@ -19,17 +19,22 @@ BAND_PROFILE = {
 # 月球熔岩管内: 无大气, 视距 + 洞壁散射, 路径损耗指数取 2.6
 PATH_LOSS_EXPONENT = 2.6
 REFERENCE_DIST_M = 1.0
-K_BOLTZ = 1.38e-23
-T0_KELVIN = 290.0
+K_BOLTZ = 1.38e-23          # 玻尔兹曼常数 (J/K), kTB 热噪声功率计算
+T0_KELVIN = 290.0           # 参考温度 (K, ~17°C 地球常态; 噪声底按节点实温折算)
 
 # 解调门限 SNR (工程值): UWB-BPSK 高速需 8dB; LoRa-CSS 扩频容错 -15dB
 SNR_REQ_DB = {"UWB": 8.0, "LoRa": -15.0}
 
 
-WORLD_SCALE = 10.0
+WORLD_SCALE = 10.0         # 世界尺度: 1 仿真单位 = 10 世界米 (节点坐标/通信半径换算基准)
 
 
 def distance(a, b) -> float:
+    """两节点的 3D 欧氏距离 (世界坐标, 未经尺度换算)。
+
+    Args: a/b: Node 实例。Returns: float, 世界米。
+    Globals Used: None。Calls: None。
+    """
     dx = a.x - b.x
     dy = a.y - b.y
     dz = a.z - b.z
@@ -37,14 +42,23 @@ def distance(a, b) -> float:
 
 
 def sim_distance(a, b) -> float:
-    """归一化仿真距离: 供物理公式使用, 与世界尺度解耦"""
+    """归一化仿真距离: 与世界尺度解耦, 供传播公式使用。
+
+    Args: a/b: Node 实例。Returns: float, 仿真单位 (世界米 / WORLD_SCALE)。
+    Globals Used: WORLD_SCALE (只读)。Calls: distance。
+    """
     return distance(a, b) / WORLD_SCALE
 
 
 def free_space_path_loss_db(d_m: float, freq_ghz: float) -> float:
     """通用路径损耗模型: PL = FSPL(d0) + 10*gamma*log10(d/d0)   (文献式13)
     月球熔岩管内无大气、以视距为主; 洞壁散射/多径已并入 PATH_LOSS_EXPONENT(=2.6),
-    故不再单独叠加额外散射项, 避免双重计损。"""
+    故不再单独叠加额外散射项, 避免双重计损。
+
+    Args: d_m: 距离 (世界米, <1 时钳到参考距离 1m); freq_ghz: 频段中心频率。
+    Returns: float, 路径损耗 dB。
+    Globals Used: PATH_LOSS_EXPONENT / REFERENCE_DIST_M (只读)。Calls: math.log10。
+    """
     if d_m < REFERENCE_DIST_M:
         d_m = REFERENCE_DIST_M
     lam = 3e8 / (freq_ghz * 1e9)
@@ -57,9 +71,12 @@ def free_space_path_loss_db(d_m: float, freq_ghz: float) -> float:
 
 
 def thermal_noise_floor_dbm(node, bandwidth_hz: float) -> float:
-    """
-    热噪声功率 = kTB。月球无大气吸热, 节点温度直接决定本征噪声底。
+    """热噪声功率 = kTB。月球无大气吸热, 节点温度直接决定本征噪声底。
     node.temp_c 越高噪声底越高 (10log(T/290) 项)。
+
+    Args: node: Node 实例 (读 temp_c); bandwidth_hz: 接收带宽 (Hz)。
+    Returns: float, dBm (含 +6dB 接收机噪声系数)。
+    Globals Used: K_BOLTZ (只读)。Calls: math.log10。
     """
     t_k = node.temp_c + 273.15
     noise_w = K_BOLTZ * t_k * bandwidth_hz
@@ -121,10 +138,14 @@ def link_budget(tx, rx) -> LinkBudget | None:
 
 
 def link_cost(tx, rx, link: dict, load: float = 0.0) -> float:
-    """
-    多变量融合路由代价 —— 算法核心。
-    Cost = 能量项 + 链路质量项 + 拥塞项 + 可靠性项 + 信息素负载项
-    load: 该链路的指数平滑历史承载量 (ACO 信息素), 让多智能体自动分流。
+    """六变量融合路由代价 —— 算法核心。
+
+    Cost = 能量项 + 链路质量项 + 拥塞项 + 可靠性项 + 速度惩罚 + 信息素项,
+    各项权重见行内注释 (Dijkstra 与 RCSPA 共用此边权, 流量自动分流)。
+    Args: tx/rx: Node 实例 (发送/接收端); link: link_budget 的输出 dict;
+          load: 该链路的历史承载量 (ACO 信息素, 指数平滑)。
+    Returns: float, 无量纲代价 (基础跳代价 1.0 起)。
+    Globals Used: None。Calls: None。
     """
     # 能量项: 剩余电量越少代价越高 (均衡能耗, 延长网络寿命)
     energy = 2.0 * (1.0 - min(tx.battery_soc, 100) / 100.0)

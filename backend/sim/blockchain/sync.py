@@ -5,14 +5,17 @@
 职责: ChainNode 的通信协议栈 —— TX/BLOCK 泛洪处理、SYNC_REQ/SYNC_RESP
 防熵追块、同高度竞争块触发的整链择优愈合 (限频防响应风暴)。
 """
+import logging   # 标准库: 模块日志 (分叉信号/追块)
 import random  # 标准库: 整链响应抽样 (40%) 抑制风暴
 
 from .model import (FORK_REQ_CD, FORK_RESP_CD, RESP_CD, SYNC_BATCH,  # 限频/批量
                     Block, Transaction, _mk_packet)                   # 实体与信封
 
+log = logging.getLogger(__name__)   # 本模块日志器
+
 
 class SyncMixin:
-    """ChainNode 的同步协议混入。
+    """职责: ChainNode 的同步协议混入。
 
     属性要求 (由 ChainNode.__init__ 提供): self.id/chain/mempool/seen/
     fork_mode/fork_req_tick/resp_cd/out 与 _net (网络编排引用)。
@@ -23,7 +26,13 @@ class SyncMixin:
 
     # ---------- 收包 ----------
     def handle_packet(self, pkt: dict, tick: int) -> list:
-        """泛洪包入口: 去重后按类型分发; 返回本节点待发包"""
+        """泛洪包入口: 去重后按类型分发; 返回本节点待发包。
+
+        Args: pkt: 泛洪信封 dict (_mk_packet 格式); tick: 当前仿真 tick。
+        Returns: list[dict] —— 本节点因本包新生成的待发包 (含续泛洪/响应)。
+        Globals Used: None。Calls: _seen_mark / _on_tx / _on_block /
+        _on_sync_req / _on_sync_resp。
+        """
         self.out = []
         if not self._seen_mark(pkt["msg_id"]):
             return []
@@ -63,6 +72,9 @@ class SyncMixin:
             if tick - self.fork_req_tick > FORK_REQ_CD:
                 self.fork_mode = True
                 self.fork_req_tick = tick
+                log.warning("分叉信号 %s: 同高竞争块 #%d 对方=%s 我方尾=%s",
+                            self.id, blk.index, blk.creator,
+                            self.tail.block_hash[:8])
                 self.out.append(_mk_packet(
                     "SYNC_REQ", self.id, {"from_index": 0, "fork": True}))
         else:
@@ -128,6 +140,8 @@ class SyncMixin:
                 accepted += 1
             else:
                 break
+        if accepted:
+            log.debug("追块 %s: +%d -> h=%d", self.id, accepted, self.height)
         if accepted == 0 and blocks \
                 and blocks[0].index == self.height + 1 \
                 and blocks[0].prev_hash != self.tail.block_hash:

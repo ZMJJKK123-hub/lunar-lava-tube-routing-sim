@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)   # 本模块日志器 (异常可见, 不打�
 
 
 class BlockchainNetwork:
-    """挂在 SimulationEngine 上: 提供拓扑与遥测数据, 驱动全部 ChainNode。
+    """职责: 挂在 SimulationEngine 上: 提供拓扑与遥测数据, 驱动全部 ChainNode。
 
     核心属性:
     - eng: 引擎引用 (links 拓扑 + nodes 遥测源); sorted_ids: 共识名单;
@@ -26,7 +26,7 @@ class BlockchainNetwork:
     - stats: blocks/fork_heals/catchups 计数;
     - tx_load: 节点 -> 本 tick 链上待发字节 (计入 queue_pct)。
 
-    执行链路: engine.run_forever -> step (_deliver_inflight + _drive_nodes)
+    调用链: engine.run_forever -> step (_deliver_inflight + _drive_nodes)
     -> ChainNode.handle_packet/try_mine -> engine.snapshot -> export_info。
     """
 
@@ -70,11 +70,17 @@ class BlockchainNetwork:
 
     def register_node(self, nid: str):
         """注册非共识节点 (机器人/道钉): 完整链同步与转发, 但不进轮值名单
-        sorted_ids —— 永不遥测、永不出块、不进账本侧边栏。"""
+        sorted_ids —— 永不遥测、永不出块、不进账本侧边栏。
+
+        Args: nid: 节点 id (须与引擎 nodes 表一致)。
+        Returns: None (幂等: 已注册则跳过)。
+        Globals Used: None。Calls: ChainNode 构造。
+        """
         if nid not in self.nodes:
             nd = ChainNode(nid, self.sorted_ids, self.genesis)
             nd._net = self
             self.nodes[nid] = nd
+            log.info("注册非共识节点 %s (全同步哑节点)", nid)
 
     def _telemetry_payload(self, nid):
         """节点遥测交易负载 (链上世界状态的字段契约)"""
@@ -98,7 +104,11 @@ class BlockchainNetwork:
 
     # ---- 事件上报 (前端 EventLog 直观可见同步过程) ----
     def notify(self, type_, sev, msg):
-        """经引擎事件总线上报; 失败显式记录日志 (不打断仿真)"""
+        """经引擎事件总线上报; 失败显式记录日志 (不打断仿真)。
+
+        Args: type_: 事件类型; sev: info/ok/warn/error; msg: 日志文本。
+        Returns: None。Globals Used: log (模块日志器)。Calls: engine._emit。
+        """
         try:
             self.eng._emit(type_, sev, msg)
         except Exception:
@@ -106,7 +116,10 @@ class BlockchainNetwork:
 
     # ---- 每 tick 主循环 ----
     def step(self, tick: int):
-        """编排一拍: 投递上拍泛洪包 -> 节点主动行为 (遥测/心跳/出块)"""
+        """编排一拍: 投递上拍泛洪包 -> 节点主动行为 (遥测/心跳/出块)。
+        Args: tick: 当前仿真 tick。Returns: None (副作用: inflight/tx_load/stats)。
+        Globals Used: TELEMETRY_EVERY/HEARTBEAT_EVERY。Calls: _deliver_inflight/_drive_nodes。
+        """
         self._adj = {}
         load = self._deliver_inflight(tick)
         self._drive_nodes(tick, load)
@@ -156,7 +169,13 @@ class BlockchainNetwork:
 
     # ---- 快照导出 (前端账本侧边栏) ----
     def export_info(self):
-        """账本快照: 高度分布/一致性指标/世界状态/分叉差异"""
+        """账本快照: 高度分布/一致性指标/世界状态/分叉差异。
+
+        Args: None。Returns: dict —— h_max/n/na(活跃)/aligned/lag1/agree/
+        base_hash/tip/per(逐节点行)/world/diffs(真分叉差异≤12)/stats。
+        Globals Used: SYNC_PREFIX_BLOCKS (前缀容差)。Calls: _ledger_rows/
+        _consensus_base/_reference_chain/_fork_diffs。
+        """
         per, h_max = self._ledger_rows()
         base, alive, per_alive = self._consensus_base(per, h_max)
         ref_hashes, world, tip = self._reference_chain(alive, h_max, base)

@@ -1,7 +1,7 @@
 // 传输层绘制器: 真实 DATA 报文可视化 (活跃边/排队徽章/匀速方块/标记环/闪烁/红叉)
 // (挂到 Radar2D.prototype; _drawTransport 为编排, 各小节独立成法)
 
-import { DATA_HOP_S } from './styles'
+import { DATA_HOP_S } from './styles'   // DATA 方块每跳视觉耗时 (匀速动画)
 
 // 信道配色: 与后端 rscspa 的 3 信道一一对应
 const CHAN_COL = ['#00E8FF', '#FFC04D', '#B08CFF']

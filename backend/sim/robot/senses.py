@@ -7,6 +7,7 @@
 (决策在 robot.py 的状态机)。
 依赖: MotionMixin._los_clear (视线判定), physics.distance (测距)。
 """
+import logging   # 标准库: 模块日志 (SOS/情报/任务)
 import math   # 标准库: 嫌疑目标距离计算 (_chain_intel)
 
 from ..config import ROBOT_ID                  # 协议标识: 自身节点 ID
@@ -14,9 +15,11 @@ from .. import physics                         # 物理层: distance/link_budget
 from .constants import (RANGE, SOS_ARM_TICKS, SOS_BEACON_EVERY,  # 听测节拍
                         ROBOT_CHAIN_INTEL, STALE_AFTER)          # 情报开关/超时
 
+log = logging.getLogger(__name__)   # 本模块日志器
+
 
 class SenseMixin:
-    """PatrolRobot 的感知能力混入。
+    """职责: PatrolRobot 的感知能力混入。
 
     属性要求 (由 PatrolRobot.__init__ 提供): self.eng (引擎引用),
     self.node (机器人伪节点), self.sos_active (呼救节点集合),
@@ -37,6 +40,7 @@ class SenseMixin:
             if hop >= 0:
                 if n.id in self.sos_active:
                     self.sos_active.discard(n.id)
+                    log.info("SOS 解除 %s: 重新可达", n.id)
                     eng._emit("sos_stop", "ok", f"✔ {n.id} 重新可达, SOS 停发",
                               narration=f"✅ {eng._zh(n.id)} 重新接回网络,呼救解除。",
                               node=n.id)
@@ -45,6 +49,7 @@ class SenseMixin:
             self._iso[n.id] = self._iso.get(n.id, 0) + 1
             if self._iso[n.id] == SOS_ARM_TICKS:
                 self.sos_active.add(n.id)
+                log.warning("SOS 启动 %s: 连续失联 %d tick", n.id, SOS_ARM_TICKS)
                 eng._emit("sos_start", "error",
                           f"🆘 {n.id} 失联 {SOS_ARM_TICKS} tick, 开始广播 SOS",
                           narration=f"🆘 {eng._zh(n.id)} 已连续失联,开始向外广播 SOS 求援信号"
@@ -125,6 +130,9 @@ class SenseMixin:
             d = math.hypot(sx - self.node.x, sz - self.node.z)
             if best is None or d < best[0]:
                 best = (d, nid, sx, sz)
+        if best:
+            log.info("链上情报命中 %s: 遥测停更 %d tick 距离 %.0fm -> 前往核查",
+                     best[1], tick - me.world_state[best[1]].get("tick", 0), best[0])
         return best
 
     # ---- 任务生命周期 ----
@@ -137,6 +145,8 @@ class SenseMixin:
         """开启/切换任务: 换目标才清面包屑 (INVESTIGATE<->FALLBACK 交接保留)"""
         if not (self.target and self.target[0] == nid):
             self.trail = []
+        log.info("任务开启 %s -> %s 目标=%s (tick=%d)",
+                 self.state, state, nid, tick)
         self.state = state
         self._rescue_since = tick
         if state == "RESCUE":

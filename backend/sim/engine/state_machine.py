@@ -6,16 +6,20 @@
 只有结构性变化才触发或重置自愈; ACO 信息素引起的等价路径微调不算新灾害,
 机器人随移动的边翻动也不算 (它是移动资产, 不是拓扑事故)。
 """
+import logging   # 标准库: 模块日志 (自愈模式机转移)
+
 from ..config import HEALING_HOLD_TICKS, ROBOT_ID   # 收敛保持拍数/机器人标识
+
+log = logging.getLogger(__name__)   # 本模块日志器
 
 
 class StateMachineMixin:
-    """SimulationEngine 的自愈模式机混入。
+    """职责: SimulationEngine 的自愈模式机混入。
 
     属性要求 (由 SimulationEngine.__init__ 提供): self.mode/_stable_ticks/
     heal_started_tick/_pre_collapse_routes/routes/prev_links/tick。
 
-    执行链路: NetworkMixin.compute_network -> _mode_step
+    调用链: NetworkMixin.compute_network -> _mode_step
     -> (_structural_change + _emit_converged)。
     """
 
@@ -24,6 +28,7 @@ class StateMachineMixin:
         -> CONVERGED (自愈完成叙事); CONVERGED -> STABLE (回落)"""
         structural = (not quiet and self._structural_change(links))
         if structural and self.mode != "HEALING":
+            log.info("拓扑突变 -> HEALING (tick=%s)", self.tick)
             self.mode = "HEALING"
             self._stable_ticks = 0
             self.heal_started_tick = self.tick
@@ -57,6 +62,7 @@ class StateMachineMixin:
         """收敛落地: 进入 CONVERGED + 自愈耗时/示例路径解说"""
         self.mode = "CONVERGED"
         dt = self.tick - self.heal_started_tick
+        log.info("自愈完成: HEALING -> CONVERGED, 耗时 %d tick", dt)
         if not quiet:
             moved = [nid for nid in self.routes
                      if (self._pre_collapse_routes.get(nid) or {}).get("path")

@@ -7,12 +7,16 @@
 的 LOS 三重检测 (巨石球体相交 / 管内采样 / 用户墙体)。
 依赖: node.Node (创建节点), physics.WORLD_SCALE, config.SEED/UWB_RANGE。
 """
+import logging   # 标准库: 模块日志 (世界构建/LOS 重算摘要)
 import math   # 标准库: 距离/三角, 支撑撒点与 LOS 几何
 import random  # 标准库: 地质抖动与撒点 (独立 Random 实例, 种子可复现)
 
 from ..config import SEED, SINK_ID, UWB_RANGE   # 世界种子/sink标识/UWB名义半径
 from ..node import Node                # 节点数据类: 生成 60 根通信桩
 from .. import physics                 # 物理层: WORLD_SCALE 世界尺度
+from .geometry import _seg2d_intersect, _seg_blocked_by_sphere   # 遮挡几何原语
+
+log = logging.getLogger(__name__)   # 本模块日志器
 
 
 # ---------------------------------------------------------------------------
@@ -27,37 +31,8 @@ _CHAMBERS = [
 _TUNNELS = []     # 隧道模板 (当前空: 纯 2D 竞技场不使用; 旧多腔室模板已移除)
 _PILLARS = []     # 巨柱模板 (当前空: 纯 2D 竞技场不使用)
 
-
-def _cross(ox, oz, ax, az, bx, bz):
-    """2D 叉积 (b-o) x (a-o) 的 z 分量 —— 线段相交判定的基元"""
-    return (bx - ox) * (az - oz) - (ax - ox) * (bz - oz)
-
-
-def _seg2d_intersect(p1, p2, w1, w2) -> bool:
-    """2D 线段相交判定 (严格叉积法): 节点连线 vs 墙体
-    d1/d2: 墙两端点分别在连线 p1->p2 两侧; d3/d4: 线两端点分别在墙 w1->w2 两侧;
-    双侧同时成立 = 真穿越。端点恰触墙 (d=0) 或共线不算相交 (严格判定)。"""
-    d1 = _cross(p1[0], p1[1], p2[0], p2[1], w1[0], w1[1])
-    d2 = _cross(p1[0], p1[1], p2[0], p2[1], w2[0], w2[1])
-    d3 = _cross(w1[0], w1[1], w2[0], w2[1], p1[0], p1[1])
-    d4 = _cross(w1[0], w1[1], w2[0], w2[1], p2[0], p2[1])
-    return ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0))
-
-
-def _seg_blocked_by_sphere(p1, p2, c, R) -> bool:
-    """3D 线段是否穿入球体 (点到线段最近距离 < R) —— 巨石/巨柱遮挡判定"""
-    dx, dy, dz = p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]
-    fx, fy, fz = p1[0] - c[0], p1[1] - c[1], p1[2] - c[2]
-    a = dx * dx + dy * dy + dz * dz
-    if a < 1e-9:
-        return fx * fx + fy * fy + fz * fz < R * R
-    tt = max(0.0, min(1.0, -(fx * dx + fy * dy + fz * dz) / a))
-    qx, qy, qz = fx + tt * dx, fy + tt * dy, fz + tt * dz
-    return qx * qx + qy * qy + qz * qz < R * R
-
-
 class WorldMixin:
-    """SimulationEngine 的世界层混入。
+    """职责: SimulationEngine 的世界层混入。
 
     属性要求 (由 SimulationEngine.__init__ 提供): self._rng (种子随机源),
     self.nodes/obstacles/walls/chambers/tunnels/pillars/pillar_spheres/
@@ -115,6 +90,9 @@ class WorldMixin:
         self._place_rocks()
         self._spawn_nodes()
         self._recompute_los()
+        log.info("地质生成: 腔室=%d 巨石=%d 通信桩=%d 巨柱=%d",
+                 len(self.chambers), len(self.obstacles), len(self.nodes),
+                 len(self.pillars))
 
     def _place_rocks(self):
         """26 块互不重叠巨石: 极坐标撒点 (避 sink 区/腔壁/彼此), 挡了就是挡了"""
@@ -237,9 +215,18 @@ class WorldMixin:
                     if _seg2d_intersect((a2.x, a2.z), (b2.x, b2.z),
                                         (w["x1"], w["z1"]), (w["x2"], w["z2"])):
                         self.blocked_pairs.add(key)
+        log.info("LOS 重算: 被遮挡节点对=%d 墙体=%d", len(self.blocked_pairs),
+                 len(self.walls))
 
     def export_geology(self) -> dict:
-        """地质数据一次性下发前端渲染 (隧道曲线/腔室/巨柱)"""
+        """地质数据一次性下发前端渲染 (隧道曲线/腔室/巨柱)。
+
+        Args: None。
+        Returns: dict —— chambers(腔室轮廓)/tunnels/pillars/obstacles(巨石)/
+        walls(用户墙体), WS 建连时随 geology 帧发送一次。
+        Globals Used: 模板 _CHAMBERS/_TUNNELS/_PILLARS (经实例化后的属性)。
+        Calls: None (纯读取)。
+        """
         return {
             "chambers": [{k: c[k] for k in ("id", "x", "y", "z", "r", "rz")}
                          for c in self.chambers],

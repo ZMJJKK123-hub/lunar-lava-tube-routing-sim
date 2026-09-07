@@ -38,3 +38,12 @@ SINK_ID = "NODE-00"         # 汇聚节点 (洞口基站) ID
 
 # ---------------- 功能开关 ----------------
 ROBOT_ENABLED = True        # 巡检机器人 (SOS 听测 + 道钉投放; False = 零痕迹)
+
+# ---------------- 日志 (main.py 消费; 各模块经 getLogger(__name__) 上报) ----------------
+import logging   # 标准库: 仅为测试环境挂 NullHandler (真实配置在 main.py)
+LOG_FILE = "sim.log"        # 仿真调试日志落盘文件 (RotatingFileHandler)
+LOG_LEVEL = "INFO"          # 级别: DEBUG 会额外输出逐 tick 摘要/重传/追块细节
+LOG_TICK_EVERY = 40         # DEBUG 级引擎心跳摘要的采样间隔 (tick)
+_rot = logging.getLogger("sim")   # "sim" 日志树根: 测试/独立导入时保持静默
+_rot.addHandler(logging.NullHandler())
+_rot.propagate = False

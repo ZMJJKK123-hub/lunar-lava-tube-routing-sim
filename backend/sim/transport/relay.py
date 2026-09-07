@@ -6,6 +6,7 @@
 重传、中继入队 (cut-through 直通)、断链绕行重规划、超时与统一结果记录。
 依赖: model.Segment/Message 与常量, 引擎 links (链路表)。
 """
+import logging   # 标准库: 模块日志 (送达/失败/绕行/超时)
 import random  # 标准库: BER 掷骰 (整包与 ACK 损坏判定)
 
 from collections import deque                      # 标准库: 中继入队 (发送缓冲)
@@ -14,9 +15,11 @@ from ..config import ROBOT_ID                       # 协议标识: 机器人合
 from .model import (ACK_BYTES, QUEUE_LIMIT_BYTES,  # 每跳开销/缓冲上限
                     RETRIES_MAX, _damage_prob)      # 重传上限/BER 损坏概率
 
+log = logging.getLogger(__name__)   # 本模块日志器
+
 
 class RelayMixin:
-    """TransportLayer 的逐跳推进混入。
+    """职责: TransportLayer 的逐跳推进混入。
 
     属性要求 (由 TransportLayer.__init__ 提供): self.eng (引擎引用),
     self.messages (报文表), self.node_queues (节点发送缓冲)。
@@ -66,6 +69,8 @@ class RelayMixin:
             st["drops"] += 1
             q.popleft()
             self._purge(m)
+            log.warning("报文#%s MAX_RETRIES @%s<->%s (BER=%.1e)",
+                        m.id, s.cur, s.nxt, link["ber"])
             self._record(m, m.src, m.dst, m.total, "MAX_RETRIES",
                          self.eng.tick - m.created, m.retries, s.cur,
                          f"整包连续重传失败")
@@ -98,6 +103,9 @@ class RelayMixin:
         if s.nxt == m.dst:
             m.done += 1
             if m.done >= m.total_segs:
+                log.info("报文#%s 送达 %s: %dtick 重传%d 绕行%d",
+                         m.id, m.dst, self.eng.tick - m.created,
+                         m.retries, m.reroutes)
                 self._record(m, m.src, m.dst, m.total, "DELIVERED",
                              self.eng.tick - m.created, m.retries, None, "")
                 self.eng._emit("msg_delivered", "ok",
@@ -110,6 +118,7 @@ class RelayMixin:
         # 中继入队 (缓冲满 -> 整报文作废)
         if self.node_bytes(s.nxt) + s.nbytes > QUEUE_LIMIT_BYTES:
             self._purge(m)
+            log.warning("报文#%s BUFFER_FULL @%s", m.id, s.nxt)
             self._record(m, m.src, m.dst, m.total, "BUFFER_FULL",
                          self.eng.tick - m.created, m.retries, s.nxt, "中继缓冲溢出")
             self.eng._emit("msg_fail", "error",
@@ -156,6 +165,7 @@ class RelayMixin:
         res = self._plan(at, m.dst)
         if res is None:
             self._purge(m)
+            log.warning("报文#%s NO_PATH 滞留@%s", m.id, at)
             self._record(m, m.src, m.dst, m.total, "NO_PATH",
                          self.eng.tick - m.created, m.retries, at, "数据中断且无替代路径")
             self.eng._emit("msg_no_path", "error",
@@ -165,6 +175,7 @@ class RelayMixin:
         m.path = res["path"]
         m.reroutes += 1
         m.path_history.append(res["path"])
+        log.info("报文#%s 绕行@%s: 新路径 %s", m.id, at, " -> ".join(m.path))
         for k in range(len(m.path) - 1):
             m.chan[tuple(sorted((m.path[k], m.path[k + 1])))] = res["channels"][k]
         # 报文改道: 在新路径上的按新路径取下一跳, 不在的送回 at
@@ -195,6 +206,8 @@ class RelayMixin:
                     if stuck is None:
                         stuck = s.cur
         self._purge(m)
+        log.warning("报文#%s TIMEOUT %s->%s 滞留@%s",
+                    m.id, m.src, m.dst, stuck)
         self._record(m, m.src, m.dst, m.total, "TIMEOUT",
                      self.eng.tick - m.created, m.retries, stuck, "数据传输阶段")
         self.eng._emit("msg_timeout", "error",

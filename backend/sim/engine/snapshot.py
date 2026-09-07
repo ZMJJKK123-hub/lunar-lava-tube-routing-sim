@@ -8,21 +8,24 @@
 - 快照导出 snapshot: 全量 JSON (链路/节点/路由/流量/账本/统计) 供 WS 广播。
 依赖: physics (距离过滤), config (VIS_* 上限与优先级), robot 挂点。
 """
+import logging   # 标准库: 模块日志 (快照周期摘要)
 import time   # 标准库: monotonic 时钟 (总线导出的 tick 内飞行进度)
 
 from ..config import (ROBOT_ID, TICK_PHYS_S,          # 机器人标识/物理拍
                       VIS_MAX, VIS_PRIORITY, VIS_RESERVE)   # 总线截断策略
 from .. import physics   # 物理层: distance (链路下发距离过滤)
 
+log = logging.getLogger(__name__)   # 本模块日志器
+
 
 class SnapshotMixin:
-    """SimulationEngine 的快照与渲染总线混入。
+    """职责: SimulationEngine 的快照与渲染总线混入。
 
     属性要求 (由 SimulationEngine.__init__ 提供): self.packets_vis/_vis_at
     (总线缓冲), self.nodes/links/routes/traffic/wave/events/robot/transport/
     chain_net/history (快照数据源)。
 
-    执行链路: 各层收发点 -> vis_packet (登记) ; run_forever -> snapshot
+    调用链: 各层收发点 -> vis_packet (登记) ; run_forever -> snapshot
     -> _vis_export (按优先级截断) -> main.broadcast -> 前端。
     """
 
@@ -31,7 +34,11 @@ class SnapshotMixin:
         """渲染总线固定注册函数: 一个报文从 a 飞到 b 的单跳。
         任何层在任何收发点调用它即可上屏; 前端按 kind 自动配色绘制
         (样式表只是美化覆盖, 未登记的类型按名称哈希取色) —— 零注册。
-        (列表每 tick 清空, 控量靠 _vis_export 截断; 此处仅留病态保险丝)"""
+        (列表每 tick 清空, 控量靠 _vis_export 截断; 此处仅留病态保险丝)
+
+        Args: a/b: 收发节点 id; kind: 报文类型; relayed: 是否中继转发跳。
+        Returns: None。Globals Used: None。Calls: None。
+        """
         if len(self.packets_vis) >= 5000:       # 保险丝: 正常 tick 量级 <1k
             return
         self.packets_vis.append({"a": a, "b": b, "kind": kind, "r": relayed})
@@ -60,7 +67,13 @@ class SnapshotMixin:
         return self.robot.node if self.robot else n
 
     def snapshot(self) -> dict:
-        """全量快照 (WS 每 0.2s 广播一帧; 前端唯一数据源)"""
+        """全量快照 (WS 每 0.2s 广播一帧; 前端唯一数据源)。
+
+        Args: None。Returns: dict —— tick/mode/wave/events(尾部40)/links/
+        nodes/routes/traffic/robot/transport/packets(在途+总线)/chain/stats。
+        Globals Used: None。Calls: _snap_links/_snap_stats/transport.* /
+        chain_net.export_info/_vis_export; 追加 history 曲线点。
+        """
         alive = [n for n in self.nodes.values() if n.state != "DEAD"]
         snap = {
             "tick": self.tick,
@@ -84,6 +97,10 @@ class SnapshotMixin:
             "chain": self.chain_net.export_info(),
             "stats": self._snap_stats(alive),
         }
+        if self.tick % 200 == 0:
+            log.debug("快照 tick=%s nodes=%d links=%d packets=%d chain_h=%s",
+                      self.tick, len(snap["nodes"]), len(snap["links"]),
+                      len(snap["packets"]), snap["chain"]["h_max"])
         self.history.append({"t": self.tick, **snap["stats"]})
         return snap
 

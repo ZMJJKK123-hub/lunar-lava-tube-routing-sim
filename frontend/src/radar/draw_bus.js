@@ -8,7 +8,7 @@
 // 样式表可选覆盖 (styles.KIND_STYLE), 未知 kind 按名称哈希自动配色 (零注册);
 // r=false 的跳半透明 (接收方已去重吸收, 波前止步)。
 
-import { BUS_HOP_MS, KIND_STYLE, autoKindStyle } from './styles'
+import { BUS_HOP_MS, KIND_STYLE, autoKindStyle } from './styles'   // 总线节拍/样式表/零注册兜底取色
 
 export const busDraw = {
   _drawBusDots(ctx) {

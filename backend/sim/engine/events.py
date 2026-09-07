@@ -19,14 +19,14 @@ def zh(nid: str) -> str:
 
 
 class EventHub:
-    """事件总线: append-only 滚动日志 + 最新关键解说快照。
+    """职责: 事件总线: append-only 滚动日志 + 最新关键解说快照。
 
     核心属性:
     - events: deque(maxlen=120) 事件流 (快照只取尾部 40 条下发);
     - last_narration: 最近一条关键解说 (供前端解说员轮播);
     - _seq: 事件自增序号 (前端稳定 key)。
 
-    执行链路: 各层 -> engine._emit -> hub.emit -> (events.append
+    调用链: 各层 -> engine._emit -> hub.emit -> (events.append
     [+ last_narration 更新]) -> engine.snapshot -> events 尾部下发。
     """
 
@@ -39,10 +39,11 @@ class EventHub:
              narration: str | None = None, **payload):
         """记录一条事件; 命中关键类型时同步保鲜解说词。
 
-        Args:
-            tick: 仿真时刻; type_: 事件类型 (前端按类型着色);
-            severity: info/ok/warn/error; msg: 事件日志文本;
-            narration: 通俗解说词 (可选); **payload: 结构化附加字段。
+        Args: tick: 仿真时刻; type_: 事件类型 (前端按类型着色);
+              severity: info/ok/warn/error; msg: 事件日志文本;
+              narration: 通俗解说词 (可选); **payload: 结构化附加字段。
+        Returns: None。Globals Used: _NARRATION_KEEP (关键解说保鲜名单)。
+        Calls: None。
         """
         self._seq += 1
         self.events.append({

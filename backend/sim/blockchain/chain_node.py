@@ -5,13 +5,17 @@
 职责: 单节点视角的一条链 + 世界状态重放 + 统一排他调度出块;
 收包分发与同步协议在 sync.SyncMixin。
 """
+import logging   # 标准库: 模块日志 (出块/整链采纳)
+
 from .model import (MAX_TX_PER_BLOCK, MIN_BLOCK_GAP, SEEN_MAX,       # 调度/去重
                     SKIP_AFTER, Block, Transaction, _hash, _mk_packet)  # 实体与信封
 from .sync import SyncMixin   # 收包处理: TX/BLOCK/SYNC_REQ/SYNC_RESP
 
+log = logging.getLogger(__name__)   # 本模块日志器
+
 
 class ChainNode(SyncMixin):
-    """每个仿真节点内运行的一条链 + 世界状态 + 通信栈。
+    """职责: 每个仿真节点内运行的一条链 + 世界状态 + 通信栈。
 
     核心属性:
     - chain: 区块列表 (chain[0]=创世); world_state: robot_id -> 最新遥测;
@@ -19,7 +23,7 @@ class ChainNode(SyncMixin):
     - mempool: 待打包交易; seen: 泛洪去重 LRU; my_seq: 自身遥测序号;
     - fork_mode/fork_req_tick/resp_cd: 分叉愈合与限频状态; out: 待发包。
 
-    执行链路: network.step -> handle_packet (SyncMixin) / try_mine
+    调用链: network.step -> handle_packet (SyncMixin) / try_mine
     -> _accept/_adopt_chain -> _apply_tx/_replay_all (世界状态演进)。
     """
 
@@ -41,16 +45,30 @@ class ChainNode(SyncMixin):
     # ---------- 基础 ----------
     @property
     def height(self):
-        """本地链高度 (创世=0)"""
+        """本地链高度 (创世=0)。
+
+        Args: None。
+        Returns: int。Globals Used: None。Calls: None。
+        """
         return len(self.chain) - 1
 
     @property
     def tail(self):
-        """本地链尾块"""
+        """本地链尾块。
+
+        Args: None。
+        Returns: Block 实例。Globals Used: None。Calls: None。
+        """
         return self.chain[-1]
 
     def state_hash(self):
-        """世界状态指纹 (一致性对齐判定用)"""
+        """世界状态指纹 (一致性对齐判定用)。
+
+        Args: None。
+        Returns: str, SHA-256 hex —— 由 world_state 与 latest_seq 共同决定,
+        同高度同哈希 = 视为账本一致。Globals Used: model._hash。
+        Calls: _hash。
+        """
         return _hash({"ws": self.world_state, "seq": self.latest_seq})
 
     def _seen_mark(self, mid) -> bool:
@@ -132,15 +150,24 @@ class ChainNode(SyncMixin):
                         (b.index + win) % len(self.sorted_ids)]:
                     return False              # 非法出块者
             prev = b
+        old_h = self.height
         self.chain = [self.chain[0]] + blocks
         self._replay_all()
+        log.info("整链采纳 %s: 高度 %d -> %d (更优链胜出)",
+                 self.id, old_h, self.height)
         for tx in [t for blk in blocks for t in blk.transactions]:
             self.mempool.pop(tx.tx_id, None)
         return True
 
     # ---------- 出块 ----------
     def try_mine(self, tick: int) -> bool:
-        """轮到自己 ∧ (有交易 ∧ 间隔达标) -> 出块; 块龄超时 -> 空块推进"""
+        """轮到自己 ∧ (有交易 ∧ 间隔达标) -> 出块; 块龄超时 -> 空块推进。
+
+        Args: tick: 当前仿真 tick (出块权公式的时间窗参数)。
+        Returns: bool —— True=本拍出了块 (新块已上链并进待发包队列)。
+        Globals Used: SKIP_AFTER/MIN_BLOCK_GAP/MAX_TX_PER_BLOCK (统一排他调度)。
+        Calls: Block 构造 / _accept / _mk_packet。
+        """
         nxt = self.tail.index + 1
         dt = tick - self.tail.tick
         # 统一排他调度: 本时间窗轮到我出块才出手 (有交易带交易,
@@ -159,19 +186,31 @@ class ChainNode(SyncMixin):
             return False
         blk = Block(index=nxt, prev_hash=self.tail.block_hash,
                     tick=tick, creator=self.id, transactions=txs)
+        log.info("出块 #%d by %s: txs=%d mempool余=%d (tick=%d)",
+                 nxt, self.id, len(txs), len(self.mempool) - len(txs), tick)
         self._accept(blk)
         self.out.append(_mk_packet("BLOCK", self.id, {"block": blk.to_dict()}))
         return True
 
     # ---------- 主动行为 ----------
     def emit_telemetry(self, tick: int, data: dict) -> dict:
-        """产生自身遥测交易并入池 + 广播 (RobotNode.generate_telemetry 语义)"""
+        """产生自身遥测交易并入池 + 广播 (RobotNode.generate_telemetry 语义)。
+
+        Args: tick: 产生时刻; data: TelemetryPayload 遥测字典。
+        Returns: dict —— TX 泛洪信封 (_mk_packet 格式), 由 network 投递。
+        Globals Used: None。Calls: Transaction 构造 / _mk_packet。
+        """
         self.my_seq += 1
         tx = Transaction(self.id, self.my_seq, tick, data)
         self.mempool[tx.tx_id] = tx
         return _mk_packet("TX", self.id, {"tx": tx.to_dict()})
 
     def emit_heartbeat(self, tick: int) -> dict:
-        """周期性防熵: 比我高的邻居会回 SYNC_RESP"""
+        """周期性防熵: 比我高的邻居会回 SYNC_RESP。
+
+        Args: tick: 产生时刻 (未入体, 仅对齐签名)。
+        Returns: dict —— SYNC_REQ 泛洪信封 (报本地高度)。
+        Globals Used: None。Calls: _mk_packet。
+        """
         return _mk_packet("SYNC_REQ", self.id,
                           {"from_index": self.height, "fork": False})

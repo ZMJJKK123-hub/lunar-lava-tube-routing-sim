@@ -13,8 +13,14 @@ from .types import RouteInfo, WaveInfo   # 类型契约: 路由条目与波前�
 
 
 def build_graph(nodes, links):
-    """links: {(id_a,id_b): link_dict} 对称链路 -> 邻接表。
-    setdefault: 允许不在 nodes 表中的伪节点端点 (如巡检机器人) 入图。"""
+    """链路表 -> 路由邻接表。
+
+    Args: nodes: Node 列表 (提供全量 id 锚点); links: {(id_a,id_b): link}
+          对称链路表 (仅取 up=True 的边)。
+    Returns: dict {nid: [(邻居id, 本方向代价), ...]} —— setdefault 允许不在
+             nodes 表中的伪节点端点 (如巡检机器人/道钉) 入图。
+    Globals Used: None。Calls: None。
+    """
     graph = {n.id: [] for n in nodes}
     for (a, b), link in links.items():
         if not link["up"]:
@@ -25,10 +31,13 @@ def build_graph(nodes, links):
 
 
 def dijkstra(graph, source):
-    """
-    返回 dist/prev/settle_order。
-    settle_order: 节点按 Dijkstra 确定最短距离的先后顺序 (波前扩散序列),
-    前端按此顺序逐个点亮节点, 直观展示算法运行过程。
+    """单源最短路 (带波前记录)。
+
+    Args: graph: build_graph 的邻接表; source: 源节点 id (通常是 sink)。
+    Returns: (dist: {nid: 最短代价}, prev: {nid: 前驱}, settle_order: list) ——
+             settle_order 为节点按"确定最短距离"的先后顺序 (波前扩散序列),
+             前端按此顺序逐个点亮节点, 直观展示算法运行过程。
+    Globals Used: None。Calls: heapq (优先队列)。
     """
     dist = {v: math.inf for v in graph}
     prev = {v: None for v in graph}
@@ -103,6 +112,14 @@ def rscspa(adj: dict, source: str, sink: str, n_channels: int = 3, K: int = 3,
     adj: {node: [(neighbor, base_cost), ...]} 无向图
     busy_edge: {frozenset({a,b}): set(已占用信道)} 当前正在通信的链路及其信道
     返回: {"path": [...], "channels": [每跳信道], "cost": 总成本} 或 None
+
+    Args: adj: {node: [(neighbor, base_cost), ...]} 无向图;
+          source/sink: 起点/终点节点 id;
+          n_channels: 可用信道数; K: 复用距离 (连续 K 跳内同信道不得重复);
+          busy_edge: {frozenset({a,b}): set(占用信道)} 在途报文的信道占用表。
+    Returns: dict {path: list[str], channels: list[int], cost: float} 或
+             None (无可达路径 = 连接拒绝的依据)。
+    Globals Used: None。Calls: heapq。
     """
     busy_edge = busy_edge or {}
     # 端点占用表: 节点 -> 附近活跃信道集合 (共享端点的链路视为互相干扰)

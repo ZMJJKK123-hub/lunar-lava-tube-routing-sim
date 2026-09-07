@@ -5,20 +5,23 @@
 职责: 巡检机器人的"工程动作" —— 落点合法性判定 (管内/不压石/留间隔)、
 道钉投放 (永久中继节点 + 链上哑节点注册)、机器人快照导出。
 """
+import logging   # 标准库: 模块日志 (道钉投放)
 import math   # 标准库: 距离判定 (压石/间隔)
 
 from .constants import DEPLOY_GAP   # 距既有道钉的最小投放间隔
 
+log = logging.getLogger(__name__)   # 本模块日志器
+
 
 class DeployMixin:
-    """PatrolRobot 的工程动作混入。
+    """职责: PatrolRobot 的工程动作混入。
 
     属性要求 (由 PatrolRobot.__init__ 提供): self.eng (引擎引用),
     self.node (机器人伪节点), self.stock (道钉库存), self._deployed/
     _deployed_at (投放计数与最近落钉 tick), self.state/target/sos_active/
     trail (快照数据源)。
 
-    执行链路: robot._advance/_rescue_step -> _deploy_ok -> _deploy_beacon
+    调用链: robot._advance/_rescue_step -> _deploy_ok -> _deploy_beacon
     (节点入网 + 链上注册); engine.snapshot -> export。
     """
 
@@ -50,6 +53,8 @@ class DeployMixin:
         eng.nodes[bid] = b
         eng.chain_net.register_node(bid)   # 全同步哑节点: 转发链包, 不出块不遥测
         self.stock -= 1
+        log.info("投放道钉 %s @(%s,%s) 库存余 %d",
+                 bid, b.x, b.z, self.stock)
         eng._emit("beacon_deploy", "ok",
                   f"📍 投放道钉 {bid} (库存余 {self.stock} 枚), 永久中继入网",
                   narration=f"📍 巡检机器人在此投放了一根备用通信桩作中转!"
@@ -58,7 +63,13 @@ class DeployMixin:
 
     # ---- 快照 ----
     def export(self) -> dict:
-        """机器人快照 (引擎 snapshot.robot 字段)"""
+        """机器人快照 (引擎 snapshot.robot 字段)。
+
+        Args: None。
+        Returns: dict —— x/y/z(位置)/state(四态)/target(当前目标 id)/
+        stock(道钉余量)/sos(呼救节点列表)/trail(隔点抽样的面包屑)。
+        Globals Used: None。Calls: None (纯读取)。
+        """
         return {"x": round(self.node.x, 1), "y": 0.0, "z": round(self.node.z, 1),
                 "state": self.state,
                 "target": self.target[0] if self.target else None,

@@ -38,9 +38,15 @@ def _damage_prob(ber: float, nbytes: int) -> float:
 class Segment:
     """一个完整报文 (整包), 沿路径逐跳搬运。
 
+    职责: 报文的"在途载体" —— 记录当前位置/下一跳/重传计数/飞行进度,
+    供半双工调度与前端动画消费。
+
     属性: mid=报文id; seq=段序; nbytes=字节数; cur/nxt=当前与下一跳节点;
     wire=本 tick 是否在线 (前端画移动方块); retries=本跳重传计数;
     guard=最近起飞 tick (防同 tick 双重推进); hops=已飞完跳数。
+
+    调用链: core.send_message 构造入队 -> relay._step_segment 逐跳推进 ->
+    relay._arrive 送达/中继入队 -> 前端 active_packets 消费飞行进度。
     """
     __slots__ = ("mid", "seq", "nbytes", "cur", "nxt", "wire", "retries",
                  "guard", "hops")
@@ -60,9 +66,14 @@ class Segment:
 class Message:
     """一条端到端报文的元数据与计账。
 
+    职责: 报文的"档案袋" —— 生命周期/路径/信道分配/字节计账/路径变迁史。
+
     属性: id/src/dst/total/created/deadline=生命周期; status=INFLIGHT 等;
     path=当前路径; chan=边->信道分配; total_segs=整包恒 1;
     tx/rx_bytes=字节计账; reroutes=绕行次数; path_history=路径变迁。
+
+    调用链: core.send_message 构造 -> relay 逐跳推进并回填计账 ->
+    超时/送达时 _record 生成结果信号 -> snapshot.transport 下发前端。
     """
     def __init__(self, mid, src, dst, total, path, channels, created, deadline):
         self.id = mid

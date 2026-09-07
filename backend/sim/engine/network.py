@@ -7,24 +7,27 @@
 调度、被遮挡邻居清单、STABLE/HEALING/CONVERGED 自愈模式机。
 依赖: physics (链路预算/代价), routing (Dijkstra), config, robot 挂点。
 """
+import logging   # 标准库: 模块日志 (链路生死/拥塞)
 import random  # 标准库: 拥塞事件的采样播报 (防刷屏)
 
 from ..config import CHAIN_QUEUE_CAP   # 控制平面配额 (链上待发字节封顶)
 from .. import physics            # 物理层: link_budget/link_cost/sim_distance
 from ..routing import routing_step   # 路由: Dijkstra 波前 + 跳数分层
 from .state_machine import StateMachineMixin   # 自愈模式机 (见独立模块)
-from .world import _seg2d_intersect, _seg_blocked_by_sphere  # 遮挡成因判定
+
+log = logging.getLogger(__name__)   # 本模块日志器
+from .geometry import _seg2d_intersect, _seg_blocked_by_sphere  # 遮挡成因判定
 
 
 class NetworkMixin(StateMachineMixin):
-    """SimulationEngine 的网络计算混入 (自愈模式机在 StateMachineMixin)。
+    """职责: SimulationEngine 的网络计算混入 (自愈模式机在 StateMachineMixin)。
 
     属性要求 (由 SimulationEngine.__init__ 提供): self.nodes/links/routes/
     prev_links/prev_routes/link_load/traffic/blocked_pairs/blocked_info/
     mode/_stable_ticks/heal_started_tick/_pre_collapse_routes/robot/
     transport/chain_net/tick。
 
-    执行链路: run_forever -> compute_network (编排) -> _build_links ->
+    调用链: run_forever -> compute_network (编排) -> _build_links ->
     _emit_link_events -> routing_step -> _update_link_load ->
     _emit_route_events -> _apply_node_net_state -> _apply_pamas ->
     _blocked_neighbors_info -> robot.tick -> _mode_step。
@@ -32,7 +35,14 @@ class NetworkMixin(StateMachineMixin):
 
     def compute_network(self, quiet: bool = False):
         """每 tick 全量重算: 链路 -> 路由 -> 节点状态 -> 电台 -> 模式机。
-        quiet=True 用于世界构建期 (不产事件、不触发自愈叙事)。"""
+
+        Args: quiet: True=世界构建期 (不产事件、不触发自愈叙事)。
+        Returns: None (副作用: links/routes/traffic/node.* /mode 等)。
+        Globals Used: CHAIN_QUEUE_CAP (链上待发配额)。
+        Calls: _build_links/_emit_link_events/routing_step/_update_link_load/
+        _emit_route_events/_apply_node_net_state/_apply_pamas/
+        _blocked_neighbors_info/robot.tick/_mode_step。
+        """
         nodes = list(self.nodes.values())
         links = self._build_links(nodes)
         if not quiet:
@@ -97,12 +107,14 @@ class NetworkMixin(StateMachineMixin):
                 reason = ("SNR=%.1fdB" % l["snr_db"] if l["snr_db"] < 5
                           else "BER=%.1e" % l["ber"] if l["ber"] >= 1e-3
                           else "margin=%.1fdB" % l["margin_db"])
+                log.info("链路熔断 %s<->%s (%s)", key[0], key[1], reason)
                 self._emit("link_down", "error",
                            f"✖ 链路熔断 {key[0]} ↔ {key[1]} ({reason})",
                            narration=f"⚠️ {self._zh(key[0])} 与 {self._zh(key[1])} 之间的信道质量恶化"
                                      f"(信噪比跌至 {l['snr_db']}dB,低于解调门限),链路熔断。",
                            a=key[0], b=key[1])
             elif pl and not pl["up"] and l["up"]:
+                log.debug("链路恢复 %s<->%s (SNR=%s)", key[0], key[1], l["snr_db"])
                 self._emit("link_up", "ok",
                            f"✔ 链路恢复 {key[0]} ↔ {key[1]} (SNR={l['snr_db']}dB)",
                            a=key[0], b=key[1])
@@ -159,6 +171,7 @@ class NetworkMixin(StateMachineMixin):
             n.hop_count = self.routes.get(n.id, {}).get("hop_count", -1)
             n.queue_pct = self.transport.queue_pct(n.id, chain_load.get(n.id, 0))
             if n.queue_pct > 85 and not quiet and random.random() < 0.3:
+                log.warning("拥塞 %s 积压%.0f%%", n.id, n.queue_pct)
                 total_b = self.transport.node_bytes(n.id) + chain_load.get(n.id, 0)
                 self._emit("congestion", "warn",
                            f"⚠ {n.id} 队列积压 {n.queue_pct:.0f}% ({total_b}B 待发)",

@@ -54,8 +54,13 @@ def _hash(obj) -> str:
 class Transaction:
     """遥测交易: 某节点某时刻的一次状态上报。
 
+    职责: 承载一笔不可变的链上数据 (构造即定 tx_id), 提供泛洪序列化。
+
     属性: robot_id=来源节点; seq=该节点单调递增序号; tick=产生时刻;
     payload=遥测字典 (坐标/SoC/温度/状态/队列/电台); tx_id=内容哈希。
+
+    调用链: ChainNode.emit_telemetry 构造 -> _mk_packet 泛洪 ->
+    SyncMixin._on_tx 反序列化 -> try_mine 打包进块 -> _apply_tx 重放世界状态。
     """
 
     def __init__(self, robot_id: str, seq: int, tick: int, payload: dict,
@@ -70,13 +75,20 @@ class Transaction:
         self.tx_id = tx_id
 
     def to_dict(self):
-        """序列化 (泛洪传输与哈希复算共用同一表示)"""
+        """序列化 (泛洪传输与哈希复算共用同一表示)。
+
+        Returns: dict, 五字段完整表示。Globals Used: None。Calls: None。
+        """
         return {"robot_id": self.robot_id, "seq": self.seq, "tick": self.tick,
                 "payload": self.payload, "tx_id": self.tx_id}
 
     @staticmethod
     def from_dict(d) -> "Transaction":
-        """从泛洪包载荷反序列化"""
+        """从泛洪包载荷反序列化。
+
+        Args: d: to_dict 的输出 dict。Returns: Transaction 实例 (tx_id 沿用不重算)。
+        Globals Used: None。Calls: None。
+        """
         return Transaction(d["robot_id"], d["seq"], d["tick"],
                            d["payload"], d["tx_id"])
 
@@ -84,8 +96,13 @@ class Transaction:
 class Block:
     """区块: 有序日志的一个格子。
 
+    职责: 承载一批交易的不可变容器 (构造即定 block_hash), 提供泛洪序列化。
+
     属性: index=高度 (genesis=0); prev_hash=前序哈希; tick=出块时刻;
     creator=出块者; transactions=交易列表 (空块=[]); block_hash=内容哈希。
+
+    调用链: ChainNode.try_mine 构造 -> BLOCK 泛洪 -> _on_block 校验上链 /
+    _adopt_chain 整链重验; network._drive_nodes 周期驱动出块。
     """
 
     def __init__(self, index: int, prev_hash: str, tick: int, creator: str,
@@ -103,7 +120,11 @@ class Block:
         self.block_hash = block_hash
 
     def to_dict(self):
-        """序列化 (泛洪传输与哈希复算共用同一表示)"""
+        """序列化 (泛洪传输与哈希复算共用同一表示)。
+
+        Returns: dict, 六字段完整表示 (txs 为逐笔交易的 to_dict)。Globals
+        Used: None。Calls: Transaction.to_dict。
+        """
         return {"index": self.index, "prev_hash": self.prev_hash,
                 "tick": self.tick, "creator": self.creator,
                 "txs": [t.to_dict() for t in self.transactions],
@@ -111,7 +132,11 @@ class Block:
 
     @staticmethod
     def from_dict(d) -> "Block":
-        """从泛洪包载荷反序列化"""
+        """从泛洪包载荷反序列化。
+
+        Args: d: to_dict 的输出 dict。Returns: Block 实例 (哈希沿用不重算)。
+        Globals Used: None。Calls: Transaction.from_dict。
+        """
         return Block(d["index"], d["prev_hash"], d["tick"], d["creator"],
                      [Transaction.from_dict(t) for t in d["txs"]],
                      d["block_hash"])
