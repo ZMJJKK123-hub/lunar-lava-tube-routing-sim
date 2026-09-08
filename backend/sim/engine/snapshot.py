@@ -99,6 +99,9 @@ class SnapshotMixin:
             "traffic": self.traffic,
             "robot": (self.robot.export() if self.robot else None),
             "transport": self.transport.summary(),
+            # B组实验观测: 信道 Q-learning 状态 (None=关闭)
+            "rl": (self.rl_learner.stats(self.rl_channels)
+                   if self.rl_learner else {"enabled": self.rl_channels}),
             "packets": self.transport.active_packets() + self._vis_export(),
             "chain": self.chain_net.export_info(),
             "stats": self._snap_stats(alive),

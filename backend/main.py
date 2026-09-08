@@ -153,6 +153,12 @@ async def ws_endpoint(ws: WebSocket):
                 await broadcast(ENGINE.snapshot())
                 await ws.send_text(json.dumps(
                     {"cmd": "ack", "req_id": msg.get("req_id"), **resp}))
+            elif cmd == "toggle_rl":
+                # B组实验: 信道决策器 RCSPA <-> Q-learning
+                resp = ENGINE.toggle_rl()
+                await broadcast(ENGINE.snapshot())
+                await ws.send_text(json.dumps(
+                    {"cmd": "ack", "req_id": msg.get("req_id"), **resp}))
             elif cmd == "add_wall":
                 # 2D 俯视图画墙: {"cmd":"add_wall","x1":..,"z1":..,"x2":..,"z2":..}
                 ENGINE.add_wall(msg["x1"], msg["z1"], msg["x2"], msg["z2"])

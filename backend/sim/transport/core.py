@@ -13,6 +13,7 @@ import time    # 标准库: monotonic 时钟 (前端飞行插值用)
 from collections import deque   # 标准库: 节点发送缓冲 (node_queues)
 
 from ..config import ROBOT_ID, TICK_PHYS_S   # 协议标识: 机器人会移动, 不承载数据报文; 物理拍节拍 (飞行插值分母)
+from ..rl import rl_plan                     # B 组实验: Q-learning 信道决策器 (A/B 开关见 _plan)
 from ..routing import rscspa    # 路由算法: 资源约束最短路径 (连接接纳选路)
 from .model import (AUTO_TELEMETRY, DEFAULT_TIMEOUT, MAX_CONCURRENT,   # 节拍上限
                     QUEUE_LIMIT_BYTES,                                 # 缓冲上限
@@ -180,7 +181,10 @@ class TransportLayer(RelayMixin):
         return busy
 
     def _plan(self, src, dst):
-        """连接接纳选路: RCSPA (3 信道, 复用距离 K=3, 避开忙碌信道)"""
+        """连接接纳选路: A/B 开关 —— eng.rl_channels 开启走 Q-learning
+        选道 (路径 Dijkstra), 默认走 RCSPA (3 信道, K=3, 避忙碌信道)"""
+        if getattr(self.eng, "rl_channels", False):
+            return rl_plan(self, src, dst)
         return rscspa(self._adj(), src, dst, n_channels=3, K=3,
                       busy_edge=self._busy_channels())
 
@@ -239,6 +243,9 @@ class TransportLayer(RelayMixin):
         """
         eng = self.eng
         self._tick_at = time.monotonic()
+        # B 组实验: 结果信号驱动 Q 表结算 (开关关闭时零开销)
+        if eng.rl_channels and eng.rl_learner is not None:
+            eng.rl_learner.drain(self)
         # 1) 自动遥测 (默认关闭, 见 AUTO_TELEMETRY)
         if AUTO_TELEMETRY and eng.tick % 6 == 0:
             sensors = [nid for nid, n in eng.nodes.items()

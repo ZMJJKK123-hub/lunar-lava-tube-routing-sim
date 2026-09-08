@@ -49,7 +49,7 @@ function MenuRow({ active, tip, hoverBg, onClick, children }) {
   )
 }
 
-export default function GlobalHUD({ stats, mode, connected, paused, onTogglePause, onDisaster, jammerOn, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, resetArmed, onArmReset }) {
+export default function GlobalHUD({ stats, mode, connected, paused, onTogglePause, onDisaster, jammerOn, rlOn, onToggleRl, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, resetArmed, onArmReset }) {
   const [disasterOpen, setDisasterOpen] = useState(false)   // 灾害下拉展开态
   const [infoOpen, setInfoOpen] = useState(false)           // 信息下拉展开态
   const box = (label, v, color = '#cfe9ff') => (
@@ -64,11 +64,12 @@ export default function GlobalHUD({ stats, mode, connected, paused, onTogglePaus
     ['thermal_surge', '热浪', '全网温度飙升→热噪声增大→SNR跌破门限→链路熔断'],
     ['solar_flare', '耀斑', '宇宙射线暴增→节点内存单粒子翻转(SEU)→短暂失联'],
   ]
-  // 信息下拉的三个观察面板开关 (点击保持菜单敞开, 便于连开多个)
+  // 信息下拉的观察面板开关 (点击保持菜单敞开, 便于连开多个)
   const panels = [
     ['📜 日志时间线', logOpen, onToggleLog, '算法过程时间线: 链路熔断/重路由/自愈收敛 等事件的实时日志 (可随时开关)'],
     ['⛓ 链流量可视化', chainFlow, onToggleChainFlow, '链上报文流量: 金点=遥测交易, 青白大点=新块广播, 紫点=追块请求/响应 (画墙拆墙时可见同步风暴)'],
     ['📒 区块链账本', chainOpen, onToggleChain, '账本侧边栏: 每个节点存储的全网状态、链高度与同步进度 (画墙分区可见分叉, 拆墙后自动愈合)'],
+    ['🧪 信道 Q-learning (B组)', rlOn, onToggleRl, 'A/B 实验开关: 信道决策器 RCSPA(手写规则) <-> Q-learning(逐边Q表边跑边学); 奖惩来自真实送达/超时'],
   ]
   const modeColor = { STABLE: '#4dffa0', HEALING: '#ffc14d', CONVERGED: '#6ec1ff' }[mode] ?? '#888'
   const R = 'rgba(90,20,40,0.35)'    // 红系悬停底色 (灾害/重置)

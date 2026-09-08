@@ -63,6 +63,31 @@ class ApiMixin:
                                  "原速继续。")
         return {"ok": True, "paused": self.paused}
 
+    def toggle_rl(self):
+        """B 组实验开关 (WS toggle_rl 指令入口): 信道决策器
+        RCSPA(A组规则) <-> Q-learning(B组学习) 互换; 关闭即弃 Q 表
+        (再开从头学, 保证每轮实验独立)。
+
+        Args: None。
+        Returns: dict {ok, rl_channels} —— 切换后的开关状态。
+        Globals Used: None。Calls: _emit (实验事件与解说词)。
+        """
+        self.rl_channels = not self.rl_channels
+        if not self.rl_channels:
+            self.rl_learner = None
+        log.info("RL信道开关 -> %s", "Q-learning(B组)" if self.rl_channels
+                 else "RCSPA(A组)")
+        self._emit("rl_toggle", "info",
+                   "🧪 信道决策器切换为 "
+                   + ("Q-learning (B组: 逐边Q表, 边跑边学)" if self.rl_channels
+                      else "RCSPA (A组: 规则)"),
+                   narration=("🧪 实验模式开启——每根通信桩现在用自己的打分表"
+                              "选信道, 靠送达/超时的奖惩自学避让干扰;"
+                              "观察它的送达率能否追上手写规则。"
+                              if self.rl_channels else
+                              "🧪 切回规则模式 (RCSPA)。"))
+        return {"ok": True, "rl_channels": self.rl_channels}
+
     def apply_override(self, node_id: str, params: dict):
         """上帝模式: 覆写节点可变参数; 温度/电量越界 -> 当场死亡播报。
         不做即时 compute_network: 引擎每 0.25s 全量重算, 滑块拖动风暴下

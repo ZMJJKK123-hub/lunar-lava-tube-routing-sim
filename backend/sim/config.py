@@ -58,6 +58,14 @@ SINK_ID = "NODE-00"         # 汇聚节点 (洞口基站) ID
 # ---------------- 功能开关 ----------------
 ROBOT_ENABLED = True        # 巡检机器人 (SOS 听测 + 道钉投放; False = 零痕迹)
 
+# ---------------- RL 信道实验 (B 组; sim/rl 消费) ----------------
+RL_CHANNEL_ENABLED = False  # 信道决策器: False=RCSPA(A组规则) True=Q-learning(B组)
+RL_ALPHA = 0.3              # 学习率
+RL_GAMMA = 0.5              # 折扣 (自反馈: 同边下一状态的 max Q)
+RL_EPS0 = 0.3               # 探索率初值 (前 1/3 实验期靠它试错)
+RL_EPS_MIN = 0.02           # 探索率下限
+RL_EPS_DECAY = 0.9995       # 每次选择的探索率衰减
+
 # ---------------- 日志 (main.py 消费; 各模块经 getLogger(__name__) 上报) ----------------
 import logging   # 标准库: 仅为测试环境挂 NullHandler (真实配置在 main.py)
 LOG_FILE = "sim.log"        # 仿真调试日志落盘文件 (RotatingFileHandler)

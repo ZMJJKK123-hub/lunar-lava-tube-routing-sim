@@ -43,6 +43,7 @@
 | `sim/routing.py` | 模块(4 个函数) | 纯算法:Dijkstra 全网路由 + 波前记录 + RCSPA 信道分配 |
 | `sim/transport/` | `class TransportLayer` | 真实报文传输:连接接纳/重传/超时信号/逐跳字节计数(model+core+relay) |
 | `sim/blockchain/` | `class BlockchainNetwork` | 区块链全网状态同步:统一排他调度PoA/泛洪/追块/分叉愈合(model+chain_node+sync+network) |
+| `sim/rl/` | `ChannelQLearner` / `rl_plan` | B组实验: 逐边Q-learning信道决策器 (A/B开关, 与RCSPA同契约) |
 | `sim/robot/` | `class PatrolRobot` | 巡检机器人:SOS 听测 + 道钉投放物理搭桥(constants+motion+senses+rescue+robot+deploy) |
 | `sim/engine/` | `class SimulationEngine` | 总指挥:世界生成、LOS 遮挡、每 tick 流水线、灾害、快照输出(world+events+network+state_machine+api+snapshot+__init__) |
 | `main.py` | `app = FastAPI()` | 网络入口:WebSocket 广播、HTTP 健康检查、托管前端页面 |

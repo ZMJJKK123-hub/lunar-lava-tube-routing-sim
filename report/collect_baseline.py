@@ -18,7 +18,10 @@ from pathlib import Path
 import websocket     # 第三方: WS 客户端 (websocket-client)
 
 WS_URL = "ws://127.0.0.1:5000/ws"
-DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 600
+DURATION = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 600
+RL_MODE = "--rl" in sys.argv          # B 组: 信道 Q-learning (A/B 同口径对比)
+GROUP = "B-rl-qlearning" if RL_MODE else "A-baseline-rcspa"
+PREFIX = "rl_qlearning" if RL_MODE else "baseline_rcspa"
 TRAFFIC_EVERY_S = 2.0
 SAMPLE_EVERY_S = 5.0
 OUT = Path(__file__).parent
@@ -32,6 +35,19 @@ print("STEP2 geology ok", flush=True)
 
 # 干净起点: 同种子重置 (RL/干扰源均为关机默认)
 ws.send(json.dumps({"cmd": "reset"}))
+_rl_latest = {}
+if RL_MODE:
+    # B 组: 重置后边收帧边等 5s 再开 RL。盲等会让 5Hzx127KB 广播撑爆
+    # 本端 TCP 缓冲, 反压拖垮服务器事件循环 (曾致世界冻结的根因)
+    _t_wait = time.time()
+    while time.time() - _t_wait < 5.0:
+        try:
+            _m = json.loads(ws.recv())
+            if _m.get("tick") is not None:
+                _rl_latest = _m
+        except Exception:
+            pass
+    ws.send(json.dumps({"cmd": "toggle_rl"}))
 print("STEP3 reset 已发", flush=True)
 
 try:
@@ -47,6 +63,7 @@ recv_n = 0
 freeze_probe = [0]             # 墙钟冻结检测: 上一探测点的 tick 水位
 next_freeze = 0.0              # 下次冻结检测时刻 (循环前锚定 t0)
 acks = {"admitted": 0, "rejected": 0, "reject_signals": {}}
+settled = {}             # 客户端累计结算: msg_id -> 终态 (不依赖日志文件)
 t0 = time.time()
 next_freeze = t0 + 30.0        # 冻结检测时刻 (t0 就绪后锚定)
 t0_hms = time.strftime("%H:%M:%S")
@@ -89,13 +106,17 @@ while time.time() - t0 < DURATION:
     try:
         msg = json.loads(ws.recv())
         recv_n += 1
-        if msg.get("cmd") == "ack":      # send_msg 的准入回执: 受理/拒绝真相
-            if msg.get("ok"):
+        if msg.get("cmd") == "ack" and "rl_channels" not in msg:
+            if msg.get("ok"):          # send_msg 的准入回执: 受理/拒绝真相
                 acks["admitted"] += 1
             else:
                 acks["rejected"] += 1
                 sig = msg.get("signal") or msg.get("error") or "?"
                 acks["reject_signals"][sig] = acks["reject_signals"].get(sig, 0) + 1
+        for r in msg.get("transport", {}).get("results", []):
+            mid = r.get("msg_id")      # 客户端累计结算 (按 msg_id 去重,
+            if mid is not None:        #  不依赖 sim.log —— 文件日志会死)
+                settled[str(mid)] = r.get("status")
         if msg.get("tick") is not None:
             if latest and msg["tick"] > latest.get("tick", -1):
                 stale_since = now
@@ -154,19 +175,24 @@ except FileNotFoundError:
 done = [r for r in results if r.get("signal") == "DELIVERED"]
 lat = [r["ticks"] for r in done if isinstance(r.get("ticks"), (int, float))]
 meta = {
-    "group": "A-baseline-rcspa", "git_rev": rev,
+    "group": GROUP, "git_rev": rev,
     "started_at": datetime.now().isoformat(timespec="seconds"),
     "duration_s": DURATION, "seed": 42,
     "traffic": {"every_s": TRAFFIC_EVERY_S, "sent": traffic_sent,
                 "acks": acks,
                 "profile": "random alive node -> NODE-00, 512/1024/1536B"},
-    "switches": {"rl_channels": False, "jammer": None, "paused": False},
+    "switches": {"rl_channels": RL_MODE, "jammer": None, "paused": False},
 }
 summary = {
     "cumulative_accepted": cum["accepted"],
     "cumulative_delivered": cum["delivered"],
     "cumulative_timeout": cum["timeout"],
     "ack_admitted": acks["admitted"], "ack_rejected": acks["rejected"],
+    "client_settled": {k: sum(1 for v in settled.values() if v == k)
+                       for k in ("DELIVERED", "TIMEOUT", "BUFFER_FULL", "MAX_RETRIES")},
+    "client_delivery_rate_pct": round(100 * sum(1 for v in settled.values()
+                                                if v == "DELIVERED")
+                                      / max(1, len(settled)), 1),
     "delivery_rate_pct": round(100 * cum["delivered"] / max(1, cum["accepted"]), 1),
     "avg_delivery_ticks": round(sum(latencies) / len(latencies), 2) if latencies else None,
     "p95_delivery_ticks": sorted(latencies)[int(len(latencies) * .95)] if latencies else None,
@@ -176,13 +202,13 @@ summary = {
     "alive": final.get("stats", {}).get("alive"),
 }
 stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-(OUT / f"baseline_rcspa_{stamp}.json").write_text(
+(OUT / f"{PREFIX}_{stamp}.json").write_text(
     json.dumps({"meta": meta, "summary": summary, "samples": samples,
                 "recent_results": results}, ensure_ascii=False, indent=1),
     encoding="utf-8")
 
 lines = [
-    "# A 组基线数据 (现行 RCSPA 版本)", "",
+    f"# {GROUP} 数据", "",
     f"- 版本: git `{rev}` | 世界种子: 42 | 时长: {DURATION}s",
     f"- 流量: 每 {TRAFFIC_EVERY_S}s 一条随机节点→NODE-00 遥测, 注入 {traffic_sent} 条 "
     f"(ack 受理 {acks['admitted']} / 拒绝 {acks['rejected']})",
@@ -195,5 +221,5 @@ lines = [
     "> 窗口送达率 {window}% 仅供参考。B 组 (Q-learning) 实验请用同采集器同口径对比。".format(
         window=summary["window_delivery_rate_pct"]),
 ]
-(OUT / f"baseline_rcspa_{stamp}.md").write_text("\n".join(lines), encoding="utf-8")
+(OUT / f"{PREFIX}_{stamp}.md").write_text("\n".join(lines), encoding="utf-8")
 print("BASELINE DONE", json.dumps(summary, ensure_ascii=False))

@@ -22,6 +22,7 @@ from collections import deque   # 标准库: history 滚动曲线 (定长)
 
 from ..config import (JAM_LIFT_MAX_DB, JAM_RADIUS, JAM_SPEED,   # 干扰源抬升/半径/速度
                       LOG_TICK_EVERY, ROBOT_ENABLED,   # 日志采样/功能开关
+                      RL_CHANNEL_ENABLED,               # B组实验: 信道决策器开关
                       SEED, TICK_BROADCAST_S, TICK_PHYS_S)  # 种子/主循环节拍
 from ..node import Node                     # 节点数据类 (类型注解用)
 from ..transport import TransportLayer      # 传输层 (真实报文收发)
@@ -74,6 +75,10 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
         self._paused_at = 0.0  # 暂停锚定时刻 (monotonic; 动画进度分数的冻结时钟)
         # 移动干扰源 (开关式灾害): {x, z, wx, wz} 游走坐标与路点; None=关机
         self.jammer: dict | None = None
+        # B 组实验: 信道决策器开关 (False=RCSPA 规则; True=Q-learning) 与
+        # 惰性创建的学习器实例 (reset 重建即弃表, 每次实验从头学)
+        self.rl_channels = RL_CHANNEL_ENABLED
+        self.rl_learner = None
         # 传输层: 真实报文 store-and-forward (接纳/重传/超时/字节计数)
         self.transport = TransportLayer(self)
         # 渲染总线: 收发点调 vis_packet() 即自动上屏, 新报文类型零注册
