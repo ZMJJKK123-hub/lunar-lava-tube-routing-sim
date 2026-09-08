@@ -221,6 +221,7 @@ class SenseMixin:
         if not (self.target and self.target[0] == nid):
             self.trail = []
         self._assist_spot = None         # 上一次任务的加固择点不跨任务复用
+        self._scout_until, self._scout_wps = 0, []   # 侦察状态同样不跨任务
         log.info("任务开启 %s -> %s 目标=%s via=%s (tick=%d)",
                  self.state, state, nid, via, tick)
         self.state = state

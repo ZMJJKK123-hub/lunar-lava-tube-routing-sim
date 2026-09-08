@@ -12,7 +12,8 @@ import math    # 标准库: 三角/距离计算, 支撑全部几何原语
 import random  # 标准库: 随机路点采样 (极坐标均匀撒点)
 
 from .constants import (HISTORIC_SPOT_DECAY, RANGE,   # 历史择点半衰期/通信半径
-                        TRAIL_MAX, SPEED)             # 轨迹上限/移动速度
+                        SCOUT_RADIUS_MAX, SCOUT_RADIUS_MIN,   # 侦察环带外/内半径
+                        SCOUT_WAYPOINTS, TRAIL_MAX, SPEED)    # 采样路点数/轨迹上限/速度
 
 
 def plan_robot_path(p_from, p_to):
@@ -202,6 +203,28 @@ class MotionMixin:
                     and self._los_clear((self.node.x, self.node.z), (n.x, n.z))):
                 cnt += 1
         return cnt
+
+    def _scout_waypoints(self, tgt_xy):
+        """侦察采样路点: 目标周围环带 (SCOUT_RADIUS_MIN~MAX) 内拒绝采样出
+        SCOUT_WAYPOINTS 个合法点 (管内/避石, 与 _orbit_spot 同一合法性口径),
+        按离机器人由近及远排序 —— 加固落钉前的主动踩点路线。"""
+        eng = self.eng
+        tx, tz = tgt_xy
+        pts = []
+        for _ in range(SCOUT_WAYPOINTS * 4):          # 拒绝采样: 超额尝试
+            ang = random.uniform(0, math.pi * 2)
+            rr = random.uniform(SCOUT_RADIUS_MIN, SCOUT_RADIUS_MAX)
+            p = (tx + math.cos(ang) * rr, tz + math.sin(ang) * rr)
+            if not eng._in_tube((p[0], 0.0, p[1])):
+                continue
+            if any(math.hypot(p[0] - o["x"], p[1] - o["z"]) < o["r"] + 15
+                   for o in eng.obstacles):
+                continue
+            pts.append(p)
+            if len(pts) >= SCOUT_WAYPOINTS:
+                break
+        pts.sort(key=lambda q: math.hypot(q[0] - self.node.x, q[1] - self.node.z))
+        return pts
 
     def _best_historic_spot(self, tgt_xy):
         """目标 2x 通信半径内的历史面包屑择优: 得分 = 可见数 x 新近度半衰

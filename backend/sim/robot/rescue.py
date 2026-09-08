@@ -11,7 +11,8 @@ import math   # 标准库: 可桥性预判的距离计算
 
 from ..config import MIN_DEGREE, ROBOT_ID                   # 度数安全线/自身节点标识
 from .constants import (HISTORIC_SPOT_GAIN, INVESTIGATE_COOLDOWN,   # 择点收益门槛/核查冷却
-                        RANGE, RESCUE_PATIENCE)    # 通信半径/救援超时节拍
+                        RANGE, RESCUE_PATIENCE,                    # 通信半径/救援超时
+                        SCOUT_BUDGET_TICKS)                        # 侦察预算 (拍)
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -97,23 +98,46 @@ class RescueMixin:
         if tick - self._rescue_since > RESCUE_PATIENCE:
             self._giveup(eng, tid, tick, "加固超时")
             return
-        # 到场 (0.6x 半径内): 先看历史保存点有没有"一钉多益"的更优落位
-        # (此地曾看得见更多节点); 收益达门槛且就在附近才挪, 否则原地落钉
+        # 到场 (0.6x 半径内): 先侦察踩点 (ASSIST 不赶时间, 主动采样优于被动旧账)
         if self._near((self.target[1], self.target[2]), RANGE * 0.6):
-            spot = self._best_historic_spot((self.target[1], self.target[2]))
+            tgt = (self.target[1], self.target[2])
+            if self._scout_until == 0:               # 一次性启动侦察
+                self._scout_vis0 = self._vis_count()
+                self._scout_wps = self._scout_waypoints(tgt)
+                self._scout_until = tick + SCOUT_BUDGET_TICKS
+                log.info("加固侦察 %s: %d 个采样点, 预算 %d 拍, 基线可见 %d",
+                         tid, len(self._scout_wps), SCOUT_BUDGET_TICKS,
+                         self._scout_vis0)
+                eng._emit("robot_scout", "info",
+                          f"🤖 先绕 {tid} 侦察踩点 ({len(self._scout_wps)} 个采样位, "
+                          f"预算 {SCOUT_BUDGET_TICKS} 拍), 再选最佳落钉位",
+                          narration="🤖 机器人先围着目标转一小圈——把周围各个"
+                                    "位置能听见几个节点都记下来, 再挑听得最全"
+                                    "的地方投放道钉。")
+            if tick < self._scout_until:              # 侦察期: 达标即早退, 否则踩点
+                spot = self._best_historic_spot(tgt)
+                if spot is None or spot[2] < self._scout_vis0 + HISTORIC_SPOT_GAIN:
+                    wp = next((p for p in self._scout_wps
+                               if not self._near(p, 40)), None)
+                    if wp is not None:
+                        self._move_toward(wp)
+                        return
+                    self._scout_until = tick          # 路点走完: 提前收工
+            # 落钉选点 (侦察结束/提前达标): 历史最佳严格优于当前位置才挪
+            spot = self._best_historic_spot(tgt)
             if (spot is not None and not self._near(spot, 30)
-                    and spot[2] >= self._vis_count() + HISTORIC_SPOT_GAIN
+                    and spot[2] > self._vis_count()
                     and math.hypot(spot[0] - self.node.x,
                                    spot[1] - self.node.z) <= RANGE * 0.6):
                 if self._assist_spot is None:
-                    log.info("加固择点: 移往历史点位 (%.0f,%.0f) 此地曾见 %d 节点",
+                    log.info("加固择点: 移往最佳点位 (%.0f,%.0f) 可见 %d 节点",
                              spot[0], spot[1], spot[2])
                     eng._emit("robot_spot", "info",
-                              f"🤖 依历史观测选择更优点位 (此地曾同时看见 "
-                              f"{spot[2]} 个节点), 移过去再落钉",
+                              f"🤖 选定最佳落钉位 (此地可同时看见 "
+                              f"{spot[2]} 个节点), 移过去投放",
                               narration="🤖 机器人记得自己在这条路上各个位置"
                                         "能听见几个节点——它挑了一个听得最全的"
-                                        "历史位置去投放道钉, 一根钉照顾更多邻居。")
+                                        "位置去投放道钉, 一根钉照顾更多邻居。")
                 self._assist_spot = spot
                 self._move_toward((spot[0], spot[1]))
                 return

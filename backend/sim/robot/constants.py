@@ -23,6 +23,10 @@ TRAIL_MAX = 240            # 面包屑轨迹上限 (tick): (x, z, 连通, 可见
 WAYPOINT_PATIENCE = 200     # 巡逻路点超时换点, 不在死角里磨
 HISTORIC_SPOT_DECAY = 300   # 历史观测新近度半衰期 (tick): 旧轨迹随墙拆/节点死自然贬值
 HISTORIC_SPOT_GAIN = 2      # 历史落点最少要比当前位置多看得见的节点数 (不足不挪)
+SCOUT_BUDGET_TICKS = 48     # 加固侦察预算 (拍, ~12s): 到场先踩点再落钉, 预算尽取最优
+SCOUT_WAYPOINTS = 6         # 侦察采样路点数 (目标周围环带内拒绝采样)
+SCOUT_RADIUS_MIN = 80.0     # 侦察环带内半径 (m): 太近采不出差异
+SCOUT_RADIUS_MAX = 170.0    # 侦察环带外半径 (m): 保证钉仍罩得住目标 (0.6x 通信半径内)
 ROBOT_LINK_PENALTY = 50.0   # 机器人边代价罚: 健康流量永不借道 (走它不如绕路),
                             # 只有孤岛 (无路可走) 才经它回流 -> 桥接检测精确
 BEACON_STOCK = 6         # 携带道钉数
