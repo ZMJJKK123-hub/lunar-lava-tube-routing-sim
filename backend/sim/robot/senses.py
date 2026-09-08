@@ -10,7 +10,7 @@
 import logging   # 标准库: 模块日志 (SOS/情报/任务)
 import math   # 标准库: 嫌疑目标距离计算 (_chain_intel)
 
-from ..config import ROBOT_ID                  # 协议标识: 自身节点 ID
+from ..config import MIN_DEGREE, ROBOT_ID         # 度数安全线/协议标识: 自身节点 ID
 from .. import physics                         # 物理层: distance/link_budget
 from .constants import (RANGE, SOS_ARM_TICKS, SOS_BEACON_EVERY,  # 听测节拍
                         ROBOT_CHAIN_INTEL, STALE_AFTER)          # 情报开关/超时
@@ -113,6 +113,34 @@ class SenseMixin:
                 bd, best = d, (nid, n)
         return best
 
+    def real_degree(self, nid) -> int:
+        """节点真实活跃链路数: 剔除机器人自身注入的边 (临时冗余, 一走即逝)。
+        度数判定 (弱链听测/加固完成) 必须用它 —— 机器人站在目标身边时,
+        自身边会把 n.neighbors 顶高, 令目标"看起来安全"而错失帮助。"""
+        return sum(1 for (a, b), l in self.eng.links.items()
+                   if nid in (a, b) and l["up"] and ROBOT_ID not in (a, b))
+
+    def _hear_fragile(self):
+        """弱链听测: 覆盖内 (300m+LOS) 正以高功率自举且真实链路低于安全线的
+        最近节点 -> (nid, node) 或 None。物理依据: 自举 = 发射功率比额定高
+        数倍, 近邻一耳即辨; 度数已回安全线(仅滞回未回落)或已呼救的不选 ——
+        前者无需帮助, 后者让位 SOS 主通道 (优先级更高)。"""
+        best, bd = None, RANGE
+        for n in self.eng.nodes.values():
+            if n.state == "DEAD" or n.role == "beacon":
+                continue
+            if not n.power_boosted or n.id in self.sos_active:
+                continue
+            if self.real_degree(n.id) >= MIN_DEGREE:
+                continue
+            if self.eng.tick < self._checked_until.get(n.id, 0):
+                continue               # 加固冷却中 (刚帮过/落点受限)
+            d = physics.distance(self.node, n)
+            if d <= bd and self._los_clear((self.node.x, self.node.z),
+                                               (n.x, n.z)):
+                bd, best = d, (n.id, n)
+        return best
+
     # ---- 链上情报: 心跳超时侦查 (机器人是全同步观察者, 这是它的本职) ----
     def _chain_intel(self, tick):
         """扫自身链上世界状态: 遥测停更超期的存活节点 = 失联嫌疑 (带最后已知
@@ -147,8 +175,8 @@ class SenseMixin:
 
     # ---- 任务生命周期 ----
     def _on_mission_for(self, nid) -> bool:
-        """同一目标的救援/核查/回撤是否正在进行 (防链上情报每拍重触发)"""
-        return (self.state in ("RESCUE", "INVESTIGATE", "FALLBACK")
+        """同一目标的救援/核查/加固/回撤是否正在进行 (防每拍重触发)"""
+        return (self.state in ("RESCUE", "INVESTIGATE", "FALLBACK", "ASSIST")
                 and self.target is not None and self.target[0] == nid)
 
     def _start_mission(self, state, nid, tick):
@@ -165,6 +193,12 @@ class SenseMixin:
                            narration=f"🤖 巡检机器人听到了 {self.eng._zh(nid)} 的呼救!"
                                      f"正在赶往事发区域,准备投放道钉搭建中继。",
                            node=nid)
+        elif state == "ASSIST":
+            self.eng._emit("robot_assist", "info",
+                           f"🤖 听到 {nid} 正以高功率自救 (链路不足), 前往投钉加固",
+                           narration=f"🤖 机器人的电台听到 {self.eng._zh(nid)} "
+                                     f"正在拼命放大功率保持连线——它赶过去投放一根道钉,"
+                                     f"帮这根通信桩分担压力。", node=nid)
         else:
             self.eng._emit("robot_investigate", "info",
                            f"🔎 链上心跳超时: {nid} 已 {STALE_AFTER}+ tick 未上报, 前往核查",

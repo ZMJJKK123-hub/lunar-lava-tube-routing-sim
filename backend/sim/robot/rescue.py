@@ -2,14 +2,14 @@
 """
 救援状态机分支 (RescueMixin)
 ===============================
-职责: PatrolRobot 的"救援三态推进" —— 目标恢复撤离 / 到场无果冷却 /
-到场无桥重定位 / 超时放弃 / 回撤点判定。决策入口 _rescue_step 由
-robot.py 的 _advance 调用; 移动能力来自 MotionMixin。
+职责: PatrolRobot 的"救援多分支推进" —— 弱链加固(ASSIST) / 目标恢复撤离 /
+到场无果冷却 / 到场无桥重定位 / 超时放弃 / 回撤点判定。决策入口 _rescue_step
+由 robot.py 的 _advance 调用; 移动能力来自 MotionMixin。
 """
 import logging   # 标准库: 模块日志 (救援分支结局)
 import math   # 标准库: 可桥性预判的距离计算
 
-from ..config import ROBOT_ID                              # 协议标识: 自身节点
+from ..config import MIN_DEGREE, ROBOT_ID                   # 度数安全线/自身节点标识
 from .constants import (INVESTIGATE_COOLDOWN, RANGE,       # 核查冷却/通信半径
                         RESCUE_PATIENCE)                   # 救援超时节拍
 
@@ -28,13 +28,16 @@ class RescueMixin:
     """
 
     def _rescue_step(self, tick: int):
-        """救援/核查/回撤三态推进: 依目标可达性与到场情况分派。
+        """救援/核查/加固/回撤多态推进: 依目标可达性与到场情况分派。
 
         Args: tick: 当前仿真 tick。Returns: None。
         Globals Used: None。Calls: 分派到本模块各分支 + MotionMixin 移动。
         """
         eng = self.eng
         tid = self.target[0]
+        if self.state == "ASSIST":
+            self._assist_step(eng, tid, tick)   # 加固有独立成功判定, 先行分派
+            return
         bridging_now = any(ROBOT_ID in (r.get("path") or [])
                            for nid, r in eng.routes.items() if nid != ROBOT_ID)
         # 可桥性预判: 目标 2x通信半径内不存在任何可达节点 -> 单钉必不够
@@ -59,6 +62,50 @@ class RescueMixin:
             self._fallback_step(eng, tid, tick)
         else:
             self._advance_to_target()
+
+    def _assist_step(self, eng, tid, tick):
+        """弱链加固推进 (ASSIST): 到自举节点身旁落钉补冗余。
+        成功判定与 SOS 救援不同: 目标本就可达 (hop>=0), 完成条件是
+        "度数回到安全线"或"已停止自举", 而非恢复可达。
+
+        Args: eng: 引擎; tid: 目标 id; tick: 当前拍。
+        Returns: None。Globals Used: MIN_DEGREE/INVESTIGATE_COOLDOWN/
+        RESCUE_PATIENCE/RANGE。Calls: _deploy_beacon/_deploy_ok/_giveup/
+        _near/_advance_to_target[MotionMixin]。
+        """
+        n = eng.nodes.get(tid)
+        # 完成/失效判定: 目标消失/死亡/不再自举/真实度数回安全线 -> 撤离
+        # (真实度数剔除机器人自身边, 否则"站在目标身边"会被误判为已安全;
+        #  撤离登记冷却: 机器人离开会掉度数, 防同一目标反复触发)
+        deg = self.real_degree(tid)
+        if (n is None or n.state == "DEAD"
+                or not n.power_boosted or deg >= MIN_DEGREE):
+            self.state = "PATROL"
+            self.target = None
+            self._checked_until[tid] = tick + INVESTIGATE_COOLDOWN
+            if n is not None and n.state != "DEAD" and deg >= MIN_DEGREE:
+                log.info("加固完成 %s: 度数=%d, 撤离", tid, deg)
+                eng._emit("robot_assist_done", "ok",
+                          f"🎉 {tid} 链路冗余已补足 ({deg} 条), 机器人撤离",
+                          node=tid)
+            else:
+                log.info("加固结束 %s: 目标恢复或失效, 撤离", tid)
+            return
+        if self.stock == 0:
+            self._giveup(eng, tid, tick, "道钉耗尽")
+            return
+        if tick - self._rescue_since > RESCUE_PATIENCE:
+            self._giveup(eng, tid, tick, "加固超时")
+            return
+        # 到场 (0.6x 半径内, 保证钉与目标可通): 落点合法即落钉, 受限则冷却放弃
+        if self._near((self.target[1], self.target[2]), RANGE * 0.6):
+            if self._deploy_ok():
+                log.info("加固落钉: 为 %s 补链 (原 %d 条)", tid, n.neighbors)
+                self._deploy_beacon()
+            else:
+                self._giveup(eng, tid, tick, "落点受限 (巨石/钉距), 无法加固")
+            return
+        self._advance_to_target()
 
     def _on_target_recovered(self, eng, tid, bridging_now):
         """目标已恢复可达 (常为机器人自身路过桥接)。

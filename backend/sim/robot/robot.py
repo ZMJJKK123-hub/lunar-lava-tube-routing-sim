@@ -38,7 +38,8 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
     核心属性:
     - eng: 仿真引擎引用 (只读拓扑/路由/账本, 写仅限投放道钉);
     - node: 机器人伪节点 (入路由图的 ROBOT 端点, 不入 engine.nodes);
-    - state: PATROL / RESCUE / INVESTIGATE / FALLBACK 四态;
+    - state: PATROL / RESCUE / INVESTIGATE / FALLBACK / ASSIST 五态
+      (ASSIST=弱链加固: 覆盖内听到高功率自举节点, 前去落钉补冗余);
     - target: (nid, x, z) 当前任务目标; stock: 剩余道钉数;
     - trail: 面包屑 [(x, z, 是否连通主网)]; sos_active: 呼救节点集合。
 
@@ -127,15 +128,15 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
             log.info("桥接检测命中: 有路径正经过机器人, 落钉")
             self._deploy_beacon()
         self._pick_task(tick)
-        if self.state in ("RESCUE", "INVESTIGATE", "FALLBACK"):
+        if self.state in ("RESCUE", "INVESTIGATE", "FALLBACK", "ASSIST"):
             self._crumb()
-        if self.state in ("RESCUE", "INVESTIGATE", "FALLBACK") and self.target:
+        if self.state in ("RESCUE", "INVESTIGATE", "FALLBACK", "ASSIST") and self.target:
             self._rescue_step(tick)
         else:
             self._patrol_step(tick)
 
     def _pick_task(self, tick: int):
-        """任务挑选: 实时 SOS 优先 -> 链上情报 -> 无事恢复巡逻"""
+        """任务挑选: 实时 SOS 优先 -> 链上情报 -> 弱链加固 -> 无事恢复巡逻"""
         eng = self.eng
         heard = (self._hear()
                  if tick >= self._deaf_until and self.state != "FALLBACK"
@@ -148,12 +149,22 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
             return
         # 链上情报: 无实时 SOS 时, 朝最近失联嫌疑的最后已知坐标侦查
         susp = self._chain_intel(tick) if tick >= self._deaf_until else None
+        # 弱链加固: 覆盖内听到高功率自举 -> 前往落钉补冗余 (优先级最低,
+        # 让位孤岛救援; ASSIST 任务由 _assist_step 自行收尾, 不在此降级)
+        frag = (self._hear_fragile()
+                if tick >= self._deaf_until and self.state != "FALLBACK"
+                else None)
         if susp:
             _, nid, sx, sz = susp
             if not self._on_mission_for(nid):
                 self._start_mission("INVESTIGATE", nid, tick)
             if self.state != "FALLBACK":       # 回撤/重定位中不覆盖目标点位
                 self.target = (nid, sx, sz)
+        elif frag:
+            if not self._on_mission_for(frag[0]):
+                self._start_mission("ASSIST", frag[0], tick)
+            if self.state != "FALLBACK":
+                self.target = (frag[0], frag[1].x, frag[1].z)
         elif self.state in ("RESCUE", "INVESTIGATE"):
             self.state = "PATROL"
             self.target = None

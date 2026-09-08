@@ -75,8 +75,9 @@ export const robotDraw = {
     ctx.lineWidth = lw(1.2)
     ctx.beginPath(); ctx.arc(x, z, 300, 0, Math.PI * 2); ctx.stroke()
     ctx.setLineDash([])
-    // 救援线: 机器人 -> 呼救目标
-    if ((rb.state === 'RESCUE' || rb.state === 'INVESTIGATE' || rb.state === 'FALLBACK') && rb.target && nodes[rb.target]) {
+    // 加固/救援线: 机器人 -> 目标
+    if ((rb.state === 'RESCUE' || rb.state === 'INVESTIGATE' || rb.state === 'FALLBACK'
+         || rb.state === 'ASSIST') && rb.target && nodes[rb.target]) {
       const t = nodes[rb.target]
       ctx.setLineDash([lw(6), lw(6)])
       ctx.strokeStyle = 'rgba(255,150,80,0.7)'
@@ -95,7 +96,8 @@ export const robotDraw = {
     ctx.shadowBlur = 0
     ctx.fillStyle = 'rgba(240,215,150,0.95)'
     ctx.font = Math.max(8, lw(9)) + 'px Consolas,monospace'
-    ctx.fillText('BOT·' + (rb.state === 'RESCUE' ? '救援' : rb.state === 'INVESTIGATE' ? '核查' : rb.state === 'FALLBACK' ? '回撤' : '巡逻') + ' 钉×' + rb.stock,
-                 x, z - lw(12))
+    ctx.fillText('BOT·' + (rb.state === 'RESCUE' ? '救援' : rb.state === 'INVESTIGATE' ? '核查'
+                 : rb.state === 'FALLBACK' ? '回撤' : rb.state === 'ASSIST' ? '加固' : '巡逻')
+                 + ' 钉×' + rb.stock, x, z - lw(12))
   },
 }
