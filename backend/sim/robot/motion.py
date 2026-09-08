@@ -136,6 +136,7 @@ class MotionMixin:
         nxt = (cur[0] + math.cos(base) * step, cur[1] + math.sin(base) * step)
         if not self._walk_blocked(cur, nxt):
             self._slide = 0
+            self._stuck = 0
             self.node.x, self.node.z = nxt
             return
         if self._slide == 0:
@@ -147,10 +148,12 @@ class MotionMixin:
                        cur[1] + math.sin(ang) * step)
                 if not self._walk_blocked(cur, nxt):
                     self._slide = sign
+                    self._stuck = 0
                     self.node.x, self.node.z = nxt
                     return
         self._slide = 0
-        self.waypoint = None           # 四面受阻: 换路点
+        self._stuck += 1               # 全向受阻 (长墙围困): 任务态据此放弃
+        self.waypoint = None           # 巡逻态: 换路点
 
     # ---------- 定位辅助 ----------
     def _orbit_spot(self, tgt_xy):
@@ -219,6 +222,9 @@ class MotionMixin:
                 continue
             if any(math.hypot(p[0] - o["x"], p[1] - o["z"]) < o["r"] + 15
                    for o in eng.obstacles):
+                continue
+            # 墙后不采: 机器人->采样点穿墙即不可达 (长墙围困会白撞)
+            if self._hit_wall((self.node.x, self.node.z), p):
                 continue
             pts.append(p)
             if len(pts) >= SCOUT_WAYPOINTS:

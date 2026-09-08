@@ -71,6 +71,7 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
         self._scout_until = 0            # 侦察截止 tick (0=未启动; 加固到场先踩点)
         self._scout_wps: list = []       # 侦察采样路点 [(x, z)]
         self._scout_vis0 = 0             # 侦察基线: 到场时的可见节点数 (早退门槛)
+        self._stuck = 0                  # 连续全向受阻计数 (撞墙检测; 移动成功清零)
         self._iso: dict[str, int] = {}      # nid -> 连续失联 tick 数
         self.sos_active: set[str] = set()   # 正在呼救的节点
         # 全同步观察者入链: 转发/追块全真, 但不在共识名单 (不出块/不遥测)

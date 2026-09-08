@@ -12,7 +12,8 @@ import math   # 标准库: 可桥性预判的距离计算
 from ..config import MIN_DEGREE, ROBOT_ID                   # 度数安全线/自身节点标识
 from .constants import (HISTORIC_SPOT_GAIN, INVESTIGATE_COOLDOWN,   # 择点收益门槛/核查冷却
                         RANGE, RESCUE_PATIENCE,                    # 通信半径/救援超时
-                        SCOUT_BUDGET_TICKS)                        # 侦察预算 (拍)
+                        SCOUT_BUDGET_TICKS,                        # 侦察预算 (拍)
+                        STUCK_GIVEUP_TICKS)                        # 撞墙放弃阈值 (拍)
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -38,6 +39,11 @@ class RescueMixin:
         tid = self.target[0]
         if self.state == "ASSIST":
             self._assist_step(eng, tid, tick)   # 加固有独立成功判定, 先行分派
+            return
+        # 撞墙脱困: 长墙围困 (全向受阻连续超阈值) -> 放弃任务, 不再原地空撞
+        if self._stuck >= STUCK_GIVEUP_TICKS:
+            self._stuck = 0
+            self._giveup(eng, tid, tick, "路径被墙体阻断")
             return
         bridging_now = any(ROBOT_ID in (r.get("path") or [])
                            for nid, r in eng.routes.items() if nid != ROBOT_ID)
@@ -75,6 +81,17 @@ class RescueMixin:
         _near/_advance_to_target[MotionMixin]。
         """
         n = eng.nodes.get(tid)
+        # 撞墙脱困 (最优先, 先于目标状态判定: 带病计数若不清会毒害下一任务):
+        # 侦察/择点途中被长墙围困 -> 弃点收工原地落钉; 赶路被困 -> 放弃任务
+        if self._stuck >= STUCK_GIVEUP_TICKS:
+            self._stuck = 0
+            if tick < self._scout_until or self._assist_spot is not None:
+                log.info("加固弃点 %s: 采样/择点路径被墙阻断, 原地收工", tid)
+                self._assist_spot = None
+                self._scout_until = tick
+            else:
+                self._giveup(eng, tid, tick, "路径被墙体阻断")
+            return
         # 完成/失效判定: 目标消失/死亡/不再自举/真实度数回安全线 -> 撤离
         # (真实度数剔除机器人自身边, 否则"站在目标身边"会被误判为已安全;
         #  撤离登记冷却: 机器人离开会掉度数, 防同一目标反复触发)
@@ -123,12 +140,15 @@ class RescueMixin:
                         self._move_toward(wp)
                         return
                     self._scout_until = tick          # 路点走完: 提前收工
-            # 落钉选点 (侦察结束/提前达标): 历史最佳严格优于当前位置才挪
+            # 落钉选点 (侦察结束/提前达标): 历史最佳严格优于当前位置、且
+            # 机器人->点位不穿墙 (墙后的旧面包屑不可达) 才挪
             spot = self._best_historic_spot(tgt)
             if (spot is not None and not self._near(spot, 30)
                     and spot[2] > self._vis_count()
                     and math.hypot(spot[0] - self.node.x,
-                                   spot[1] - self.node.z) <= RANGE * 0.6):
+                                   spot[1] - self.node.z) <= RANGE * 0.6
+                    and not self._hit_wall((self.node.x, self.node.z),
+                                           (spot[0], spot[1]))):
                 if self._assist_spot is None:
                     log.info("加固择点: 移往最佳点位 (%.0f,%.0f) 可见 %d 节点",
                              spot[0], spot[1], spot[2])
