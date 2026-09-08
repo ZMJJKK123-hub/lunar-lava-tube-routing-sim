@@ -5,9 +5,13 @@
 分层: 纯数据+自演化层 —— 自身不做任何网络决策; 链路质量(snr_db/ber)与
 路由结果(hop_count/neighbors)由引擎算完回填, 本类只负责"参数随时间怎么变"。
 """
-import logging                                     # 标准库: 模块日志 (死亡/SEU)
+import logging                                     # 标准库: 模块日志 (死亡/SEU/功率自举)
 from dataclasses import dataclass, field, asdict   # 标准库: 数据类骨架/字段工厂/序列化
 import random                                      # 标准库: 温度扰动与 SEU 掷骰
+
+from .config import (BOOST_EVERY_TICKS, BOOST_MIN_SOC_PCT,   # 度数自保: 调功节拍/电量红线%
+                     BOOST_STEP_DB, DEG_HYSTERESIS_TICKS,   # 功率步长/充足滞回拍数
+                     MIN_DEGREE, TX_POWER_MAX_DB)           # 链路警戒线/功率上限
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -69,6 +73,18 @@ class Node:
     # ---- 运行时缓存 ----
     role: str = "relay"                 # sink(洞口基站) / sensor / relay
     link_cost_cache: dict = field(default_factory=dict)
+
+    # ---- 链路度数自保 (Starlink 式冗余维护的本地反馈状态) ----
+    power_auto: bool = True             # 功率自动调优开关 (上帝手改功率后置 False 让位)
+    _rated_tx: float = 0.0              # 额定发射功率 dBm (__post_init__ 锚定, 回落下限)
+    _rated_itx: float = 0.0             # 额定发射电流 mA (__post_init__ 锚定, 换算基线)
+    _boost_at_tick: int = 0             # 最近一次调功的 tick (节拍门)
+    _deg_ok_since: int = 0              # 度数>=3 持续计时起点 (0 = 当前不充足)
+
+    def __post_init__(self):
+        """锚定额定射频基线 (spawn 时的功率/电流), 供自举回落数值换算。"""
+        self._rated_tx = self.tx_power_dbm
+        self._rated_itx = self.i_tx
 
     # ------------------------------------------------------------------
     @property
@@ -204,6 +220,56 @@ class Node:
         "tilt_deg", "band", "battery_mah", "queue_pct", "radiation_rad",
         "i_tx", "state", "supercap_pct",
     }
+
+    # ---------------- 链路度数自保 (Starlink 式冗余维护的本地反馈) ----------------
+    @property
+    def power_boosted(self) -> bool:
+        """发射功率是否处于自举态 (高于额定) —— 快照琥珀环/统计消费。"""
+        return self.tx_power_dbm > self._rated_tx + 1e-9
+
+    def tune_power_for_degree(self, nbrs: int, tick: int):
+        """度数自保状态机: 活跃链路不足 -> 功率阶梯自举 (抬 SNR 救弱链);
+        度数充足且持续 -> 分步回落省电。纯本地反馈零通信;
+        超 300m 硬半径功率救不了 —— 那是机器人/道钉的职责边界。
+
+        Args: nbrs: 活跃链路数 (引擎回填); tick: 当前物理拍。
+        Returns: None (无动作) / ("boost", 旧功率dBm) / ("fallback", 旧功率dBm)
+                 —— 变更交引擎播报事件 (Node 不持有事件总线)。
+        Globals Used: MIN_DEGREE/BOOST_STEP_DB/TX_POWER_MAX_DB/BOOST_MIN_SOC_PCT/
+        BOOST_EVERY_TICKS/DEG_HYSTERESIS_TICKS。Calls: _apply_i_tx。
+        """
+        if (not self.power_auto or self.role == "beacon"
+                or self.state in ("DEAD", "SEU_RESET")):
+            return None
+        if nbrs >= MIN_DEGREE + 1:              # 充足 (滞回上沿 >=3): 起表计时
+            if not self._deg_ok_since:
+                self._deg_ok_since = tick
+            if (self.power_boosted
+                    and tick - self._deg_ok_since >= DEG_HYSTERESIS_TICKS
+                    and tick - self._boost_at_tick >= BOOST_EVERY_TICKS):
+                old = self.tx_power_dbm
+                self.tx_power_dbm = max(self._rated_tx,
+                                        round(self.tx_power_dbm - BOOST_STEP_DB, 1))
+                self._apply_i_tx()
+                self._boost_at_tick = tick
+                return ("fallback", old)
+            return None
+        self._deg_ok_since = 0                  # 不充足: 滞回计时清零
+        if (nbrs < MIN_DEGREE and self.battery_soc > BOOST_MIN_SOC_PCT
+                and tick - self._boost_at_tick >= BOOST_EVERY_TICKS
+                and self.tx_power_dbm < TX_POWER_MAX_DB):
+            old = self.tx_power_dbm
+            self.tx_power_dbm = min(TX_POWER_MAX_DB,
+                                    round(self.tx_power_dbm + BOOST_STEP_DB, 1))
+            self._apply_i_tx()
+            self._boost_at_tick = tick
+            return ("boost", old)
+        return None
+
+    def _apply_i_tx(self):
+        """内部: 按当前功率对额定发射电流做射频换算 (功率比 = 10^(dB/10))。"""
+        self.i_tx = round(self._rated_itx
+                          * 10 ** ((self.tx_power_dbm - self._rated_tx) / 10.0), 1)
 
     def apply_override(self, key: str, value):
         """上帝模式参数覆写入口 (白名单制)。

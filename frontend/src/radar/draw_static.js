@@ -155,6 +155,14 @@ export const staticDraw = {
         o.arc(n.x, n.z, r + lw(3.5), -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * soc)
         o.stroke()
       }
+      // 度数自保: 功率自举中的节点画琥珀虚线环 (链路不足, 正在调大功率自救)
+      if (n.pboost && n.state !== 'DEAD') {
+        o.strokeStyle = 'rgba(255,200,90,0.9)'
+        o.lineWidth = lw(1.4)
+        o.setLineDash([lw(4), lw(3)])
+        o.beginPath(); o.arc(n.x, n.z, r + lw(12), 0, Math.PI * 2); o.stroke()
+        o.setLineDash([])
+      }
       // 积压弧: 仅显示超出链流量配额(50%)的真实数据拥塞 (青色, 更外圈)
       if (n.queue_pct > 50.5 && n.state !== 'DEAD') {
         o.strokeStyle = 'rgba(0,232,255,0.95)'

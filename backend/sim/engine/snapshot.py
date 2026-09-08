@@ -10,7 +10,7 @@
 """
 import logging   # 标准库: 模块日志 (快照周期摘要)
 
-from ..config import (ROBOT_ID, TICK_PHYS_S,          # 机器人标识/物理拍
+from ..config import (MIN_DEGREE, ROBOT_ID, TICK_PHYS_S,   # 度数警戒线/机器人标识/物理拍
                       VIS_MAX, VIS_PRIORITY, VIS_RESERVE)   # 总线截断策略
 from .. import physics   # 物理层: distance (链路下发距离过滤)
 
@@ -87,7 +87,8 @@ class SnapshotMixin:
             "links": self._snap_links(),
             "nodes": {nid: {**n.to_dict(),
                             "blocked_nbrs": self.blocked_info.get(nid, []),
-                            "sos": bool(self.robot and nid in self.robot.sos_active)}
+                            "sos": bool(self.robot and nid in self.robot.sos_active),
+                            "pboost": n.power_boosted}   # 度数自举中 (前端琥珀环)
                       for nid, n in self.nodes.items()},
             "routes": self.routes,
             "traffic": self.traffic,
@@ -125,6 +126,8 @@ class SnapshotMixin:
         return {
             "alive": len(alive), "total": len(self.nodes),
             "reachable": sum(1 for r in self.routes.values() if r.get("hop_count", -1) >= 0),
+            "fragile_nodes": sum(1 for n in alive
+                                 if n.role != "beacon" and n.neighbors < MIN_DEGREE),
             "coverage_pct": self._coverage(),
             "avg_snr_db": round(avg_snr, 1), "avg_soc_pct": round(avg_soc, 1),
             "max_hop": self.wave.get("max_hop", 0),

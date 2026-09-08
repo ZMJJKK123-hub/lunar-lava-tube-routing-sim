@@ -80,6 +80,13 @@ class ApiMixin:
                 node.apply_override(k, v)
             except KeyError as e:
                 return {"ok": False, "error": str(e)}
+        # 手动接管判定: 上帝改功率/发射电流 -> 退出自动调功 (人机不抢方向盘)
+        if node.power_auto and ({"tx_power_dbm", "i_tx"} & params.keys()):
+            node.power_auto = False
+            log.info("自动调功让位 %s: 功率参数已由上帝接管", node_id)
+            self._emit("power_manual", "info",
+                       f"⚑ {node_id} 发射功率转为手动控制 (链路自举停用)",
+                       node=node_id)
         narration = None
         if node.state != "DEAD" and (node.temp_c >= 100 or node.battery_soc <= 3):
             cause = "温度突破 100°C 临界值,芯片烧毁" if node.temp_c >= 100 else "电量耗尽"

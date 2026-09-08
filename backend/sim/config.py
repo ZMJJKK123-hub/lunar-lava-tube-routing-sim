@@ -32,6 +32,14 @@ VIS_RESERVE = 40            # 为未登记类型保留的名额 (零注册兜底
 # ---------------- 控制平面配额 (engine/network 消费) ----------------
 CHAIN_QUEUE_CAP = 4096      # 链上报文计入 queue_pct 的字节上限 (50% 配额)
 
+# ---------------- 节点链路度数自保 (node.tune_power_for_degree 消费) ----------------
+MIN_DEGREE = 2              # 活跃链路警戒线: 低于此值 -> 发射功率自举 (Starlink 式冗余维护)
+BOOST_STEP_DB = 2.0         # 每次自举的功率提升步长 (dBm)
+TX_POWER_MAX_DB = 22.0      # 自举功率上限 (dBm; 额定 14dBm, 超 300m 硬半径功率也救不了)
+BOOST_MIN_SOC_PCT = 15.0    # 电量红线 (%): SoC 低于此值停止自举 (生存优先于连通)
+BOOST_EVERY_TICKS = 8       # 调功最小间隔 (物理拍; 8 拍 = 2s, 防功率阶梯过快)
+DEG_HYSTERESIS_TICKS = 16   # 度数充足(>=3)需持续此拍数才回落 (滞回防来回抖动)
+
 # ---------------- 跨模块协议标识 ----------------
 ROBOT_ID = "ROBOT"          # 巡检机器人节点 ID: 全网唯一伪节点 (多模块引用, 故置顶层)
 SINK_ID = "NODE-00"         # 汇聚节点 (洞口基站) ID

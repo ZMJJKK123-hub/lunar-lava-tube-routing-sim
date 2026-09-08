@@ -168,6 +168,25 @@ class NetworkMixin(StateMachineMixin):
         for n in self.nodes.values():
             n.neighbors = sum(1 for (a, b), l in self.links.items()
                               if n.id in (a, b) and l["up"])
+            # 链路度数自保挂点 (neighbors 刚回填最鲜活): 弱链功率自举/充足滞回回落
+            act = n.tune_power_for_degree(n.neighbors, self.tick)
+            if act and not quiet:
+                kind, old_db = act
+                if kind == "boost":
+                    log.info("功率自举 %s: %d 条链路, %.0f->%.0f dBm",
+                             n.id, n.neighbors, old_db, n.tx_power_dbm)
+                    self._emit("power_boost", "warn",
+                               f"⚡ {n.id} 仅剩 {n.neighbors} 条活跃链路, 发射功率自举 "
+                               f"{old_db:.0f}→{n.tx_power_dbm:.0f} dBm (发射电流同步上调)",
+                               narration=f"⚡ {self._zh(n.id)} 发现自己的链路不足两条,"
+                                         f"正在调大发射功率努力够到更远的邻居——"
+                                         f"能自救的先自救, 不等救援。", node=n.id)
+                else:
+                    log.info("功率回落 %s: %d 条链路, %.0f->%.0f dBm",
+                             n.id, n.neighbors, old_db, n.tx_power_dbm)
+                    self._emit("power_back", "ok",
+                               f"⚡ {n.id} 链路充足 ({n.neighbors} 条), 功率回落 "
+                               f"{old_db:.0f}→{n.tx_power_dbm:.0f} dBm 省电", node=n.id)
             n.hop_count = self.routes.get(n.id, {}).get("hop_count", -1)
             n.queue_pct = self.transport.queue_pct(n.id, chain_load.get(n.id, 0))
             if n.queue_pct > 85 and not quiet and random.random() < 0.3:
