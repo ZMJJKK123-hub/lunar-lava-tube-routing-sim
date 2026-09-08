@@ -227,13 +227,15 @@ class Node:
         """发射功率是否处于自举态 (高于额定) —— 快照琥珀环/统计消费。"""
         return self.tx_power_dbm > self._rated_tx + 1e-9
 
-    def tune_power_for_degree(self, nbrs: int, tick: int):
-        """度数自保状态机: 活跃链路不足 -> 功率阶梯自举 (抬 SNR 救弱链);
-        度数充足且持续 -> 分步回落省电。纯本地反馈零通信;
-        超 300m 硬半径功率救不了 —— 那是机器人/道钉的职责边界。
+    def tune_power_for_degree(self, nbrs: int, tick: int, drop_safe: bool = True):
+        """度数自保状态机: 链路不足安全线 -> 功率阶梯自举 (抬 SNR 救弱链);
+        达到安全线且降档安全 -> 分步回落省电; 电量触红线 -> 保命强制回落。
+        纯本地反馈零通信; 超 300m 硬半径功率救不了 —— 那是机器人/道钉的职责。
 
-        Args: nbrs: 活跃链路数 (引擎回填); tick: 当前物理拍。
-        Returns: None (无动作) / ("boost", 旧功率dBm) / ("fallback", 旧功率dBm)
+        Args: nbrs: 活跃链路数 (引擎回填); tick: 当前物理拍;
+              drop_safe: 引擎预判"现有链路降一档后是否仍全部存活"
+              (False = 有链路靠自举余量维系, 回落会掐死它 -> 保持功率)。
+        Returns: None (无动作) / ("boost"|"fallback"|"survival", 旧功率dBm)
                  —— 变更交引擎播报事件 (Node 不持有事件总线)。
         Globals Used: MIN_DEGREE/BOOST_STEP_DB/TX_POWER_MAX_DB/BOOST_MIN_SOC_PCT/
         BOOST_EVERY_TICKS/DEG_HYSTERESIS_TICKS。Calls: _apply_i_tx。
@@ -241,10 +243,21 @@ class Node:
         if (not self.power_auto or self.role == "beacon"
                 or self.state in ("DEAD", "SEU_RESET")):
             return None
-        if nbrs >= MIN_DEGREE + 1:              # 充足 (滞回上沿 >=3): 起表计时
+        # 电量红线: 生存优先 —— 已升的功率强制分步回落 (不等滞回)。
+        # 只挡不降等于让 2650mA 发射机烧到断电 (NODE-49 四连死的教训)
+        if self.battery_soc <= BOOST_MIN_SOC_PCT:
+            if self.power_boosted and tick - self._boost_at_tick >= BOOST_EVERY_TICKS:
+                old = self.tx_power_dbm
+                self.tx_power_dbm = max(self._rated_tx,
+                                        round(self.tx_power_dbm - BOOST_STEP_DB, 1))
+                self._apply_i_tx()
+                self._boost_at_tick = tick
+                return ("survival", old)
+            return None
+        if nbrs >= MIN_DEGREE:              # 达到安全线 (>=2): 起表计时
             if not self._deg_ok_since:
                 self._deg_ok_since = tick
-            if (self.power_boosted
+            if (self.power_boosted and drop_safe
                     and tick - self._deg_ok_since >= DEG_HYSTERESIS_TICKS
                     and tick - self._boost_at_tick >= BOOST_EVERY_TICKS):
                 old = self.tx_power_dbm
@@ -254,8 +267,8 @@ class Node:
                 self._boost_at_tick = tick
                 return ("fallback", old)
             return None
-        self._deg_ok_since = 0                  # 不充足: 滞回计时清零
-        if (nbrs < MIN_DEGREE and self.battery_soc > BOOST_MIN_SOC_PCT
+        self._deg_ok_since = 0              # 不足安全线: 滞回计时清零
+        if (nbrs < MIN_DEGREE
                 and tick - self._boost_at_tick >= BOOST_EVERY_TICKS
                 and self.tx_power_dbm < TX_POWER_MAX_DB):
             old = self.tx_power_dbm

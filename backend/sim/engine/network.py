@@ -10,7 +10,8 @@
 import logging   # 标准库: 模块日志 (链路生死/拥塞)
 import random  # 标准库: 拥塞事件的采样播报 (防刷屏)
 
-from ..config import CHAIN_QUEUE_CAP   # 控制平面配额 (链上待发字节封顶)
+from ..config import (BOOST_DROP_GUARD_DB, BOOST_STEP_DB,   # 回落安全余量/功率步长
+                      CHAIN_QUEUE_CAP)   # 控制平面配额 (链上待发字节封顶)
 from .. import physics            # 物理层: link_budget/link_cost/sim_distance
 from ..routing import routing_step   # 路由: Dijkstra 波前 + 跳数分层
 from .state_machine import StateMachineMixin   # 自愈模式机 (见独立模块)
@@ -131,16 +132,15 @@ class NetworkMixin(StateMachineMixin):
             self.link_load[key] = 0.82 * self.link_load.get(key, 0.0) + 0.18 * usage.get(key, 0)
 
     def _emit_route_events(self):
-        """路由事件比对: 重路由 / 失联孤岛 / 重新入网"""
+        """路由事件比对: 重路由只入 sim.log 不上前端 (ACO 代价每拍微动导致
+        路径高频抖动, 进事件日志会刷屏挤掉有效信息); 失联/重新入网才播报。"""
         for nid, r in self.routes.items():
             pr = self.prev_routes.get(nid)
             if pr is None:
                 continue
             if pr["hop_count"] > 0 and r["hop_count"] > 0 and pr["path"] != r["path"]:
-                self._emit("reroute", "warn",
-                           f"⟳ {nid} 重路由: {len(pr['path'])-1}跳 → {len(r['path'])-1}跳 "
-                           f"({' → '.join(r['path'])})",
-                           node=nid, old_path=pr["path"], new_path=r["path"])
+                log.info("重路由 %s: %d跳 -> %d跳",
+                         nid, len(pr["path"]) - 1, len(r["path"]) - 1)
             if pr["hop_count"] > 0 and r["hop_count"] < 0:
                 self._emit("isolated", "error",
                            f"☠ {nid} 失联, 成为孤岛节点",
@@ -168,8 +168,17 @@ class NetworkMixin(StateMachineMixin):
         for n in self.nodes.values():
             n.neighbors = sum(1 for (a, b), l in self.links.items()
                               if n.id in (a, b) and l["up"])
-            # 链路度数自保挂点 (neighbors 刚回填最鲜活): 弱链功率自举/充足滞回回落
-            act = n.tune_power_for_degree(n.neighbors, self.tick)
+            # 链路度数自保挂点 (neighbors 刚回填最鲜活):
+            # drop_safe = 自举节点的每条活跃链路以本端发射降一档后余量仍足
+            # (按本端方向实时预算; False 时保持功率 —— 那条链靠自举维系)
+            drop_safe = True
+            if n.power_boosted:
+                others = [b if a == n.id else a for (a, b), l in self.links.items()
+                          if n.id in (a, b) and l["up"]]
+                drop_safe = bool(others) and all(
+                    (physics.link_budget(n, self.nodes[o]) or {}).get("margin_db", -99)
+                    > BOOST_STEP_DB + BOOST_DROP_GUARD_DB for o in others)
+            act = n.tune_power_for_degree(n.neighbors, self.tick, drop_safe)
             if act and not quiet:
                 kind, old_db = act
                 if kind == "boost":
@@ -181,6 +190,12 @@ class NetworkMixin(StateMachineMixin):
                                narration=f"⚡ {self._zh(n.id)} 发现自己的链路不足两条,"
                                          f"正在调大发射功率努力够到更远的邻居——"
                                          f"能自救的先自救, 不等救援。", node=n.id)
+                elif kind == "survival":
+                    log.info("保命回落 %s: SoC=%.0f%%, %.0f->%.0f dBm",
+                             n.id, n.battery_soc, old_db, n.tx_power_dbm)
+                    self._emit("power_survival", "warn",
+                               f"🪫 {n.id} 电量触红线, 发射功率回落 "
+                               f"{old_db:.0f}→{n.tx_power_dbm:.0f} dBm 保命", node=n.id)
                 else:
                     log.info("功率回落 %s: %d 条链路, %.0f->%.0f dBm",
                              n.id, n.neighbors, old_db, n.tx_power_dbm)

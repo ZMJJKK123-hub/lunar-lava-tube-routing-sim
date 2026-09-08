@@ -38,7 +38,8 @@ BOOST_STEP_DB = 2.0         # 每次自举的功率提升步长 (dBm)
 TX_POWER_MAX_DB = 22.0      # 自举功率上限 (dBm; 额定 14dBm, 超 300m 硬半径功率也救不了)
 BOOST_MIN_SOC_PCT = 15.0    # 电量红线 (%): SoC 低于此值停止自举 (生存优先于连通)
 BOOST_EVERY_TICKS = 8       # 调功最小间隔 (物理拍; 8 拍 = 2s, 防功率阶梯过快)
-DEG_HYSTERESIS_TICKS = 16   # 度数充足(>=3)需持续此拍数才回落 (滞回防来回抖动)
+DEG_HYSTERESIS_TICKS = 16   # 度数达标需持续此拍数才回落 (滞回防来回抖动)
+BOOST_DROP_GUARD_DB = 0.5   # 回落安全余量 (dB): 链路余量降一档后仍高于此才允许回落
 
 # ---------------- 跨模块协议标识 ----------------
 ROBOT_ID = "ROBOT"          # 巡检机器人节点 ID: 全网唯一伪节点 (多模块引用, 故置顶层)
