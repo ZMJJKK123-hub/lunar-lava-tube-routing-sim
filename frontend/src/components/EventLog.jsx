@@ -1,5 +1,6 @@
 // 算法过程时间线: 实时滚动显示引擎下发的算法事件 (断链/重路由/自愈/收敛)
-import { useEffect, useRef } from 'react'
+// (最新事件渲染在顶部, 新事件自然顶入视野 —— 不做任何自动滚动,
+//  否则 5Hz 快照会把滚轮回看历史的用户不断拽离阅读位置)
 
 const SEV_STYLE = {
   error: { color: '#ff6a6a', icon: '✖' },
@@ -22,8 +23,6 @@ const TYPE_LABEL = {
 }
 
 export default function EventLog({ events, mode, onClose }) {
-  const ref = useRef(null)
-  useEffect(() => { ref.current?.scrollTo({ top: 1e6 }) }, [events])
 
   const modeStyle = {
     STABLE: { color: '#4dffa0', text: '● 网络稳定' },
@@ -50,7 +49,7 @@ export default function EventLog({ events, mode, onClose }) {
                 onClick={onClose} title="关闭时间线 (可从顶部 📜 日志 按钮重新打开)">✕</span>
         </span>
       </div>
-      <div ref={ref} style={{ overflowY: 'auto', padding: '6px 12px' }}>
+      <div style={{ overflowY: 'auto', padding: '6px 12px' }}>
         {(events ?? []).slice(-14).reverse().map((ev) => {
           const s = SEV_STYLE[ev.severity] ?? SEV_STYLE.info
           return (
