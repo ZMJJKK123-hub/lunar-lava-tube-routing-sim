@@ -18,7 +18,7 @@ export default function App() {
   const [wallMode, setWallMode] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(true)
-  const [chainOpen, setChainOpen] = useState(true)
+  const [chainOpen, setChainOpen] = useState(false)   // 账本面板默认收起 (常驻会遮挡画布; 从信息菜单开)
   const [chainFlow, setChainFlow] = useState(true)
   const [resetArmed, setResetArmed] = useState(false)
   const resetTimer = useRef(null)

@@ -121,7 +121,8 @@ class NetworkMixin(StateMachineMixin):
                                      f"(信噪比跌至 {l['snr_db']}dB,低于解调门限),链路熔断。",
                            a=key[0], b=key[1])
             elif pl and not pl["up"] and l["up"]:
-                log.debug("链路恢复 %s<->%s (SNR=%s)", key[0], key[1], l["snr_db"])
+                # 与熔断同级 (INFO): 级别不对称会让 sim.log 呈现"只断不复"的假象
+                log.info("链路恢复 %s<->%s (SNR=%s)", key[0], key[1], l["snr_db"])
                 self._emit("link_up", "ok",
                            f"✔ 链路恢复 {key[0]} ↔ {key[1]} (SNR={l['snr_db']}dB)",
                            a=key[0], b=key[1])
