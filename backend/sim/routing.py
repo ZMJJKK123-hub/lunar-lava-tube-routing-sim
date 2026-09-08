@@ -9,6 +9,7 @@
 import heapq   # 标准库: 优先队列, Dijkstra/RCSPA 的核心数据结构
 import math    # 标准库: inf 哨兵与路径代价计算
 
+from .config import ROUTE_HOLD_TICKS, ROUTE_KEEP_BAND   # 路径保持期/粘滞带宽 (翻摆阻尼)
 from .types import RouteInfo, WaveInfo   # 类型契约: 路由条目与波前结构
 
 
@@ -58,34 +59,68 @@ def dijkstra(graph, source):
     return dist, prev, settle_order
 
 
-def routing_step(nodes, links, sink_id) -> tuple[dict, WaveInfo]:
+def routing_step(nodes, links, sink_id, prev: dict | None = None,
+                 tick: int | None = None) -> tuple[dict, WaveInfo]:
     """
     计算全网站到 sink 的路由。
-    Globals Used: None。Calls: build_graph / dijkstra。
-    Args: nodes=Node 列表; links=链路表; sink_id=汇聚节点。
-    Returns: (routes: {nid: RouteInfo}, wave: WaveInfo 波前扩散数据)。
+    Globals Used: ROUTE_KEEP_BAND / ROUTE_HOLD_TICKS (翻摆阻尼)。
+    Calls: build_graph / dijkstra。
+    Args: nodes=Node 列表; links=链路表; sink_id=汇聚节点;
+          prev=上一拍路由表; tick=当前拍 (保持期计时锚)。
+          翻摆阻尼双保险: ①粘滞带宽 —— 旧路径代价仍在最优的
+          (1+ROUTE_KEEP_BAND) 带内则保留; ②保持期 —— 刚换过的路径
+          ROUTE_HOLD_TICKS 拍内除非断裂不再换 (自身流量的拥塞会让
+          自己显得贵, 纯带宽判不住这种自反馈)。
+    Returns: (routes: {nid: RouteInfo(+hold_t)}, wave: WaveInfo 波前扩散数据)。
     """
     graph = build_graph(nodes, links)
-    dist, prev, settle_order = dijkstra(graph, sink_id)
+    dist, prev_node, settle_order = dijkstra(graph, sink_id)
+
+    def _pcost(p) -> float:
+        """按数据方向 (节点 -> sink) 累加路径代价; 断边返回 inf"""
+        tot = 0.0
+        for i in range(len(p) - 1):
+            key = tuple(sorted((p[i], p[i + 1])))
+            l = links.get(key)
+            if l is None or not l["up"]:
+                return math.inf
+            tot += l["cost_ab"] if key[0] == p[i] else l["cost_ba"]
+        return tot
+
     routes = {}
     for n in nodes:
         if n.id == sink_id:
-            routes[n.id] = {"hop_count": 0, "next_hop": None, "path": [n.id], "total_cost": 0}
+            routes[n.id] = {"hop_count": 0, "next_hop": None, "path": [n.id],
+                            "total_cost": 0}
             continue
         if math.isinf(dist[n.id]):
-            routes[n.id] = {"hop_count": -1, "next_hop": None, "path": [], "total_cost": None}
+            routes[n.id] = {"hop_count": -1, "next_hop": None, "path": [],
+                            "total_cost": None}
             continue
+        # 翻摆阻尼: 旧路径 (带宽内 | 保持期内) 仍有效就保留
+        pr = (prev or {}).get(n.id)
+        if pr and pr.get("hop_count", -1) > 0:
+            pc = _pcost(pr["path"])
+            held = (tick is not None and pr.get("hold_t") is not None
+                    and tick - pr["hold_t"] < ROUTE_HOLD_TICKS)
+            if pc < math.inf and (held or pc <= dist[n.id] * (1.0 + ROUTE_KEEP_BAND)):
+                routes[n.id] = {"hop_count": pr["hop_count"],
+                                "next_hop": pr["next_hop"], "path": pr["path"],
+                                "total_cost": round(pc, 2),
+                                "hold_t": pr.get("hold_t")}
+                continue
         # 回溯路径
         path, cur = [], n.id
         while cur is not None:
             path.append(cur)
-            cur = prev[cur]
+            cur = prev_node[cur]
         path.reverse()
         routes[n.id] = {
             "hop_count": len(path) - 1,
             "next_hop": path[1] if len(path) > 1 else sink_id,
             "path": path,
             "total_cost": round(dist[n.id], 2),
+            "hold_t": tick,          # 本次换路时刻 (保持期起点)
         }
 
     # 波前分层: hop = 该节点最终所在跳数层 (不可达为 -1)

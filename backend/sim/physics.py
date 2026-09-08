@@ -165,8 +165,11 @@ def link_cost(tx, rx, link: dict, load: float = 0.0) -> float:
         quality += min(3.0, link["ber"] * 3000.0)  # ber=1e-3(熔断边缘)时惩罚≈3
     quality += 1.0  # 基础跳代价
 
-    # 拥塞项: 队列积压 -> 时延增大
-    congestion = tx.queue_pct / 100.0 * 2.5 + rx.queue_pct / 100.0 * 1.5
+    # 拥塞项: 队列积压 -> 时延增大。
+    # 队列百分比分桶(10%一档)取整: 逐拍缓冲涨落不进入代价 —— 否则等代价
+    # 路径每拍来回翻转 (路由翻摆风暴的振荡源)
+    congestion = ((tx.queue_pct // 10) * 10) / 100.0 * 2.5 \
+        + ((rx.queue_pct // 10) * 10) / 100.0 * 1.5
 
     # 可靠性项: 辐射剂量 + SEU 历史 + 状态降级惩罚
     reliability = tx.seu_flips * 0.05 + (2.0 if tx.state != "ACTIVE" else 0.0)

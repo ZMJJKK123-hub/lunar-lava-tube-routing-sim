@@ -51,7 +51,9 @@ class NetworkMixin(StateMachineMixin):
         if self.robot:
             self.robot.inject_links(links)   # 挂点①: 机器人链路 (事件比对后: 边翻动不产事件)
         self.links = links
-        self.routes, self.wave = routing_step(nodes, links, self.sink_id)
+        self.routes, self.wave = routing_step(nodes, links, self.sink_id,
+                                              prev=self.prev_routes,
+                                              tick=self.tick)
         self._update_link_load()
         if not quiet:
             self._emit_route_events()
@@ -136,7 +138,10 @@ class NetworkMixin(StateMachineMixin):
                 key = tuple(sorted((path[k], path[k + 1])))
                 usage[key] = usage.get(key, 0) + 1
         for key in set(list(usage) + list(self.link_load)):
-            self.link_load[key] = 0.82 * self.link_load.get(key, 0.0) + 0.18 * usage.get(key, 0)
+            # 量化到 0.5 步长: 信息素微涨落不进代价 (与拥塞分桶同为翻摆阻尼)
+            self.link_load[key] = round(
+                (0.82 * self.link_load.get(key, 0.0) + 0.18 * usage.get(key, 0)) * 2
+            ) / 2
 
     def _emit_route_events(self):
         """路由事件比对: 重路由只入 sim.log 不上前端 (ACO 代价每拍微动导致
@@ -145,7 +150,11 @@ class NetworkMixin(StateMachineMixin):
             pr = self.prev_routes.get(nid)
             if pr is None:
                 continue
-            if pr["hop_count"] > 0 and r["hop_count"] > 0 and pr["path"] != r["path"]:
+            # 同跳数路径摆动 (等代价翻转) 不记日志 —— 只有跳数变化才有信息量,
+            # 否则翻摆风暴每分钟刷出数千行日志冲垮轮转与事件循环
+            if (pr["hop_count"] > 0 and r["hop_count"] > 0
+                    and pr["path"] != r["path"]
+                    and len(pr["path"]) != len(r["path"])):
                 log.info("重路由 %s: %d跳 -> %d跳",
                          nid, len(pr["path"]) - 1, len(r["path"]) - 1)
             if pr["hop_count"] > 0 and r["hop_count"] < 0:
