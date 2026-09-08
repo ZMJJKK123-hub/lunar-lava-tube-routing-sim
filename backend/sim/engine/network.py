@@ -174,7 +174,8 @@ class NetworkMixin(StateMachineMixin):
             drop_safe = True
             if n.power_boosted:
                 others = [b if a == n.id else a for (a, b), l in self.links.items()
-                          if n.id in (a, b) and l["up"]]
+                          if n.id in (a, b) and l["up"] and
+                          (b if a == n.id else a) in self.nodes]   # 剔除 ROBOT 伪节点
                 drop_safe = bool(others) and all(
                     (physics.link_budget(n, self.nodes[o]) or {}).get("margin_db", -99)
                     > BOOST_STEP_DB + BOOST_DROP_GUARD_DB for o in others)
