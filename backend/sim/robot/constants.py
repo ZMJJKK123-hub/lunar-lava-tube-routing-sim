@@ -17,6 +17,7 @@ RESCUE_DEAF = 120        # 放弃后的"耳聋期" (tick): 撤离期间不再听
 ROBOT_CHAIN_INTEL = True  # 链上情报: 用自身世界状态的心跳超时, 主动侦查失联节点
                            # (False = 纯耳朵模式, 只听 300m 内 SOS —— 教学对比用)
 STALE_AFTER = 150          # 遥测停更超过此 tick 视为失联嫌疑 (遥测周期 60)
+FRAGILE_FRESH_TICKS = 120  # 链上弱链情报新鲜窗口: 遥测龄超过此值不再信任 pboost (2 个遥测周期)
 INVESTIGATE_COOLDOWN = 300  # 查无实据(已死/深隔断)后的冷却, 防反复空趟
 TRAIL_MAX = 240            # 面包屑轨迹上限 (tick): (x, z, 是否连通主网)
 WAYPOINT_PATIENCE = 200     # 巡逻路点超时换点, 不在死角里磨

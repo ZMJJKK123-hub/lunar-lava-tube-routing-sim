@@ -136,7 +136,8 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
             self._patrol_step(tick)
 
     def _pick_task(self, tick: int):
-        """任务挑选: 实时 SOS 优先 -> 链上情报 -> 弱链加固 -> 无事恢复巡逻"""
+        """任务挑选: 实时 SOS -> 链上失联核查 -> 本地弱链听测 -> 链上弱链情报
+        -> 无事恢复巡逻 (同级由近及远; ASSIST 任务由 _assist_step 自行收尾)"""
         eng = self.eng
         heard = (self._hear()
                  if tick >= self._deaf_until and self.state != "FALLBACK"
@@ -147,13 +148,13 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
                 self._start_mission("RESCUE", heard[0], tick)
             self.target = (heard[0], heard[1].x, heard[1].z)
             return
-        # 链上情报: 无实时 SOS 时, 朝最近失联嫌疑的最后已知坐标侦查
+        # 链上失联核查: 朝最近失联嫌疑的最后已知坐标侦查
         susp = self._chain_intel(tick) if tick >= self._deaf_until else None
-        # 弱链加固: 覆盖内听到高功率自举 -> 前往落钉补冗余 (优先级最低,
-        # 让位孤岛救援; ASSIST 任务由 _assist_step 自行收尾, 不在此降级)
+        # 本地弱链听测 (300m 零滞后) / 链上弱链情报 (全局, 滞后一个遥测周期)
         frag = (self._hear_fragile()
                 if tick >= self._deaf_until and self.state != "FALLBACK"
                 else None)
+        cfrag = self._chain_fragile(tick) if tick >= self._deaf_until else None
         if susp:
             _, nid, sx, sz = susp
             if not self._on_mission_for(nid):
@@ -162,9 +163,15 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
                 self.target = (nid, sx, sz)
         elif frag:
             if not self._on_mission_for(frag[0]):
-                self._start_mission("ASSIST", frag[0], tick)
+                self._start_mission("ASSIST", frag[0], tick, via="ear")
             if self.state != "FALLBACK":
                 self.target = (frag[0], frag[1].x, frag[1].z)
+        elif cfrag:
+            _, nid, sx, sz = cfrag
+            if not self._on_mission_for(nid):
+                self._start_mission("ASSIST", nid, tick, via="chain")
+            if self.state != "FALLBACK":
+                self.target = (nid, sx, sz)
         elif self.state in ("RESCUE", "INVESTIGATE"):
             self.state = "PATROL"
             self.target = None

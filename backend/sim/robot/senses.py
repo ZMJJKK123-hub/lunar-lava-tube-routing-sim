@@ -13,7 +13,8 @@ import math   # 标准库: 嫌疑目标距离计算 (_chain_intel)
 from ..config import MIN_DEGREE, ROBOT_ID         # 度数安全线/协议标识: 自身节点 ID
 from .. import physics                         # 物理层: distance/link_budget
 from .constants import (RANGE, SOS_ARM_TICKS, SOS_BEACON_EVERY,  # 听测节拍
-                        ROBOT_CHAIN_INTEL, STALE_AFTER)          # 情报开关/超时
+                        ROBOT_CHAIN_INTEL, STALE_AFTER,          # 情报开关/超时
+                        FRAGILE_FRESH_TICKS)                     # 链上弱链情报新鲜窗口
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -173,18 +174,54 @@ class SenseMixin:
                      best[1], tick - me.world_state[best[1]].get("tick", 0), best[0])
         return best
 
+    def _chain_fragile(self, tick):
+        """扫自身链上世界状态: 遥测新鲜且 pboost=True 的存活节点 = 弱链加固
+        候选 (带最后已知坐标)。返回 (距离, nid, x, z) 最近者或 None。
+        与 _chain_intel 对偶: 那个找"消失的", 这个找"还在喊弱的";
+        情报滞后至多一个遥测周期, 到场由 _assist_step 现场复核 (已恢复则撤离)。"""
+        if not ROBOT_CHAIN_INTEL:
+            return None
+        me = self.eng.chain_net.nodes.get(ROBOT_ID)
+        if me is None:
+            return None
+        best = None
+        for nid, st in me.world_state.items():
+            age = tick - st.get("tick", 0)
+            if age < 0 or age > FRAGILE_FRESH_TICKS:
+                continue               # 过期情报: pboost 可能已不成立
+            if not st.get("pboost") or st.get("state") == "DEAD":
+                continue
+            if st.get("hop", -1) < 0:
+                continue               # 孤岛归 SOS/失联核查管 (优先级更高)
+            if nid in self.sos_active:
+                continue
+            if tick < self._checked_until.get(nid, 0):
+                continue               # 加固冷却中
+            n = self.eng.nodes.get(nid)
+            if n is not None and (n.state == "DEAD" or not n.power_boosted):
+                continue               # 现场已知已恢复/已死: 不为旧情报跑腿
+            sx, sz = st.get("x", 0.0), st.get("z", 0.0)
+            d = math.hypot(sx - self.node.x, sz - self.node.z)
+            if best is None or d < best[0]:
+                best = (d, nid, sx, sz)
+        if best:
+            log.info("链上弱链情报命中 %s: pboost 遥测龄 %d tick 距离 %.0fm -> 前往加固",
+                     best[1], tick - me.world_state[best[1]].get("tick", 0), best[0])
+        return best
+
     # ---- 任务生命周期 ----
     def _on_mission_for(self, nid) -> bool:
         """同一目标的救援/核查/加固/回撤是否正在进行 (防每拍重触发)"""
         return (self.state in ("RESCUE", "INVESTIGATE", "FALLBACK", "ASSIST")
                 and self.target is not None and self.target[0] == nid)
 
-    def _start_mission(self, state, nid, tick):
-        """开启/切换任务: 换目标才清面包屑 (INVESTIGATE<->FALLBACK 交接保留)"""
+    def _start_mission(self, state, nid, tick, via="ear"):
+        """开启/切换任务: 换目标才清面包屑 (INVESTIGATE<->FALLBACK 交接保留);
+        via 标记情报来源 (ear=听测 / chain=账本) 仅供事件文案区分。"""
         if not (self.target and self.target[0] == nid):
             self.trail = []
-        log.info("任务开启 %s -> %s 目标=%s (tick=%d)",
-                 self.state, state, nid, tick)
+        log.info("任务开启 %s -> %s 目标=%s via=%s (tick=%d)",
+                 self.state, state, nid, via, tick)
         self.state = state
         self._rescue_since = tick
         if state == "RESCUE":
@@ -194,11 +231,18 @@ class SenseMixin:
                                      f"正在赶往事发区域,准备投放道钉搭建中继。",
                            node=nid)
         elif state == "ASSIST":
-            self.eng._emit("robot_assist", "info",
-                           f"🤖 听到 {nid} 正以高功率自救 (链路不足), 前往投钉加固",
-                           narration=f"🤖 机器人的电台听到 {self.eng._zh(nid)} "
-                                     f"正在拼命放大功率保持连线——它赶过去投放一根道钉,"
-                                     f"帮这根通信桩分担压力。", node=nid)
+            if via == "chain":
+                self.eng._emit("robot_assist", "info",
+                               f"🤖 账本发现 {nid} 正以高功率自救, 循链上坐标前往加固",
+                               narration=f"🤖 机器人的区块链账本里, {self.eng._zh(nid)} "
+                                         f"的上报带着自举标记——即使远在听测圈外,"
+                                         f"它也能循着链上坐标赶去投放道钉。", node=nid)
+            else:
+                self.eng._emit("robot_assist", "info",
+                               f"🤖 听到 {nid} 正以高功率自救 (链路不足), 前往投钉加固",
+                               narration=f"🤖 机器人的电台听到 {self.eng._zh(nid)} "
+                                         f"正在拼命放大功率保持连线——它赶过去投放一根道钉,"
+                                         f"帮这根通信桩分担压力。", node=nid)
         else:
             self.eng._emit("robot_investigate", "info",
                            f"🔎 链上心跳超时: {nid} 已 {STALE_AFTER}+ tick 未上报, 前往核查",

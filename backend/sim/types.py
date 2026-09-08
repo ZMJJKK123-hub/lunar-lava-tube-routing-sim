@@ -71,3 +71,4 @@ class TelemetryPayload(TypedDict):
     queue: float         # 发送队列积压率 %
     radio: str           # PAMAS 电台状态 (IDLE/TXRX/SLEEP)
     hop: int             # 到 sink 跳数
+    pboost: bool         # 是否处于功率自举态 (链上弱链情报, 机器人全局寻路依据)

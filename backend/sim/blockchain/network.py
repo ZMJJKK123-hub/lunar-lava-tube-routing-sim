@@ -88,7 +88,7 @@ class BlockchainNetwork:
         return {"x": n.x, "z": n.z, "soc": round(n.battery_soc, 1),
                 "temp": round(n.temp_c, 1), "state": n.state,
                 "queue": round(n.queue_pct, 1), "radio": n.radio,
-                "hop": n.hop_count}
+                "hop": n.hop_count, "pboost": n.power_boosted}
 
     def _pkt_bytes(self, pkt) -> int:
         """报文体积 ≈ payload 规范 JSON 长度; 按 msg_id 缓存

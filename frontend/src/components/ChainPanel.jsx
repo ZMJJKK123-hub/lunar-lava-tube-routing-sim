@@ -40,6 +40,7 @@ export default function ChainPanel({ chain, onClose }) {
                                     whiteSpace: 'nowrap', overflow: 'hidden' }}>
               <b style={{ color: '#5d7ea3' }}>{nid(rid)}</b>{' '}
               #{st.seq} {F(st.soc)}% {F(st.temp)}°{st.state === 'ACTIVE' ? '' : ' ⚠'}
+              {st.pboost ? <span style={{ color: '#ffc860' }} title="该节点正以高功率自举 (链上弱链情报)"> ⚡</span> : null}
             </div>
           ))}
         </div>
