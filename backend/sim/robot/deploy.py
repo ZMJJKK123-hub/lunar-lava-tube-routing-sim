@@ -74,4 +74,6 @@ class DeployMixin:
                 "state": self.state,
                 "target": self.target[0] if self.target else None,
                 "stock": self.stock, "sos": sorted(self.sos_active),
+                "spot": (list(self._assist_spot) if self._assist_spot
+                         and self.state == "ASSIST" else None),   # 加固择点 (前端标记)
                 "trail": self.trail[::2]}

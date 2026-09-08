@@ -11,7 +11,8 @@
 import math    # 标准库: 三角/距离计算, 支撑全部几何原语
 import random  # 标准库: 随机路点采样 (极坐标均匀撒点)
 
-from .constants import RANGE, TRAIL_MAX, SPEED   # 通信半径/轨迹上限/移动速度
+from .constants import (HISTORIC_SPOT_DECAY, RANGE,   # 历史择点半衰期/通信半径
+                        TRAIL_MAX, SPEED)             # 轨迹上限/移动速度
 
 
 def plan_robot_path(p_from, p_to):
@@ -185,14 +186,42 @@ class MotionMixin:
 
     def _last_net_crumb(self):
         """来路上最近一个"见过主网"的点位 -> (x, z) 或 None"""
-        for x, z, conn in reversed(self.trail):
+        for x, z, conn, *_ in reversed(self.trail):
             if conn:
                 return (x, z)
         return None
 
+    def _vis_count(self) -> int:
+        """当前位置的本地可见节点数 (300m+LOS, 电台自身观测, 非上帝视角)
+        —— 面包屑记录与历史择点的打分依据。"""
+        cnt = 0
+        for n in self.eng.nodes.values():
+            if n.state == "DEAD":
+                continue
+            if (math.hypot(self.node.x - n.x, self.node.z - n.z) <= RANGE
+                    and self._los_clear((self.node.x, self.node.z), (n.x, n.z))):
+                cnt += 1
+        return cnt
+
+    def _best_historic_spot(self, tgt_xy):
+        """目标 2x 通信半径内的历史面包屑择优: 得分 = 可见数 x 新近度半衰
+        权重 (旧观测随墙体拆除/节点死亡自然贬值)。返回 (x, z, 可见数)
+        最高分点位或 None —— 落钉前"一钉多益"的选点依据。"""
+        best, bs = None, 0.0
+        tx, tz = tgt_xy
+        now = self.eng.tick
+        for x, z, _conn, vis, t in self.trail:
+            if math.hypot(x - tx, z - tz) > 2 * RANGE:
+                continue               # 太远: 钉够不着目标, 服务不了本次加固
+            score = vis * (0.5 ** ((now - t) / HISTORIC_SPOT_DECAY))
+            if score > bs:
+                bs, best = score, (x, z, vis)
+        return best
+
     def _crumb(self):
-        """面包屑: 记录 (位置, 此处能否看见主网) —— 走一步看一步"""
+        """面包屑: 记录 (位置, 此处能否看见主网, 可见节点数, tick)
+        —— 走一步看一步, 择点/回撤共用的历史保存点。"""
         if len(self.trail) >= TRAIL_MAX:
             self.trail.pop(0)
         self.trail.append((round(self.node.x, 1), round(self.node.z, 1),
-                           self._connected()))
+                           self._connected(), self._vis_count(), self.eng.tick))

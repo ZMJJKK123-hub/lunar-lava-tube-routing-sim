@@ -10,8 +10,8 @@ import logging   # 标准库: 模块日志 (救援分支结局)
 import math   # 标准库: 可桥性预判的距离计算
 
 from ..config import MIN_DEGREE, ROBOT_ID                   # 度数安全线/自身节点标识
-from .constants import (INVESTIGATE_COOLDOWN, RANGE,       # 核查冷却/通信半径
-                        RESCUE_PATIENCE)                   # 救援超时节拍
+from .constants import (HISTORIC_SPOT_GAIN, INVESTIGATE_COOLDOWN,   # 择点收益门槛/核查冷却
+                        RANGE, RESCUE_PATIENCE)    # 通信半径/救援超时节拍
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -97,8 +97,26 @@ class RescueMixin:
         if tick - self._rescue_since > RESCUE_PATIENCE:
             self._giveup(eng, tid, tick, "加固超时")
             return
-        # 到场 (0.6x 半径内, 保证钉与目标可通): 落点合法即落钉, 受限则冷却放弃
+        # 到场 (0.6x 半径内): 先看历史保存点有没有"一钉多益"的更优落位
+        # (此地曾看得见更多节点); 收益达门槛且就在附近才挪, 否则原地落钉
         if self._near((self.target[1], self.target[2]), RANGE * 0.6):
+            spot = self._best_historic_spot((self.target[1], self.target[2]))
+            if (spot is not None and not self._near(spot, 30)
+                    and spot[2] >= self._vis_count() + HISTORIC_SPOT_GAIN
+                    and math.hypot(spot[0] - self.node.x,
+                                   spot[1] - self.node.z) <= RANGE * 0.6):
+                if self._assist_spot is None:
+                    log.info("加固择点: 移往历史点位 (%.0f,%.0f) 此地曾见 %d 节点",
+                             spot[0], spot[1], spot[2])
+                    eng._emit("robot_spot", "info",
+                              f"🤖 依历史观测选择更优点位 (此地曾同时看见 "
+                              f"{spot[2]} 个节点), 移过去再落钉",
+                              narration="🤖 机器人记得自己在这条路上各个位置"
+                                        "能听见几个节点——它挑了一个听得最全的"
+                                        "历史位置去投放道钉, 一根钉照顾更多邻居。")
+                self._assist_spot = spot
+                self._move_toward((spot[0], spot[1]))
+                return
             if self._deploy_ok():
                 log.info("加固落钉: 为 %s 补链 (原 %d 条)", tid, n.neighbors)
                 self._deploy_beacon()

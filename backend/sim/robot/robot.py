@@ -66,7 +66,8 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
         self._deployed_at = -1           # 最近一次落钉 tick
         self._slide = 0      # 贴墙绕行方向记忆: 0=直行, ±1=锁定的绕行方向
         self._wp_since = 0                 # 当前巡逻路点的起始 tick
-        self.trail: list = []            # 面包屑: [(x,z,conn)] 核查/救援/回撤途中逐 tick 记录
+        self.trail: list = []            # 面包屑: [(x,z,conn,vis,tick)] 任务途中逐 tick 记录
+        self._assist_spot = None         # 加固择点: 依历史观测选定的落钉位 (x,z,vis)
         self._iso: dict[str, int] = {}      # nid -> 连续失联 tick 数
         self.sos_active: set[str] = set()   # 正在呼救的节点
         # 全同步观察者入链: 转发/追块全真, 但不在共识名单 (不出块/不遥测)

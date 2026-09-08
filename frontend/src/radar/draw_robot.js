@@ -85,6 +85,15 @@ export const robotDraw = {
       ctx.beginPath(); ctx.moveTo(x, z); ctx.lineTo(t.x, t.z); ctx.stroke()
       ctx.setLineDash([])
     }
+    // 加固择点: 机器人依历史观测选定的落钉位 (琥珀虚线小环 + 连接线)
+    if (rb.state === 'ASSIST' && rb.spot) {
+      ctx.setLineDash([lw(3), lw(3)])
+      ctx.strokeStyle = 'rgba(255,220,140,0.8)'
+      ctx.lineWidth = lw(1.2)
+      ctx.beginPath(); ctx.arc(rb.spot[0], rb.spot[1], lw(10), 0, Math.PI * 2); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(x, z); ctx.lineTo(rb.spot[0], rb.spot[1]); ctx.stroke()
+      ctx.setLineDash([])
+    }
     // 本体: 金色菱形 + 状态标签
     const r = lw(7)
     ctx.shadowColor = '#F0D080'; ctx.shadowBlur = lw(14)
