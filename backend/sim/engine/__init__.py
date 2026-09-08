@@ -146,14 +146,15 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
 
     # ---------------- 移动干扰源 (开关式灾害的引擎侧) ----------------
     def jam_lift_at(self, x: float, z: float) -> float:
-        """坐标 (x, z) 处的干扰噪声抬升 (dB): 距干扰源线性衰减, 出半径为 0;
-        干扰源关机时恒 0。链路预算与机器人边按"接收端坐标"调用 —— 抬升
-        直接压 SNR, 链路熔断/恢复全由每拍重算自然导出, 无恢复逻辑。"""
+        """坐标 (x, z) 处的干扰噪声抬升 (dB): 距干扰源凸衰减 (平方, 近处猛
+        中远处缓), 出半径为 0; 干扰源关机时恒 0。链路预算与机器人边按
+        "接收端坐标"调用 —— 抬升直接压 SNR, 链路熔断/恢复全由每拍重算
+        自然导出, 无恢复逻辑。"""
         j = self.jammer
         if j is None:
             return 0.0
-        return JAM_LIFT_MAX_DB * max(
-            0.0, 1.0 - math.hypot(x - j["x"], z - j["z"]) / JAM_RADIUS)
+        f = max(0.0, 1.0 - math.hypot(x - j["x"], z - j["z"]) / JAM_RADIUS)
+        return JAM_LIFT_MAX_DB * f * f
 
     def _step_jammer(self):
         """干扰源推进: 朝随机路点匀速游走 (无线电实体, 穿墙); 到点换新。

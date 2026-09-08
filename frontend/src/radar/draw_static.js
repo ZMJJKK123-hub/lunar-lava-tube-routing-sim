@@ -38,17 +38,28 @@ export const staticDraw = {
     this._drawWalls(o, lw)
     // (机器人已移至动态层: 移动平滑 + 覆盖圈 + SOS 脉冲 —— 见 _drawRobot)
 
-    // ---- 全局静息连线: 全部暗绿 0.15, 无发光无动画 ----
-    o.strokeStyle = 'rgba(70,150,100,0.15)'
-    o.lineWidth = lw(1)
-    o.beginPath()
+    // ---- 全局静息连线: 按链路健康度分桶着色 ----
+    // 健康=暗绿(静息); SNR 余量被压低(干扰逼近/弱链)=橙; 临界=红
+    // (干扰源走到哪, 哪片先"变红"再断线 —— 退化过程肉眼可见)
+    const REQ_DB = { UWB: 8, LoRa: -15 }
+    const edges = { ok: [], warm: [], hot: [] }
     for (const lk of snap.links ?? []) {
       if (!lk.up) continue
       const na = snap.nodes[lk.a], nb = snap.nodes[lk.b]
       if (!na || !nb) continue
-      o.moveTo(na.x, na.z); o.lineTo(nb.x, nb.z)
+      const m = lk.snr_db - (REQ_DB[lk.band] ?? 8)   // 距解调门限的余量
+      edges[m < 6 ? 'hot' : m < 14 ? 'warm' : 'ok'].push([na, nb])
     }
-    o.stroke()
+    const drawEdges = (pairs, style, width) => {
+      if (!pairs.length) return
+      o.strokeStyle = style; o.lineWidth = width
+      o.beginPath()
+      for (const [na, nb] of pairs) { o.moveTo(na.x, na.z); o.lineTo(nb.x, nb.z) }
+      o.stroke()
+    }
+    drawEdges(edges.ok, 'rgba(70,150,100,0.15)', lw(1))
+    drawEdges(edges.warm, 'rgba(255,170,70,0.32)', lw(1.3))
+    drawEdges(edges.hot, 'rgba(255,80,70,0.5)', lw(1.6))
 
     // ---- 节点 (静态图标, 无呼吸动画) ----
     this._drawNodes(o, snap, lw)
