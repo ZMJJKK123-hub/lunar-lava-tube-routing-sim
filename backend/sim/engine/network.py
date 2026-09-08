@@ -73,6 +73,9 @@ class NetworkMixin(StateMachineMixin):
         键一律排序 (id 字母序): 道钉 BEACON-xx < NODE-xx < ROBOT,
         传输层/统计全部按 sorted 元组查键, 两边必须同一约定。"""
         links = {}
+        # 干扰源噪声抬升 (按接收端坐标一次性建表; 关机时全 0 空表)
+        lift = ({n.id: self.jam_lift_at(n.x, n.z) for n in nodes}
+                if self.jammer else {})
         for i in range(len(nodes)):
             for j in range(i + 1, len(nodes)):
                 a, b = nodes[i], nodes[j]
@@ -80,8 +83,8 @@ class NetworkMixin(StateMachineMixin):
                 if (a.id, b.id) in self.blocked_pairs or \
                         (b.id, a.id) in self.blocked_pairs:
                     continue                  # LOS 遮挡 (巨石/石柱)
-                lab = physics.link_budget(a, b)
-                lba = physics.link_budget(b, a)
+                lab = physics.link_budget(a, b, lift.get(b.id, 0.0))
+                lba = physics.link_budget(b, a, lift.get(a.id, 0.0))
                 if lab is None or lba is None:
                     continue
                 load = self.link_load.get(key, 0.0)
@@ -93,6 +96,9 @@ class NetworkMixin(StateMachineMixin):
                                   physics.link_cost(a, b, lab, load))
                 links[key] = {
                     **lab,
+                    # 双向闭环才算活链: 干扰源按接收端抬升噪声, 单向判定会漏判
+                    # (发射方在干扰圈内、接收方在圈外时旧逻辑误判链路存活)
+                    "up": lab["up"] and lba["up"],
                     "cost_ab": c_ab, "cost_ba": c_ba,
                     "load": round(load, 2),
                 }

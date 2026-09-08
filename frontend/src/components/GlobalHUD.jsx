@@ -4,8 +4,9 @@
 import { useEffect, useRef, useState } from 'react'   // React 钩子: 下拉开关态/容器引用/外点关闭
 
 // 顶栏下拉菜单: 触发钮 + 绝对定位菜单 + 外点自动收起
-// (id 透传到触发钮 —— 新手引导的聚光锚点; tone: danger=灾害红系 / info=情报蓝系)
-function TopDropdown({ id, label, title, tone, open, setOpen, children }) {
+// (id 透传到触发钮 —— 新手引导的聚光锚点; tone: danger=灾害红系 / info=情报蓝系;
+//  badge: 触发钮右侧指示灯 (如干扰源运行中的红点), 关菜单也可见)
+function TopDropdown({ id, label, title, tone, open, setOpen, badge, children }) {
   const ref = useRef(null)   // 按钮+菜单容器 (外点判定范围)
   useEffect(() => {
     if (!open) return
@@ -22,7 +23,7 @@ function TopDropdown({ id, label, title, tone, open, setOpen, children }) {
           background: active ? '#20101a' : (open ? '#0e2a4a' : '#12203a'),
           color: active ? '#ffb8c8' : '#9ad4ff',
           border: active ? '1px solid #5c2030' : '1px solid #1d5a8a', borderRadius: 4,
-        }}>{label} {open ? '▴' : '▾'}</button>
+        }}>{label} {open ? '▴' : '▾'}{badge ? <span style={{ color: '#ff4090' }}>{badge}</span> : null}</button>
       {open && (
         <div style={{
           position: 'absolute', top: '110%', right: 0, zIndex: 40,
@@ -48,7 +49,7 @@ function MenuRow({ active, tip, hoverBg, onClick, children }) {
   )
 }
 
-export default function GlobalHUD({ stats, mode, connected, paused, onTogglePause, onDisaster, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, resetArmed, onArmReset }) {
+export default function GlobalHUD({ stats, mode, connected, paused, onTogglePause, onDisaster, jammerOn, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, resetArmed, onArmReset }) {
   const [disasterOpen, setDisasterOpen] = useState(false)   // 灾害下拉展开态
   const [infoOpen, setInfoOpen] = useState(false)           // 信息下拉展开态
   const box = (label, v, color = '#cfe9ff') => (
@@ -114,7 +115,14 @@ export default function GlobalHUD({ stats, mode, connected, paused, onTogglePaus
             border: wallMode ? '1px solid #8a6a1e' : '1px solid #1d3a5f', borderRadius: 4,
           }}>🧱 放墙{wallMode ? ' ●' : ''}</button>
         <TopDropdown label="💥 灾害" tone="danger" open={disasterOpen} setOpen={setDisasterOpen}
-          title="灾害注入实验: 摧毁主干道节点 / 塌方 / 热浪 / 耀斑; 底部可重置整个世界 (点开选择)">
+          badge={jammerOn ? ' ●' : null}
+          title="灾害注入实验: 摧毁主干道节点 / 塌方 / 热浪 / 耀斑; 干扰源为开关式 (再点召回); 底部可重置世界 (点开选择)">
+          <MenuRow tip="开关式灾害: 强干扰源全管游走, 靠近区域噪声飙升、链路成片熔断, 走远自动恢复; 再点一次召回"
+            hoverBg={R} active={jammerOn}
+            onClick={() => onDisaster('jammer')}>   {/* 开关行: 不收菜单, 状态可见 */}
+            <span style={{ color: jammerOn ? '#ff80c0' : undefined, fontWeight: jammerOn ? 'bold' : 'normal' }}>
+              {jammerOn ? '● 📵 干扰源运行中 (点击召回)' : '📵 移动干扰源 (点击开机)'}</span>
+          </MenuRow>
           {disasters.map(([k, label, tip]) => (
             <MenuRow key={k} tip={tip} hoverBg={R}
               onClick={() => { setDisasterOpen(false); onDisaster(k) }}>{label}</MenuRow>

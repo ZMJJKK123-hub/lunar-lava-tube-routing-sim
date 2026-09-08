@@ -98,8 +98,10 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
                 continue
             if not self._los_clear((rp.x, rp.z), (n.x, n.z)):
                 continue
-            lab = physics.link_budget(n, rp)
-            lba = physics.link_budget(rp, n)
+            # 干扰源抬升按接收端计: 机器人边同受压制 (路过干扰区即被切断)
+            lift_r = self.eng.jam_lift_at(rp.x, rp.z)
+            lab = physics.link_budget(n, rp, lift_r)
+            lba = physics.link_budget(rp, n, self.eng.jam_lift_at(n.x, n.z))
             if lab is None or lba is None:
                 continue
             # 代价罚: 机器人是"最后手段"中继 —— 正常流量绕行都更便宜,

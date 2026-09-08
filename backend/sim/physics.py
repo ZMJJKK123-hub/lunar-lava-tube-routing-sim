@@ -83,14 +83,17 @@ def thermal_noise_floor_dbm(node, bandwidth_hz: float) -> float:
     return 10 * math.log10(noise_w / 1e-3) + 6.0   # +6dB 接收机噪声系数
 
 
-def link_budget(tx, rx) -> LinkBudget | None:
+def link_budget(tx, rx, noise_lift_db: float = 0.0) -> LinkBudget | None:
     """
     计算 tx -> rx 单向链路。返回 SNR/BER/余量; 若链路物理不通返回 None。
     融合: 发射功率 + 双端天线增益 - 倾角失配惩罚 - 路径损耗 vs 有效灵敏度。
     Globals Used: BAND_PROFILE / SNR_REQ_DB / PATH_LOSS_EXPONENT (只读)。
     Calls: free_space_path_loss_db / thermal_noise_floor_db /
     rx.effective_rx_sensitivity。
-    Args: tx/rx = Node 实例。Returns: LinkBudget dict 或 None (物理不通)。
+    Args: tx/rx = Node 实例; noise_lift_db = 接收端噪声抬升 (dB, 移动干扰源
+          的线性距离衰减项, 默认 0=无干扰) —— 抬升直接压低 SNR, 链路判定
+          与熔断/恢复全由此自然导出。
+    Returns: LinkBudget dict 或 None (物理不通)。
     """
     if tx.state == "DEAD" or rx.state == "DEAD":
         return None
@@ -101,7 +104,7 @@ def link_budget(tx, rx) -> LinkBudget | None:
     if d > prof["max_range"]:
         return None
 
-    # 天线倾角失配: cos 损失近似 -> dB 惩罚 (地基沉降导致指向偏离)
+    # 天线倾角失配: cos 损失近似 -> dB 惩罚 (地基沉降导致天线偏转)
     tilt_penalty = 20 * math.log10(
         1.0 / max(0.05, math.cos(math.radians(tx.tilt_deg + rx.tilt_deg) / 2))
     ) if (tx.tilt_deg + rx.tilt_deg) > 3 else 0.0
@@ -110,7 +113,7 @@ def link_budget(tx, rx) -> LinkBudget | None:
     prx_dbm = (tx.tx_power_dbm + tx.ant_gain_dbi + rx.ant_gain_dbi
                - pl - tilt_penalty)
 
-    noise_dbm = thermal_noise_floor_dbm(rx, prof["bandwidth_hz"])
+    noise_dbm = thermal_noise_floor_dbm(rx, prof["bandwidth_hz"]) + noise_lift_db
     snr_db = prx_dbm - noise_dbm
 
     # BER: 由 (Eb/N0) 决定, BPSK 用 Q 函数近似; CSS(LoRa) 容错极强
@@ -124,8 +127,10 @@ def link_budget(tx, rx) -> LinkBudget | None:
     ber = min(1.0, max(ber, 1e-12))
 
     margin = prx_dbm - rx.effective_rx_sensitivity(rx.band)  # 链路余量 dB
-    # 熔断判定放宽到实用阈值: 有余量且 BER 可接受
-    up = margin > 0 and ber < 1e-3
+    # 熔断判定: 有硬件余量 + SNR 达到制式解调门限 + BER 可接受。
+    # SNR 门限是干扰压制的主通道 (噪声抬升直接压 SNR); BER 因扩频增益
+    # 对 SNR 下降近乎免疫, 不能单独承担熔断判定
+    up = margin > 0 and snr_db >= SNR_REQ_DB[tx.band] and ber < 1e-3
     return {
         "distance": round(d, 1),
         "prx_dbm": round(prx_dbm, 1),

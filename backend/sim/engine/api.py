@@ -11,7 +11,8 @@ import math    # 标准库: 巨石拖拽的节点重叠判定
 import random  # 标准库: 热浪/耀斑的随机强度
 import time    # 标准库: 暂停锚定时刻 (monotonic)
 
-from ..config import ROBOT_ID   # 协议标识: 机器人不作打击候选
+from ..config import (JAM_LIFT_MAX_DB, JAM_RADIUS,   # 干扰源抬升/半径 (开关灾害)
+                       ROBOT_ID)   # 协议标识: 机器人不作打击候选
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -196,6 +197,31 @@ class ApiMixin:
             return
         if kind == "kill_backbone":
             self._kill_backbone()
+            return
+        if kind == "jammer":
+            # 开关式灾害: 已开机 -> 召回; 未开机 -> 腔室内随机落点启动
+            if self.jammer is None:
+                c = self.chambers[0]
+                self.jammer = {"x": c["x"] + self._rng.uniform(-0.4, 0.4) * c["r"],
+                               "z": c["z"] + self._rng.uniform(-0.4, 0.4) * c["rz"],
+                               "wx": c["x"], "wz": c["z"]}
+                log.warning("干扰源开机 @(%s,%s) 半径 %.0fm 抬升 %.0fdB",
+                            self.jammer["x"], self.jammer["z"],
+                            JAM_RADIUS, JAM_LIFT_MAX_DB)
+                self._emit("disaster", "error",
+                           "📵 强力移动干扰源开机, 正在全管游走",
+                           narration="📵 一台强干扰源开始在熔岩管内游走——"
+                                     "它靠近哪里, 哪里的无线电噪声就飙升、链路成片熔断;"
+                                     "观察它走远后网络如何自动愈合。再点一次开关可召回。")
+            else:
+                self.jammer = None
+                self.disaster = None
+                log.warning("干扰源召回")
+                self._emit("disaster", "ok",
+                           "📵 干扰源已召回, 被压制区域链路将自动恢复",
+                           narration="📵 干扰源关机——被压制区域的信噪比回升,"
+                                     "熔断的链路正在逐条复活。")
+            self.compute_network()
             return
         name = {"thermal_surge": "热浪", "solar_flare": "太阳耀斑",
                 "random_kill": "陨石撞击"}[kind]

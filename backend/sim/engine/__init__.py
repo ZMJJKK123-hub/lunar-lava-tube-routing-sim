@@ -14,12 +14,14 @@
 """
 import asyncio  # 标准库: 主循环 sleep 与并发广播任务调度
 import logging  # 标准库: 单 tick 异常的显式记录 (不静默吞噬)
+import math    # 标准库: 干扰源游走/抬升的几何计算
 import random   # 标准库: 种子化随机源 (地质生成可复现)
 import time     # 标准库: monotonic 时钟 (物理拍/广播拍错峰调度)
 
 from collections import deque   # 标准库: history 滚动曲线 (定长)
 
-from ..config import (LOG_TICK_EVERY, ROBOT_ENABLED,   # 日志采样/功能开关
+from ..config import (JAM_LIFT_MAX_DB, JAM_RADIUS, JAM_SPEED,   # 干扰源抬升/半径/速度
+                      LOG_TICK_EVERY, ROBOT_ENABLED,   # 日志采样/功能开关
                       SEED, TICK_BROADCAST_S, TICK_PHYS_S)  # 种子/主循环节拍
 from ..node import Node                     # 节点数据类 (类型注解用)
 from ..transport import TransportLayer      # 传输层 (真实报文收发)
@@ -70,6 +72,8 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
         self._pre_collapse_routes: dict = {}
         self.paused = False    # 仿真暂停标志 (True=物理拍冻结在当前帧)
         self._paused_at = 0.0  # 暂停锚定时刻 (monotonic; 动画进度分数的冻结时钟)
+        # 移动干扰源 (开关式灾害): {x, z, wx, wz} 游走坐标与路点; None=关机
+        self.jammer: dict | None = None
         # 传输层: 真实报文 store-and-forward (接纳/重传/超时/字节计数)
         self.transport = TransportLayer(self)
         # 渲染总线: 收发点调 vis_packet() 即自动上屏, 新报文类型零注册
@@ -140,6 +144,35 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
         """动画时钟: 暂停时钉在暂停锚点 (进度分数冻结), 运行时即 monotonic。"""
         return self._paused_at if self.paused else time.monotonic()
 
+    # ---------------- 移动干扰源 (开关式灾害的引擎侧) ----------------
+    def jam_lift_at(self, x: float, z: float) -> float:
+        """坐标 (x, z) 处的干扰噪声抬升 (dB): 距干扰源线性衰减, 出半径为 0;
+        干扰源关机时恒 0。链路预算与机器人边按"接收端坐标"调用 —— 抬升
+        直接压 SNR, 链路熔断/恢复全由每拍重算自然导出, 无恢复逻辑。"""
+        j = self.jammer
+        if j is None:
+            return 0.0
+        return JAM_LIFT_MAX_DB * max(
+            0.0, 1.0 - math.hypot(x - j["x"], z - j["z"]) / JAM_RADIUS)
+
+    def _step_jammer(self):
+        """干扰源推进: 朝随机路点匀速游走 (无线电实体, 穿墙); 到点换新。
+        仅移动 —— 噪声抬升由 jam_lift_at 按最新坐标即时计算, 无缓存失真。"""
+        j = self.jammer
+        if j is None:
+            return
+        c = self.chambers[0]
+        d = math.hypot(j["wx"] - j["x"], j["wz"] - j["z"])
+        if d < 1.0:                       # 到点: 腔室内极坐标均匀换新路点
+            ang = self._rng.uniform(0, math.pi * 2)
+            rr = math.sqrt(self._rng.uniform(0.05, 0.9))
+            j["wx"] = c["x"] + math.cos(ang) * rr * c["r"] * 0.95
+            j["wz"] = c["z"] + math.sin(ang) * rr * c["rz"] * 0.95
+            return
+        step = min(JAM_SPEED, d)
+        j["x"] += (j["wx"] - j["x"]) / d * step
+        j["z"] += (j["wz"] - j["z"]) / d * step
+
     async def run_forever(self, broadcaster):
         """主循环: 物理拍 (0.25s) 与广播拍 (0.2s) 错峰推进;
         暂停时物理拍整体冻结, 广播继续重发冻结帧。
@@ -156,6 +189,7 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
                 try:
                     for n in self.nodes.values():
                         n.step(dt_hours=0.004)
+                    self._step_jammer()   # 移动干扰源游走 (暂停时随物理拍冻结)
                     self.compute_network()
                     self.transport.step()   # 报文逐跳推进 (握手/重传/超时)
                     self.chain_net.step(self.tick)  # 区块链泛洪/出块/追块

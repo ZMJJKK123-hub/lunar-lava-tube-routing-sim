@@ -10,7 +10,8 @@
 """
 import logging   # 标准库: 模块日志 (快照周期摘要)
 
-from ..config import (MIN_DEGREE, ROBOT_ID, TICK_PHYS_S,   # 度数警戒线/机器人标识/物理拍
+from ..config import (JAM_RADIUS, MIN_DEGREE, ROBOT_ID,   # 干扰半径/度数警戒线/机器人标识
+                      TICK_PHYS_S,                        # 物理拍 (总线进度分母)
                       VIS_MAX, VIS_PRIORITY, VIS_RESERVE)   # 总线截断策略
 from .. import physics   # 物理层: distance (链路下发距离过滤)
 
@@ -78,6 +79,10 @@ class SnapshotMixin:
             "tick": self.tick,
             "paused": self.paused,
             "disaster": self.disaster,
+            # 移动干扰源 (开关灾害): 前端紫红脉冲圈消费; None=关机
+            "jammer": ({"x": round(self.jammer["x"], 1),
+                        "z": round(self.jammer["z"], 1),
+                        "r": JAM_RADIUS} if self.jammer else None),
             "mode": self.mode,
             "wave": self.wave,
             "events": list(self.hub.events)[-40:],

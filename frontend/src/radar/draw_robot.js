@@ -38,6 +38,28 @@ export const robotDraw = {
       const [x, z] = this._robotPos(rb)
       this._drawRobotBody(ctx, lw, x, z, rb, nodes)
     }
+
+    // 移动干扰源 (开关灾害): 紫红脉冲圈 + 边界虚线圈 + 核心
+    // (脉冲相位走 _pnow —— 暂停时干扰圈定格, 便于讲解)
+    const jm = snap.jammer
+    if (jm) {
+      const ph = (this._pnow() / 1000 * 1.1) % 1
+      ctx.strokeStyle = 'rgba(255,80,160,' + (0.5 * (1 - ph)).toFixed(3) + ')'
+      ctx.lineWidth = lw(2)
+      ctx.beginPath(); ctx.arc(jm.x, jm.z, jm.r * (0.25 + 0.75 * ph), 0, Math.PI * 2); ctx.stroke()
+      ctx.strokeStyle = 'rgba(255,80,160,0.45)'
+      ctx.lineWidth = lw(1.2)
+      ctx.setLineDash([lw(10), lw(8)])
+      ctx.beginPath(); ctx.arc(jm.x, jm.z, jm.r, 0, Math.PI * 2); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.shadowColor = '#FF50A0'; ctx.shadowBlur = lw(16)
+      ctx.fillStyle = '#FF50A0'
+      ctx.beginPath(); ctx.arc(jm.x, jm.z, lw(6), 0, Math.PI * 2); ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.fillStyle = 'rgba(255,160,200,0.95)'
+      ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
+      ctx.fillText('📵 JAM', jm.x, jm.z - lw(12))
+    }
     ctx.restore()
   },
 
