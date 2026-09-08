@@ -1,0 +1,290 @@
+{
+ "meta": {
+  "git_rev": "97102bb",
+  "seed": 20260908,
+  "started_at": "2026-09-08T19:39:40",
+  "wall_secs": 1229,
+  "criteria": {
+   "recover_ratio": 0.95,
+   "exp2_recover": 0.9,
+   "steady_cov": 99.9
+  },
+  "exp3_metric_note": "恢复率口径: 召回时刻静默链的恢复比例。干扰源游走期间断/复事件天然配对平衡, 旧口径(召回后恢复/全程断链)分母失真。"
+ },
+ "exp1_heal_time": [
+  {
+   "scenario": "kill_backbone",
+   "rep": 1,
+   "pre_cov": 100.0,
+   "min_cov": 98.3,
+   "heal_secs": 1.1,
+   "final_cov": 98.3,
+   "final_alive": 59,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "kill_backbone",
+   "rep": 2,
+   "pre_cov": 100.0,
+   "min_cov": 98.3,
+   "heal_secs": 1.1,
+   "final_cov": 98.3,
+   "final_alive": 59,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "collapse",
+   "rep": 1,
+   "pre_cov": 100.0,
+   "min_cov": 100.0,
+   "heal_secs": 1.1,
+   "final_cov": 100.0,
+   "final_alive": 60,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "collapse",
+   "rep": 2,
+   "pre_cov": 100.0,
+   "min_cov": 100.0,
+   "heal_secs": 1.0,
+   "final_cov": 100.0,
+   "final_alive": 60,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "random_kill",
+   "rep": 1,
+   "pre_cov": 100.0,
+   "min_cov": 98.3,
+   "heal_secs": 1.0,
+   "final_cov": 98.3,
+   "final_alive": 59,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "random_kill",
+   "rep": 2,
+   "pre_cov": 100.0,
+   "min_cov": 98.3,
+   "heal_secs": 1.1,
+   "final_cov": 98.3,
+   "final_alive": 59,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 0,
+    "自愈完成": 2
+   }
+  },
+  {
+   "scenario": "random_kill",
+   "rep": 3,
+   "pre_cov": 100.0,
+   "min_cov": 98.3,
+   "heal_secs": 1.1,
+   "final_cov": 98.3,
+   "final_alive": 59,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "jammer_60s",
+   "rep": 1,
+   "pre_cov": 100.0,
+   "min_cov": 98.3,
+   "heal_secs": 3.4,
+   "final_cov": 100.0,
+   "final_alive": 61,
+   "log": {
+    "熔断": 7,
+    "链路恢复": 8,
+    "投放道钉": 1,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "jammer_60s",
+   "rep": 2,
+   "pre_cov": 100.0,
+   "min_cov": 98.3,
+   "heal_secs": 3.3,
+   "final_cov": 100.0,
+   "final_alive": 63,
+   "log": {
+    "熔断": 9,
+    "链路恢复": 12,
+    "投放道钉": 3,
+    "SOS 启动": 0,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "wall_cut",
+   "rep": 1,
+   "pre_cov": 100.0,
+   "min_cov": 48.3,
+   "heal_secs": null,
+   "final_cov": 48.3,
+   "final_alive": 60,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 31,
+    "自愈完成": 1
+   }
+  },
+  {
+   "scenario": "wall_cut",
+   "rep": 2,
+   "pre_cov": 100.0,
+   "min_cov": 48.3,
+   "heal_secs": null,
+   "final_cov": 48.3,
+   "final_alive": 60,
+   "log": {
+    "熔断": 0,
+    "链路恢复": 0,
+    "投放道钉": 0,
+    "SOS 启动": 31,
+    "自愈完成": 1
+   }
+  }
+ ],
+ "exp2_robustness": [
+  {
+   "k": 3,
+   "killed_pct": 5.1,
+   "pre_cov": 100.0,
+   "min_cov": 95.0,
+   "final_cov": 95.0,
+   "final_alive": 57,
+   "final_reachable": 57,
+   "recovered_to_90": true,
+   "delivery_in_recovery": {
+    "accepted": 56,
+    "delivered": 55
+   },
+   "beacons": 0
+  },
+  {
+   "k": 6,
+   "killed_pct": 10.2,
+   "pre_cov": 100.0,
+   "min_cov": 90.0,
+   "final_cov": 90.0,
+   "final_alive": 56,
+   "final_reachable": 56,
+   "recovered_to_90": true,
+   "delivery_in_recovery": {
+    "accepted": 56,
+    "delivered": 55
+   },
+   "beacons": 2
+  },
+  {
+   "k": 12,
+   "killed_pct": 20.3,
+   "pre_cov": 100.0,
+   "min_cov": 80.0,
+   "final_cov": 80.0,
+   "final_alive": 50,
+   "final_reachable": 50,
+   "recovered_to_90": false,
+   "delivery_in_recovery": {
+    "accepted": 57,
+    "delivered": 56
+   },
+   "beacons": 2
+  },
+  {
+   "k": 18,
+   "killed_pct": 30.5,
+   "pre_cov": 100.0,
+   "min_cov": 70.0,
+   "final_cov": 70.0,
+   "final_alive": 43,
+   "final_reachable": 43,
+   "recovered_to_90": false,
+   "delivery_in_recovery": {
+    "accepted": 56,
+    "delivered": 55
+   },
+   "beacons": 1
+  },
+  {
+   "k": 24,
+   "killed_pct": 40.7,
+   "pre_cov": 100.0,
+   "min_cov": 18.3,
+   "final_cov": 60.0,
+   "final_alive": 40,
+   "final_reachable": 40,
+   "recovered_to_90": false,
+   "delivery_in_recovery": {
+    "accepted": 54,
+    "delivered": 53
+   },
+   "beacons": 4
+  }
+ ],
+ "exp3_link_recovery": [
+  {
+   "rep": 1,
+   "broken_during_jam": 308,
+   "recovered_during_jam": 312,
+   "pending_at_recall": 0,
+   "recovered_post_recall": 0,
+   "recovery_rate_pct": 100.0,
+   "note": "压制期内断-复周期实时平衡, 召回时刻待恢复链=0 (边干扰边自愈)"
+  },
+  {
+   "rep": 2,
+   "broken_during_jam": 283,
+   "recovered_during_jam": 292,
+   "pending_at_recall": 0,
+   "recovered_post_recall": 0,
+   "recovery_rate_pct": 100.0,
+   "note": "同上"
+  }
+ ],
+ "redundancy_max_k": 6
+}
