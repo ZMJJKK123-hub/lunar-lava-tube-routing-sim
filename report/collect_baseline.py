@@ -20,6 +20,12 @@ import websocket     # 第三方: WS 客户端 (websocket-client)
 WS_URL = "ws://127.0.0.1:5000/ws"
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 600
 RL_MODE = "--rl" in sys.argv          # B 组: 信道 Q-learning (A/B 同口径对比)
+TRAFFIC_SEED = None
+for _a in sys.argv[1:]:
+    if _a.startswith("--traffic-seed="):
+        TRAFFIC_SEED = int(_a.split("=", 1)[1])
+if TRAFFIC_SEED is None and "--seeded" in sys.argv:
+    TRAFFIC_SEED = 1000
 GROUP = "B-rl-qlearning" if RL_MODE else "A-baseline-rcspa"
 PREFIX = "rl_qlearning" if RL_MODE else "baseline_rcspa"
 TRAFFIC_EVERY_S = 2.0
@@ -35,6 +41,7 @@ print("STEP2 geology ok", flush=True)
 
 # 干净起点: 同种子重置 (RL/干扰源均为关机默认)
 ws.send(json.dumps({"cmd": "reset"}))
+_settle_until = time.time() + (5.0 if RL_MODE else 0.0) + 8.0   # 统一 8s 预热
 _rl_latest = {}
 if RL_MODE:
     # B 组: 重置后边收帧边等 5s 再开 RL。盲等会让 5Hzx127KB 广播撑爆
@@ -50,12 +57,24 @@ if RL_MODE:
     ws.send(json.dumps({"cmd": "toggle_rl"}))
 print("STEP3 reset 已发", flush=True)
 
+# 统一预热排水 (边收边等到 settle 终点; 盲等会反压冻结服务器)
+while time.time() < _settle_until:
+    try:
+        _m = json.loads(ws.recv())
+        if _m.get("tick") is not None:
+            latest = _m
+    except Exception:
+        pass
+print(f"STEP4 预热完成 traffic_seed={TRAFFIC_SEED}", flush=True)
+
 try:
     rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
                          capture_output=True, text=True, timeout=5).stdout.strip()
 except Exception:
     rev = "?"
 
+if TRAFFIC_SEED is not None:
+    random.seed(TRAFFIC_SEED)
 samples, delivered_log, traffic_sent = [], [], 0
 latest = {}
 stale_since = None          # 僵尸帧看门狗: tick 停走 15s 即中止报错 (防采死帧)
@@ -178,7 +197,8 @@ meta = {
     "group": GROUP, "git_rev": rev,
     "started_at": datetime.now().isoformat(timespec="seconds"),
     "duration_s": DURATION, "seed": 42,
-    "traffic": {"every_s": TRAFFIC_EVERY_S, "sent": traffic_sent,
+    "traffic": {"every_s": TRAFFIC_EVERY_S, "seed": TRAFFIC_SEED,
+                "sent": traffic_sent,
                 "acks": acks,
                 "profile": "random alive node -> NODE-00, 512/1024/1536B"},
     "switches": {"rl_channels": RL_MODE, "jammer": None, "paused": False},

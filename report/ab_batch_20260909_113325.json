@@ -1,0 +1,264 @@
+{
+ "meta": {
+  "rounds": 3,
+  "secs_per_run": 600,
+  "paired_traffic_seeds": [
+   1001,
+   1002,
+   1003
+  ],
+  "wall_secs": 3681,
+  "started": "2026-09-09T11:33:25"
+ },
+ "A_mean_std": {
+  "ack_admitted": {
+   "mean": 281,
+   "std": 1.0,
+   "n": 3
+  },
+  "client_delivery_rate_pct": {
+   "mean": 100.0,
+   "std": 0.0,
+   "n": 3
+  },
+  "delivery_rate_pct": {
+   "mean": 99.6,
+   "std": 0.0,
+   "n": 3
+  },
+  "avg_delivery_ticks": {
+   "mean": 6.41,
+   "std": 0.2,
+   "n": 3
+  },
+  "p95_delivery_ticks": {
+   "mean": 11,
+   "std": 0.0,
+   "n": 3
+  },
+  "client_settled_DELIVERED": {
+   "mean": 280,
+   "std": 1.0,
+   "n": 3
+  }
+ },
+ "B_mean_std": {
+  "ack_admitted": {
+   "mean": 279.33,
+   "std": 0.58,
+   "n": 3
+  },
+  "client_delivery_rate_pct": {
+   "mean": 100.0,
+   "std": 0.0,
+   "n": 3
+  },
+  "delivery_rate_pct": {
+   "mean": 99.73,
+   "std": 0.23,
+   "n": 3
+  },
+  "avg_delivery_ticks": {
+   "mean": 6.36,
+   "std": 0.22,
+   "n": 3
+  },
+  "p95_delivery_ticks": {
+   "mean": 11,
+   "std": 0.0,
+   "n": 3
+  },
+  "client_settled_DELIVERED": {
+   "mean": 278.67,
+   "std": 0.58,
+   "n": 3
+  }
+ },
+ "paired": [
+  {
+   "round": 1,
+   "seed": 1001,
+   "A_delivered": 279,
+   "B_delivered": 278,
+   "A_latency": 6.28,
+   "B_latency": 6.29
+  },
+  {
+   "round": 2,
+   "seed": 1002,
+   "A_delivered": 281,
+   "B_delivered": 279,
+   "A_latency": 6.64,
+   "B_latency": 6.61
+  },
+  {
+   "round": 3,
+   "seed": 1003,
+   "A_delivered": 280,
+   "B_delivered": 279,
+   "A_latency": 6.3,
+   "B_latency": 6.18
+  }
+ ],
+ "runs_A": [
+  {
+   "cumulative_accepted": 280,
+   "cumulative_delivered": 279,
+   "cumulative_timeout": 0,
+   "ack_admitted": 280,
+   "ack_rejected": 0,
+   "client_settled": {
+    "DELIVERED": 279,
+    "TIMEOUT": 0,
+    "BUFFER_FULL": 0,
+    "MAX_RETRIES": 0
+   },
+   "client_delivery_rate_pct": 100.0,
+   "delivery_rate_pct": 99.6,
+   "avg_delivery_ticks": 6.28,
+   "p95_delivery_ticks": 11,
+   "window_delivery_rate_pct": 100.0,
+   "retries_window": 0,
+   "chain_h_max": 190,
+   "chain_agree": 60,
+   "alive": 60,
+   "client_settled_DELIVERED": 279,
+   "_round": 1,
+   "_seed": 1001,
+   "_attempts": 1
+  },
+  {
+   "cumulative_accepted": 282,
+   "cumulative_delivered": 281,
+   "cumulative_timeout": 0,
+   "ack_admitted": 282,
+   "ack_rejected": 0,
+   "client_settled": {
+    "DELIVERED": 281,
+    "TIMEOUT": 0,
+    "BUFFER_FULL": 0,
+    "MAX_RETRIES": 0
+   },
+   "client_delivery_rate_pct": 100.0,
+   "delivery_rate_pct": 99.6,
+   "avg_delivery_ticks": 6.64,
+   "p95_delivery_ticks": 11,
+   "window_delivery_rate_pct": 100.0,
+   "retries_window": 0,
+   "chain_h_max": 190,
+   "chain_agree": 60,
+   "alive": 60,
+   "client_settled_DELIVERED": 281,
+   "_round": 2,
+   "_seed": 1002,
+   "_attempts": 1
+  },
+  {
+   "cumulative_accepted": 281,
+   "cumulative_delivered": 280,
+   "cumulative_timeout": 0,
+   "ack_admitted": 281,
+   "ack_rejected": 0,
+   "client_settled": {
+    "DELIVERED": 280,
+    "TIMEOUT": 0,
+    "BUFFER_FULL": 0,
+    "MAX_RETRIES": 0
+   },
+   "client_delivery_rate_pct": 100.0,
+   "delivery_rate_pct": 99.6,
+   "avg_delivery_ticks": 6.3,
+   "p95_delivery_ticks": 11,
+   "window_delivery_rate_pct": 100.0,
+   "retries_window": 0,
+   "chain_h_max": 190,
+   "chain_agree": 60,
+   "alive": 60,
+   "client_settled_DELIVERED": 280,
+   "_round": 3,
+   "_seed": 1003,
+   "_attempts": 1
+  }
+ ],
+ "runs_B": [
+  {
+   "cumulative_accepted": 279,
+   "cumulative_delivered": 278,
+   "cumulative_timeout": 0,
+   "ack_admitted": 279,
+   "ack_rejected": 0,
+   "client_settled": {
+    "DELIVERED": 278,
+    "TIMEOUT": 0,
+    "BUFFER_FULL": 0,
+    "MAX_RETRIES": 0
+   },
+   "client_delivery_rate_pct": 100.0,
+   "delivery_rate_pct": 99.6,
+   "avg_delivery_ticks": 6.29,
+   "p95_delivery_ticks": 11,
+   "window_delivery_rate_pct": 100.0,
+   "retries_window": 0,
+   "chain_h_max": 191,
+   "chain_agree": 60,
+   "alive": 60,
+   "client_settled_DELIVERED": 278,
+   "_round": 1,
+   "_seed": 1001,
+   "_attempts": 1
+  },
+  {
+   "cumulative_accepted": 280,
+   "cumulative_delivered": 279,
+   "cumulative_timeout": 0,
+   "ack_admitted": 280,
+   "ack_rejected": 0,
+   "client_settled": {
+    "DELIVERED": 279,
+    "TIMEOUT": 0,
+    "BUFFER_FULL": 0,
+    "MAX_RETRIES": 0
+   },
+   "client_delivery_rate_pct": 100.0,
+   "delivery_rate_pct": 99.6,
+   "avg_delivery_ticks": 6.61,
+   "p95_delivery_ticks": 11,
+   "window_delivery_rate_pct": 100.0,
+   "retries_window": 0,
+   "chain_h_max": 192,
+   "chain_agree": 60,
+   "alive": 60,
+   "client_settled_DELIVERED": 279,
+   "_round": 2,
+   "_seed": 1002,
+   "_attempts": 1
+  },
+  {
+   "cumulative_accepted": 279,
+   "cumulative_delivered": 279,
+   "cumulative_timeout": 0,
+   "ack_admitted": 279,
+   "ack_rejected": 0,
+   "client_settled": {
+    "DELIVERED": 279,
+    "TIMEOUT": 0,
+    "BUFFER_FULL": 0,
+    "MAX_RETRIES": 0
+   },
+   "client_delivery_rate_pct": 100.0,
+   "delivery_rate_pct": 100.0,
+   "avg_delivery_ticks": 6.18,
+   "p95_delivery_ticks": 11,
+   "window_delivery_rate_pct": 100.0,
+   "retries_window": 0,
+   "chain_h_max": 193,
+   "chain_agree": 60,
+   "alive": 60,
+   "client_settled_DELIVERED": 279,
+   "_round": 3,
+   "_seed": 1003,
+   "_attempts": 1
+  }
+ ],
+ "retries": []
+}
