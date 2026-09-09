@@ -55,7 +55,7 @@ class RescueMixin:
             for n in eng.nodes.values() if n.id != tid)
         arrived_dry = (self.state != "FALLBACK" and not bridging_now
                        and self._near((self.target[1], self.target[2]), 250))
-        if eng.routes.get(tid, {}).get("hop_count", -1) >= 0:
+        if self._target_recovered(tid):
             self._on_target_recovered(eng, tid, bridging_now)
         elif (not bridging_now and self.state == "INVESTIGATE"
               and self._near((self.target[1], self.target[2]), 30)):
@@ -173,7 +173,7 @@ class RescueMixin:
         self._advance_to_target()
 
     def _on_target_recovered(self, eng, tid, bridging_now):
-        """目标已恢复可达 (常为机器人自身路过桥接)。
+        """目标已真恢复可达 (SOS 消抖口径, 常为机器人自身路过桥接)。
         若此刻正由机器人本体桥着而道钉未落地 (落点被巨石卡住等),
         不撤离 —— 继续朝目标微调位置, 下一拍重试落钉。
 

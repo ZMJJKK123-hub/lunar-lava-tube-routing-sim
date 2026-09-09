@@ -10,6 +10,8 @@ from ..config import ROBOT_ID   # 协议标识: 机器人节点 ID (跨模块统
 RANGE = 300.0            # 通信半径 (世界米; = 30 sim x WORLD_SCALE)
 SPEED = 60.0             # 移动速度 (世界单位/tick)
 SOS_ARM_TICKS = 4        # 连续失联 N tick 才开始呼救 (防瞬断误报)
+SOS_DISARM_TICKS = 4     # 连续恢复 N tick 才解除呼救 (与布防对称的消抖:
+                         # 边缘抖动的弱链不再把机器人"派去-召回"来回拉扯)
 SOS_BEACON_EVERY = 10    # SOS 信标节奏 (tick, 按节点编号错峰)
 DEPLOY_GAP = 100.0       # 距既有道钉 < 此值不重复投放
 RESCUE_PATIENCE = 80     # 救援超时 (tick): 物理不可救则放弃回巡逻

@@ -41,7 +41,12 @@ app.add_middleware(
 )
 
 CLIENTS: set[WebSocket] = set()
-INFLIGHT: dict[WebSocket, asyncio.Task] = {}   # 客户端 -> 正在进行的发送任务
+# 客户端 -> (发送任务, 起飞单调时刻)。僵尸判定看任务年龄 (>ZOMBIE_AFTER_S):
+# 分叉愈合的整链 SYNC_RESP 可达 MB 级, 合法发送耗时超过一个广播间隔 (0.2s),
+# 按"上一帧还在飞"立即踢会误杀健康慢帧客户端 (曾致长程实验采集器周期性失聪)
+INFLIGHT: dict[WebSocket, tuple[asyncio.Task, float]] = {}
+
+ZOMBIE_AFTER_S = 5.0    # 真僵死阈值: 发送任务挂起超过此秒数才判死踢出
 
 
 async def _send_to(ws: WebSocket, data: str):
@@ -59,20 +64,27 @@ async def broadcast(message: dict):
     发后即忘广播: 引擎循环绝不同步 await 任何客户端发送。
     uvicorn 的 ws.send 在对端停止读取时会无限期挂起 (transport 缓冲满 ->
     writable 事件被清除), 若在引擎循环内直接 await 会冻结整个仿真。
-    这里把每条发送丢进独立任务; 上一帧还没发完(卡住)的客户端直接踢出。
+    这里把每条发送丢进独立任务; 发送任务挂起超过 ZOMBIE_AFTER_S 的客户端
+    判定僵死踢出 (大帧合法慢发送只跳过本轮广播, 不踢 —— 防误杀)。
 
     Args: message: 快照 dict (序列化为 JSON 文本)。Returns: None。
-    Globals Used: CLIENTS (连接表) / INFLIGHT (在途发送任务表)。
-    Calls: asyncio.create_task / _send_to。
+    Globals Used: CLIENTS (连接表) / INFLIGHT (在途发送任务表) / ZOMBIE_AFTER_S。
+    Calls: asyncio.create_task / _send_to / asyncio.get_running_loop。
     """
     data = json.dumps(message, ensure_ascii=False)
+    loop = asyncio.get_running_loop()
     for ws in list(CLIENTS):
-        if ws in INFLIGHT:          # 上一帧仍卡着 -> 判定僵死连接, 踢出
-            log.warning("踢出僵死连接: %s (上一帧仍未发完)",
-                        ws.client.host if ws.client else "?")
-            CLIENTS.discard(ws)
-            INFLIGHT.pop(ws, None)
-            continue
+        ent = INFLIGHT.get(ws)
+        if ent:                          # 上一帧仍在途
+            task, born = ent
+            if loop.time() - born > ZOMBIE_AFTER_S:   # 真僵死: 踢
+                log.warning("踢出僵死连接: %s (发送挂起 >%.0fs)",
+                            ws.client.host if ws.client else "?",
+                            ZOMBIE_AFTER_S)
+                task.cancel()
+                CLIENTS.discard(ws)
+                INFLIGHT.pop(ws, None)
+            continue                     # 慢发送/刚起飞: 本轮跳过, 不踢
         task = asyncio.create_task(_send_to(ws, data))
 
         def _done(t, ws=ws):
@@ -83,7 +95,7 @@ async def broadcast(message: dict):
                             t.exception() or "cancelled")
                 CLIENTS.discard(ws)
 
-        INFLIGHT[ws] = task
+        INFLIGHT[ws] = (task, loop.time())
         task.add_done_callback(_done)
 
 

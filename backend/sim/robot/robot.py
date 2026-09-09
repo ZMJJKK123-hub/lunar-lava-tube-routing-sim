@@ -29,11 +29,12 @@ from .motion import MotionMixin             # 运动学能力 (移动/视线/路
 from .rescue import RescueMixin             # 救援状态机分支 (三态推进)
 from .rl_gate import observe_learner, want_deploy, wait_giveup   # 道钉学习问询门
 from .senses import SenseMixin              # 感知能力 (听测/情报/任务挑选)
+from .sos import SosMixin                   # 呼救判定 (布防/解除消抖/信标)
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
 
-class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
+class PatrolRobot(MotionMixin, SenseMixin, SosMixin, RescueMixin, DeployMixin):
     """职责: 巡检机器人: 移动资产 + 物理搭桥自愈执行者。
 
     核心属性:
@@ -74,6 +75,7 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
         self._scout_vis0 = 0             # 侦察基线: 到场时的可见节点数 (早退门槛)
         self._stuck = 0                  # 连续全向受阻计数 (撞墙检测; 移动成功清零)
         self._iso: dict[str, int] = {}      # nid -> 连续失联 tick 数
+        self._rec: dict[str, int] = {}      # nid -> 连续恢复 tick 数 (解除呼救的消抖)
         self.sos_active: set[str] = set()   # 正在呼救的节点
         self._deploy_wait_until: dict[str, int] = {}   # 道钉学习器「忍」冷却表 (nid -> tick)
         # 全同步观察者入链: 转发/追块全真, 但不在共识名单 (不出块/不遥测)
@@ -121,7 +123,7 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
         """机器人主推进: 呼救判定 -> 状态机与移动 -> 学习器结算扫描。
 
         Args: tick: 当前仿真 tick。Returns: None。
-        Globals Used: None。Calls: _update_sos[SenseMixin] / _advance /
+        Globals Used: None。Calls: _update_sos[SosMixin] / _advance /
         observe_learner[rl_gate] (挂点③: 无学习器时零开销)。
         """
         self._update_sos(tick)
