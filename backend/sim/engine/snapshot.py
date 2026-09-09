@@ -101,7 +101,13 @@ class SnapshotMixin:
             "transport": self.transport.summary(),
             # B组实验观测: 信道 Q-learning 状态 (None=关闭)
             "rl": (self.rl_learner.stats(self.rl_channels)
-                   if self.rl_learner else {"enabled": self.rl_channels}),
+                   if self.rl_learner
+                   else {"enabled": self.rl_channels,
+                         "random_channels": self.random_channels}),
+            # RL试点②观测: 道钉时机学习器 (None=尚无落钉未建表)
+            "rl_deploy": (self.rl_deploy_learner.stats(self.rl_deploy)
+                          if self.rl_deploy_learner
+                          else {"enabled": self.rl_deploy}),
             "packets": self.transport.active_packets() + self._vis_export(),
             "chain": self.chain_net.export_info(),
             "stats": self._snap_stats(alive),

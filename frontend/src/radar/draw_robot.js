@@ -1,11 +1,14 @@
 // 机器人绘制器 (动态层): SOS 脉冲 / 面包屑 / 步进平滑播放 / 覆盖圈 / 救援线
 // (挂到 Radar2D.prototype; 快照 5Hz -> 帧间平滑)
 
+import { THEME } from './styles'
+
 export const robotDraw = {
   /* ---------- 机器人 + SOS 呼救 (动态层: 快照 5Hz -> 帧间平滑) ---------- */
   _drawRobot(ctx) {
     const snap = this.snapshot
     if (!snap) return
+    const T = THEME[this.theme] ?? THEME.dark
     const nodes = snap.nodes
     ctx.save()
     ctx.translate(this.view.x, this.view.y)
@@ -21,7 +24,7 @@ export const robotDraw = {
       ctx.strokeStyle = 'rgba(255,90,60,' + (0.85 * (1 - ph)).toFixed(3) + ')'
       ctx.lineWidth = lw(1.8)
       ctx.beginPath(); ctx.arc(n.x, n.z, lw(6) + ph * lw(34), 0, Math.PI * 2); ctx.stroke()
-      ctx.fillStyle = 'rgba(255,130,100,0.95)'
+      ctx.fillStyle = T.sosLabel
       ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
       ctx.fillText('SOS', n.x, n.z - lw(14))
     }
@@ -31,7 +34,7 @@ export const robotDraw = {
       // 面包屑轨迹: 核查/救援途中逐 tick 记录 (绿=此处可见主网, 红=无网)
       if (rb.trail) {
         for (const [tx, tz, c] of rb.trail) {
-          ctx.fillStyle = c ? 'rgba(80,255,160,0.5)' : 'rgba(255,110,90,0.3)'
+          ctx.fillStyle = c ? T.trailOn : T.trailOff
           ctx.beginPath(); ctx.arc(tx, tz, lw(1.7), 0, Math.PI * 2); ctx.fill()
         }
       }
@@ -47,7 +50,7 @@ export const robotDraw = {
       ctx.strokeStyle = 'rgba(255,80,160,' + (0.5 * (1 - ph)).toFixed(3) + ')'
       ctx.lineWidth = lw(2)
       ctx.beginPath(); ctx.arc(jm.x, jm.z, jm.r * (0.25 + 0.75 * ph), 0, Math.PI * 2); ctx.stroke()
-      ctx.strokeStyle = 'rgba(255,80,160,0.45)'
+      ctx.strokeStyle = T.jamRing
       ctx.lineWidth = lw(1.2)
       ctx.setLineDash([lw(10), lw(8)])
       ctx.beginPath(); ctx.arc(jm.x, jm.z, jm.r, 0, Math.PI * 2); ctx.stroke()
@@ -56,7 +59,7 @@ export const robotDraw = {
       ctx.fillStyle = '#FF50A0'
       ctx.beginPath(); ctx.arc(jm.x, jm.z, lw(6), 0, Math.PI * 2); ctx.fill()
       ctx.shadowBlur = 0
-      ctx.fillStyle = 'rgba(255,160,200,0.95)'
+      ctx.fillStyle = T.jamLabel
       ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
       ctx.fillText('📵 JAM', jm.x, jm.z - lw(12))
     }
@@ -91,9 +94,10 @@ export const robotDraw = {
   },
 
   _drawRobotBody(ctx, lw, x, z, rb, nodes) {
+    const T = THEME[this.theme] ?? THEME.dark
     // 通信覆盖圈 (300 世界米)
     ctx.setLineDash([lw(10), lw(8)])
-    ctx.strokeStyle = 'rgba(232,200,110,0.32)'
+    ctx.strokeStyle = T.robotRange
     ctx.lineWidth = lw(1.2)
     ctx.beginPath(); ctx.arc(x, z, 300, 0, Math.PI * 2); ctx.stroke()
     ctx.setLineDash([])
@@ -110,22 +114,27 @@ export const robotDraw = {
     // 加固择点: 机器人依历史观测选定的落钉位 (琥珀虚线小环 + 连接线)
     if (rb.state === 'ASSIST' && rb.spot) {
       ctx.setLineDash([lw(3), lw(3)])
-      ctx.strokeStyle = 'rgba(255,220,140,0.8)'
+      ctx.strokeStyle = T.pboostRing
       ctx.lineWidth = lw(1.2)
       ctx.beginPath(); ctx.arc(rb.spot[0], rb.spot[1], lw(10), 0, Math.PI * 2); ctx.stroke()
       ctx.beginPath(); ctx.moveTo(x, z); ctx.lineTo(rb.spot[0], rb.spot[1]); ctx.stroke()
       ctx.setLineDash([])
     }
-    // 本体: 金色菱形 + 状态标签
+    // 本体: 金色菱形 + 状态标签 (浅色主题压暗金色并补描边)
     const r = lw(7)
     ctx.shadowColor = '#F0D080'; ctx.shadowBlur = lw(14)
-    ctx.fillStyle = '#E8C860'
+    ctx.fillStyle = T.robotFill
     ctx.beginPath()
     ctx.moveTo(x, z - r); ctx.lineTo(x + r, z)
     ctx.lineTo(x, z + r); ctx.lineTo(x - r, z); ctx.closePath()
     ctx.fill()
     ctx.shadowBlur = 0
-    ctx.fillStyle = 'rgba(240,215,150,0.95)'
+    if (T.outline) {
+      ctx.strokeStyle = T.outline
+      ctx.lineWidth = lw(0.8)
+      ctx.stroke()
+    }
+    ctx.fillStyle = T.robotLabel
     ctx.font = Math.max(8, lw(9)) + 'px Consolas,monospace'
     ctx.fillText('BOT·' + (rb.state === 'RESCUE' ? '救援' : rb.state === 'INVESTIGATE' ? '核查'
                  : rb.state === 'FALLBACK' ? '回撤' : rb.state === 'ASSIST' ? '加固' : '巡逻')

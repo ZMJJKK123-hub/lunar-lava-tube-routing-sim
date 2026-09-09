@@ -49,7 +49,7 @@ function MenuRow({ active, tip, hoverBg, onClick, children }) {
   )
 }
 
-export default function GlobalHUD({ stats, mode, connected, paused, onTogglePause, onDisaster, jammerOn, rlOn, onToggleRl, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, resetArmed, onArmReset }) {
+export default function GlobalHUD({ stats, mode, connected, paused, onTogglePause, onDisaster, jammerOn, rlOn, onToggleRl, deployRlOn, onToggleDeployRl, wallMode, onToggleWall, onHelp, logOpen, onToggleLog, chainOpen, onToggleChain, chainFlow, onToggleChainFlow, lightBg, onToggleTheme, resetArmed, onArmReset }) {
   const [disasterOpen, setDisasterOpen] = useState(false)   // 灾害下拉展开态
   const [infoOpen, setInfoOpen] = useState(false)           // 信息下拉展开态
   const box = (label, v, color = '#cfe9ff') => (
@@ -70,6 +70,8 @@ export default function GlobalHUD({ stats, mode, connected, paused, onTogglePaus
     ['⛓ 链流量可视化', chainFlow, onToggleChainFlow, '链上报文流量: 金点=遥测交易, 青白大点=新块广播, 紫点=追块请求/响应 (画墙拆墙时可见同步风暴)'],
     ['📒 区块链账本', chainOpen, onToggleChain, '账本侧边栏: 每个节点存储的全网状态、链高度与同步进度 (画墙分区可见分叉, 拆墙后自动愈合)'],
     ['🧪 信道 Q-learning (B组)', rlOn, onToggleRl, 'A/B 实验开关: 信道决策器 RCSPA(手写规则) <-> Q-learning(逐边Q表边跑边学); 奖惩来自真实送达/超时'],
+    ['🧪 道钉时机 Q-learning', deployRlOn, onToggleDeployRl, 'RL试点②: 机器人何时扔道钉由 Q 表自学(投/忍二选一); 奖惩=落钉后恢复路径是否经过该钉(假孤岛白扔扣分); 关闭即弃表, 重置世界不弃表(经验跨轮累积)'],
+    ['☀ 亮色背景', lightBg, onToggleTheme, '画布配色主题: 深空暗色 <-> 亮色纸面 (适合投屏演示与浅色环境截图); 浮层面板样式不变, 再点切回'],
   ]
   const modeColor = { STABLE: '#4dffa0', HEALING: '#ffc14d', CONVERGED: '#6ec1ff' }[mode] ?? '#888'
   const R = 'rgba(90,20,40,0.35)'    // 红系悬停底色 (灾害/重置)

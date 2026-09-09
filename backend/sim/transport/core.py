@@ -13,7 +13,7 @@ import time    # 标准库: monotonic 时钟 (前端飞行插值用)
 from collections import deque   # 标准库: 节点发送缓冲 (node_queues)
 
 from ..config import ROBOT_ID, TICK_PHYS_S   # 协议标识: 机器人会移动, 不承载数据报文; 物理拍节拍 (飞行插值分母)
-from ..rl import rl_plan                     # B 组实验: Q-learning 信道决策器 (A/B 开关见 _plan)
+from ..rl import random_plan, rl_plan        # B组 Q-learning / C组随机信道 (阴性对照), 开关见 _plan
 from ..routing import rscspa    # 路由算法: 资源约束最短路径 (连接接纳选路)
 from .model import (AUTO_TELEMETRY, DEFAULT_TIMEOUT, MAX_CONCURRENT,   # 节拍上限
                     QUEUE_LIMIT_BYTES,                                 # 缓冲上限
@@ -185,6 +185,8 @@ class TransportLayer(RelayMixin):
         选道 (路径 Dijkstra), 默认走 RCSPA (3 信道, K=3, 避忙碌信道)"""
         if getattr(self.eng, "rl_channels", False):
             return rl_plan(self, src, dst)
+        if getattr(self.eng, "random_channels", False):
+            return random_plan(self, src, dst)
         return rscspa(self._adj(), src, dst, n_channels=3, K=3,
                       busy_edge=self._busy_channels())
 

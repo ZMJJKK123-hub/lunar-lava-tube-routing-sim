@@ -1,0 +1,2458 @@
+{
+ "summary": {
+  "group": "A-deploy-rule",
+  "git_rev": "b08b390",
+  "duration_s": 600,
+  "beacons_deployed": 6,
+  "final_stock": 0,
+  "coverage_integral_pct_s": 50423.0,
+  "coverage_min_pct": 21.7,
+  "deploy_settled": {
+   "good": 1,
+   "waste": 0,
+   "late": 0,
+   "patient": 0,
+   "hesitated": 0
+  },
+  "deploy_picks": {
+   "invest": 0,
+   "wait": 0
+  },
+  "deploy_epsilon": 0.35,
+  "waste_rate_pct": 0.0,
+  "disasters_sent": 10,
+  "traffic_sent": 146
+ },
+ "samples": [
+  {
+   "t": 2.0,
+   "tick": 42,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 7.2,
+   "tick": 61,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 12.2,
+   "tick": 80,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 17.4,
+   "tick": 100,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 22.6,
+   "tick": 119,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 27.7,
+   "tick": 139,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 32.8,
+   "tick": 158,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 38.0,
+   "tick": 178,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 43.1,
+   "tick": 197,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 48.3,
+   "tick": 216,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 53.5,
+   "tick": 236,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 58.5,
+   "tick": 255,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 63.5,
+   "tick": 274,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 68.6,
+   "tick": 293,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 73.7,
+   "tick": 313,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 78.7,
+   "tick": 331,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 83.9,
+   "tick": 351,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 89.0,
+   "tick": 370,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 94.1,
+   "tick": 389,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 99.3,
+   "tick": 409,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 104.4,
+   "tick": 428,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 109.6,
+   "tick": 447,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 114.7,
+   "tick": 466,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 119.8,
+   "tick": 486,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 125.0,
+   "tick": 505,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 130.2,
+   "tick": 525,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 135.2,
+   "tick": 544,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 140.4,
+   "tick": 563,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 0,
+   "stock": 6,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 145.5,
+   "tick": 583,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 1,
+   "stock": 5,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 150.6,
+   "tick": 602,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 63,
+   "fragile": 1,
+   "beacons": 4,
+   "stock": 2,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 155.7,
+   "tick": 622,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 160.9,
+   "tick": 641,
+   "coverage_pct": 96.7,
+   "mode": "HEALING",
+   "alive": 64,
+   "fragile": 1,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 166.0,
+   "tick": 660,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 171.2,
+   "tick": 680,
+   "coverage_pct": 98.3,
+   "mode": "CONVERGED",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 176.3,
+   "tick": 700,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 181.3,
+   "tick": 719,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 186.5,
+   "tick": 738,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 191.6,
+   "tick": 757,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 196.7,
+   "tick": 777,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 64,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 201.7,
+   "tick": 796,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 206.7,
+   "tick": 814,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 211.9,
+   "tick": 834,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 217.0,
+   "tick": 854,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 222.2,
+   "tick": 873,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 227.3,
+   "tick": 892,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 232.3,
+   "tick": 911,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 237.3,
+   "tick": 930,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 242.4,
+   "tick": 950,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 247.4,
+   "tick": 969,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 252.6,
+   "tick": 988,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 257.6,
+   "tick": 1007,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 262.8,
+   "tick": 1027,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 267.8,
+   "tick": 1046,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 273.0,
+   "tick": 1065,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 278.2,
+   "tick": 1085,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 283.2,
+   "tick": 1103,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 288.3,
+   "tick": 1123,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 293.4,
+   "tick": 1142,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 298.6,
+   "tick": 1162,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 303.6,
+   "tick": 1181,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 308.8,
+   "tick": 1201,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 313.8,
+   "tick": 1219,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 319.0,
+   "tick": 1239,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 5,
+   "stock": 1,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 324.1,
+   "tick": 1259,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 329.3,
+   "tick": 1278,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 334.4,
+   "tick": 1298,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 339.7,
+   "tick": 1318,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 344.8,
+   "tick": 1337,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 349.8,
+   "tick": 1356,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 354.9,
+   "tick": 1375,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 360.0,
+   "tick": 1395,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 365.2,
+   "tick": 1414,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 370.2,
+   "tick": 1433,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 375.3,
+   "tick": 1452,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 380.3,
+   "tick": 1470,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 385.4,
+   "tick": 1490,
+   "coverage_pct": 95.0,
+   "mode": "HEALING",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 390.6,
+   "tick": 1510,
+   "coverage_pct": 95.0,
+   "mode": "HEALING",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 395.8,
+   "tick": 1529,
+   "coverage_pct": 95.0,
+   "mode": "HEALING",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 401.0,
+   "tick": 1548,
+   "coverage_pct": 95.0,
+   "mode": "HEALING",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 406.1,
+   "tick": 1568,
+   "coverage_pct": 95.0,
+   "mode": "HEALING",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 411.3,
+   "tick": 1587,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 416.4,
+   "tick": 1607,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 421.4,
+   "tick": 1625,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 426.6,
+   "tick": 1645,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 431.7,
+   "tick": 1665,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 436.8,
+   "tick": 1684,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 442.0,
+   "tick": 1703,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 447.1,
+   "tick": 1723,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 452.3,
+   "tick": 1743,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 457.3,
+   "tick": 1761,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 462.5,
+   "tick": 1780,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 467.6,
+   "tick": 1800,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 472.7,
+   "tick": 1819,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 477.9,
+   "tick": 1839,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 482.9,
+   "tick": 1858,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 488.0,
+   "tick": 1877,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 493.1,
+   "tick": 1896,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 498.2,
+   "tick": 1916,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 63,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 503.3,
+   "tick": 1935,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 508.5,
+   "tick": 1954,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 513.6,
+   "tick": 1974,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 518.8,
+   "tick": 1993,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 523.9,
+   "tick": 2013,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 529.1,
+   "tick": 2032,
+   "coverage_pct": 93.3,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 534.3,
+   "tick": 2052,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 539.3,
+   "tick": 2071,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 544.3,
+   "tick": 2090,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 549.5,
+   "tick": 2109,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 554.5,
+   "tick": 2128,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 559.6,
+   "tick": 2147,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 564.6,
+   "tick": 2166,
+   "coverage_pct": 93.3,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 569.7,
+   "tick": 2184,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 574.7,
+   "tick": 2202,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 579.8,
+   "tick": 2222,
+   "coverage_pct": 93.3,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 585.1,
+   "tick": 2241,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 590.2,
+   "tick": 2261,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 595.2,
+   "tick": 2280,
+   "coverage_pct": 21.7,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 43,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  }
+ ]
+}

@@ -7,7 +7,7 @@
 导出与前端协议不变, 同时让签名具备类型检查能力。
 分层: 纯类型定义, 零运行时逻辑, 不依赖任何模块。
 """
-from typing import TypedDict   # 标准库: 字典结构类型契约 (dict 兼容 + 键值检查)
+from typing import NamedTuple, TypedDict   # 标准库: 命名元组(可哈希状态键) / 字典结构类型契约
 
 
 class LinkBudget(TypedDict):
@@ -72,3 +72,26 @@ class TelemetryPayload(TypedDict):
     radio: str           # PAMAS 电台状态 (IDLE/TXRX/SLEEP)
     hop: int             # 到 sink 跳数
     pboost: bool         # 是否处于功率自举态 (链上弱链情报, 机器人全局寻路依据)
+
+
+class DeployState(NamedTuple):
+    """职责: 道钉投/忍决策的状态契约 —— 机器人本地可观测特征的离散化元组。
+    属性: 五个分桶特征 (NamedTuple 保证可哈希, 直接作 Q 表键)。
+    调用链: robot/rl_gate._featurize 采集组键 -> rl/q_deploy.Q 表键。"""
+    iso_b: int           # 目标失联时长桶 0/1/2 (≤SOS_ARM_TICKS / ≤RLD_ISO_MID / 更久)
+    pboost: bool         # 目标功率自举中 (假孤岛嫌疑: 可能自行恢复)
+    deg_b: int           # 目标真实度数桶 0/1/2+ (剔除机器人自身边)
+    jam: bool            # 目标处干扰噪声抬升 >1dB (干扰期链路熔断是暂态)
+    stock_b: int         # 道钉库存桶 0/1/2 (≤2 / ≤4 / >4) —— 预算约束进状态
+
+
+class DeployLearningStats(TypedDict):
+    """职责: 道钉学习器快照观测契约 —— snapshot.rl_deploy 字段 (前端/实验采集)。
+    属性: 逐字段见下方行内注释 (纯数据结构, 无方法调用链)。"""
+    enabled: bool                    # 决策开关 (False=规则恒投, 仅审计落钉)
+    q_size: int                      # Q 表状态数 (两表合计)
+    picks: dict                      # 决策计数 {invest, wait}
+    settled: dict                    # 结算计数 {good, waste, late, patient, hesitated}
+    epsilon: float                   # 当前探索率
+    avg_reward_100: float | None     # 近 100 次结算的平均奖励 (收敛观测)
+    n_choices: int                   # 累计决策次数

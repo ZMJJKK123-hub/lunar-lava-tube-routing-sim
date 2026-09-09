@@ -66,6 +66,21 @@ RL_EPS0 = 0.3               # 探索率初值 (前 1/3 实验期靠它试错)
 RL_EPS_MIN = 0.02           # 探索率下限
 RL_EPS_DECAY = 0.9995       # 每次选择的探索率衰减
 
+# ---------------- RL 道钉时机实验 (sim/rl + robot/rl_gate 消费) ----------------
+RL_DEPLOY_ENABLED = False   # 道钉投/忍决策器: False=规则恒投(仅审计) True=Q-learning 学时机
+RLD_ALPHA = 0.3             # 学习率 (TD 更新步长)
+RLD_GAMMA = 0.5             # 折扣 (结算时刻状态的 max Q 自反馈)
+RLD_EPS0 = 0.35             # 探索率初值 (道钉样本稀疏, 比信道版更敢试)
+RLD_EPS_MIN = 0.02          # 探索率下限
+RLD_EPS_DECAY = 0.998       # 每次决策的探索率衰减 (慢于信道版: 决策频次低一个量级)
+RLD_WINDOW_TICKS = 40       # 落钉效果结算窗口 (tick; 10s 仿真时间)
+RLD_ISO_MID_TICKS = 40      # 失联时长分桶中界 (短/中/长: ≤SOS_ARM_TICKS / ≤此值 / 更久)
+RLD_RW_GOOD = 1.0           # 奖励: 落钉后恢复路径经过该钉 (关键投资)
+RLD_RW_WASTE = -1.0         # 奖励: 恢复但路径不经钉 (假孤岛, 白扔)
+RLD_RW_LATE = -0.5          # 奖励: 窗口尽目标仍失联 (无效投放)
+RLD_RW_PATIENT = 0.5        # 奖励: 「忍」后目标自行恢复 (忍对了)
+RLD_RW_HESITATE = -0.5      # 奖励: 「忍」到任务放弃 (忍晚了)
+
 # ---------------- 日志 (main.py 消费; 各模块经 getLogger(__name__) 上报) ----------------
 import logging   # 标准库: 仅为测试环境挂 NullHandler (真实配置在 main.py)
 LOG_FILE = "sim.log"        # 仿真调试日志落盘文件 (RotatingFileHandler)

@@ -1,14 +1,17 @@
 // 静息层绘制器 (离屏缓存): 深空底色/腔体/巨石/墙体/暗绿连线/节点图标
 // (挂到 Radar2D.prototype; 仅在 staticDirty 时整层重绘, 未 Hover 时零开销)
 
+import { THEME } from './styles'
+
 export const staticDraw = {
   /* ---------- 静息层 (离屏) ---------- */
   _renderStatic(W, H) {
     const o = this.offCtx
     const dpr = this.dpr
+    const T = THEME[this.theme] ?? THEME.dark
     o.setTransform(dpr, 0, 0, dpr, 0, 0)
-    // 纯净深空底色, 无任何网格/图案
-    o.fillStyle = '#0A0F1A'
+    // 纯净底色 (明暗主题), 无任何网格/图案
+    o.fillStyle = T.bg
     o.fillRect(0, 0, W, H)
     const snap = this.snapshot, geo = this.geology
     if (!snap || !geo) return
@@ -20,8 +23,8 @@ export const staticDraw = {
 
     // 溶洞腔体: 暗色填充 + 极淡描边 —— 熔岩管平面示意轮廓 (扁椭圆, 腔外=岩壁)
     if (this.chamberPaths?.length) {
-      o.fillStyle = 'rgba(28,46,74,0.5)'
-      o.strokeStyle = 'rgba(105,145,196,0.3)'
+      o.fillStyle = T.chamberFill
+      o.strokeStyle = T.chamberStroke
       o.lineWidth = lw(1.6)
       for (const p of this.chamberPaths) { o.fill(p); o.stroke(p) }
     }
@@ -57,9 +60,9 @@ export const staticDraw = {
       for (const [na, nb] of pairs) { o.moveTo(na.x, na.z); o.lineTo(nb.x, nb.z) }
       o.stroke()
     }
-    drawEdges(edges.ok, 'rgba(70,150,100,0.15)', lw(1))
-    drawEdges(edges.warm, 'rgba(255,170,70,0.32)', lw(1.3))
-    drawEdges(edges.hot, 'rgba(255,80,70,0.5)', lw(1.6))
+    drawEdges(edges.ok, T.linkOk, lw(1))
+    drawEdges(edges.warm, T.linkWarm, lw(1.3))
+    drawEdges(edges.hot, T.linkHot, lw(1.6))
 
     // ---- 节点 (静态图标, 无呼吸动画) ----
     this._drawNodes(o, snap, lw)
@@ -68,13 +71,14 @@ export const staticDraw = {
 
   _drawRocks(o, lw) {
     const snap = this.snapshot
+    const T = THEME[this.theme] ?? THEME.dark
     snap.obstacles.forEach((ob, i) => {
       const p = this._rockPath(ob, i)
       const boulder = ob.shape === 'boulder'
       const held = this.drag?.type === 'obstacle' && this.drag.idx === i
       o.fillStyle = boulder ? 'rgba(126,86,64,0.92)' : 'rgba(98,104,120,0.92)'
       o.fill(p)
-      o.strokeStyle = held ? '#00FFFF' : (boulder ? 'rgba(205,140,105,0.95)' : 'rgba(165,175,195,0.95)')
+      o.strokeStyle = held ? '#00FFFF' : (boulder ? T.boulderStroke : T.rockStroke)
       o.lineWidth = held ? lw(2.4) : lw(1.3)
       o.stroke(p)
       // 岩石裂纹 (种子化 2 条短折线)
@@ -123,18 +127,19 @@ export const staticDraw = {
   },
 
   _drawNodes(o, snap, lw) {
+    const T = THEME[this.theme] ?? THEME.dark
     for (const [id, n] of Object.entries(snap.nodes)) {
       const r = lw(id === 'NODE-00' ? 10 : (n.role === 'beacon' ? 5 : 6.5))
       const hot = n.temp_c > 60
       const lowbat = n.battery_soc < 25
-      let color = '#39d7c4'
+      let color = T.nodeStroke
       if (n.state === 'DEAD') color = '#4a5260'
       else if (hot) color = '#FF6050'
       else if (lowbat || n.state === 'DEGRADED') color = '#FFC04D'
       else if (n.role === 'beacon') color = '#D8B860'   // 道钉: 金色系
 
       o.strokeStyle = color
-      o.fillStyle = n.role === 'beacon' ? 'rgba(120,95,40,0.55)' : '#0A0F1A'
+      o.fillStyle = n.role === 'beacon' ? T.beaconFill : T.nodeFill
       o.lineWidth = lw(id === this.selectedId ? 2.2 : 1.5)
       o.beginPath()
       if (id === 'NODE-00') {
@@ -158,7 +163,7 @@ export const staticDraw = {
       // 电量环: 节点外圈按 SoC 比例填充 (绿>50% / 黄25~50% / 红<25%)
       if (n.state !== 'DEAD') {
         const soc = Math.min(1, Math.max(0, (n.battery_soc ?? 100) / 100))
-        o.strokeStyle = soc > 0.5 ? 'rgba(90,230,140,0.85)'
+        o.strokeStyle = soc > 0.5 ? T.socHi
                        : soc > 0.25 ? 'rgba(255,200,80,0.9)'
                        : 'rgba(255,90,70,0.95)'
         o.lineWidth = lw(1.5)
@@ -168,7 +173,7 @@ export const staticDraw = {
       }
       // 度数自保: 功率自举中的节点画琥珀虚线环 (链路不足, 正在调大功率自救)
       if (n.pboost && n.state !== 'DEAD') {
-        o.strokeStyle = 'rgba(255,200,90,0.9)'
+        o.strokeStyle = T.pboostRing
         o.lineWidth = lw(1.4)
         o.setLineDash([lw(4), lw(3)])
         o.beginPath(); o.arc(n.x, n.z, r + lw(12), 0, Math.PI * 2); o.stroke()
@@ -176,7 +181,7 @@ export const staticDraw = {
       }
       // 积压弧: 仅显示超出链流量配额(50%)的真实数据拥塞 (青色, 更外圈)
       if (n.queue_pct > 50.5 && n.state !== 'DEAD') {
-        o.strokeStyle = 'rgba(0,232,255,0.95)'
+        o.strokeStyle = T.queueArc
         o.lineWidth = lw(1.8)
         o.beginPath()
         o.arc(n.x, n.z, r + lw(6.5), -Math.PI / 2,
@@ -184,7 +189,7 @@ export const staticDraw = {
         o.stroke()
       }
       if (id === this.selectedId) {
-        o.strokeStyle = 'rgba(255,255,255,0.75)'; o.lineWidth = lw(1)
+        o.strokeStyle = T.selRing; o.lineWidth = lw(1)
         o.beginPath(); o.arc(n.x, n.z, r + lw(9.5), 0, Math.PI * 2); o.stroke()
       }
       if (n.state === 'DEAD') {
@@ -197,7 +202,7 @@ export const staticDraw = {
       }
       // 像素风标签 (仅缩放足够时绘制, 保持画面干净)
       if (this.view.scale > 0.22) {
-        o.fillStyle = 'rgba(150,190,220,0.66)'
+        o.fillStyle = T.label
         o.font = Math.max(8, lw(9)) + 'px Consolas,monospace'
         o.fillText(id.startsWith('BEACON') ? '📍' + id.slice(-2) : id.replace('NODE-', 'N-'),
                    n.x + r + lw(3), n.z - r - lw(2))

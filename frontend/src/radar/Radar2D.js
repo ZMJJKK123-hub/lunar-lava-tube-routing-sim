@@ -55,6 +55,7 @@ export class Radar2D {
 
     this.infoPanel = null          // 点击节点的极客数据面板
     this.wallMode = false          // 放墙模式: 关闭时左键=平移画面, 开启时左键拖=画墙
+    this.theme = 'dark'            // 画布配色主题: 'dark' | 'light' (信息下拉「亮色背景」)
     this.showChain = true          // 渲染总线: 链上报文跳 (TX/BLOCK/SYNC_*) 显示开关
     this.showData = true           // 传输层 DATA 方块显示开关
     this._snapPerf = 0             // 最近一次快照到达的本地时刻 (总线点本地续走用)
@@ -218,6 +219,12 @@ export class Radar2D {
   setLayer(layer, on) {
     if (layer === 'chain') this.showChain = !!on
     if (layer === 'data') this.showData = !!on
+  }
+
+  /* 画布配色主题: 'dark' | 'light' —— 各绘制层从 styles.THEME 取色 */
+  setTheme(name) {
+    this.theme = name === 'light' ? 'light' : 'dark'
+    this.staticDirty = true
   }
 
   select(id) {

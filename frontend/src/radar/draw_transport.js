@@ -1,7 +1,7 @@
 // 传输层绘制器: 真实 DATA 报文可视化 (活跃边/排队徽章/匀速方块/标记环/闪烁/红叉)
 // (挂到 Radar2D.prototype; _drawTransport 为编排, 各小节独立成法)
 
-import { DATA_HOP_S } from './styles'   // DATA 方块每跳视觉耗时 (匀速动画)
+import { DATA_HOP_S, THEME } from './styles'   // DATA 方块每跳视觉耗时 / 明暗调色板
 
 // 信道配色: 与后端 rscspa 的 3 信道一一对应
 const CHAN_COL = ['#00E8FF', '#FFC04D', '#B08CFF']
@@ -62,13 +62,14 @@ export const transportDraw = {
 
   // 1) 有真实流量的边自动亮起 (青色霓虹, 盖过静息暗绿; 仅 DATA, 链上点不染边)
   _drawActiveEdges(ctx, lw, nodes, pk) {
+    const T = THEME[this.theme] ?? THEME.dark
     const seen = new Set()
     for (const p of pk) {
       if (p.t < 0 || p.kind !== 'DATA') continue
       seen.add(p.a < p.b ? p.a + '|' + p.b : p.b + '|' + p.a)
     }
     if (!seen.size) return
-    ctx.strokeStyle = 'rgba(0, 220, 215, 0.55)'
+    ctx.strokeStyle = T.activeEdge
     ctx.lineWidth = lw(2.2)
     ctx.shadowColor = '#00CEC9'
     ctx.shadowBlur = 14
@@ -86,6 +87,7 @@ export const transportDraw = {
   // 2) 排队徽章: 节点缓冲中等待发送的报文数 (半双工: 每 tick 每节点仅一个
   //    发送名额)。数字 = 排队中的报文 —— 不再在路上冻结/节点旁堆小方块
   _drawQueueBadges(ctx, lw, nodes, pk) {
+    const T = THEME[this.theme] ?? THEME.dark
     const queued = {}
     for (const p of pk) {
       if (p.t >= 0 || p.kind !== 'DATA') continue
@@ -108,7 +110,7 @@ export const transportDraw = {
       else ctx.rect(x - w / 2, z - h / 2, w, h)
       ctx.fill(); ctx.stroke()
       ctx.shadowBlur = 0
-      ctx.fillStyle = '#EAFDFF'
+      ctx.fillStyle = T.badgeText
       ctx.fillText(String(cnt), x, z + lw(3))
     }
   },
@@ -117,6 +119,7 @@ export const transportDraw = {
   //    快照只负责: 路径形状 / 停驻等待(真实拥塞) / 生命周期 / 严重超前校正。
   //    返回本帧存活的旅程键集合 (孤儿判定用)。
   _drawDataBlocks(ctx, lw, nodes, pk, dt) {
+    const T = THEME[this.theme] ?? THEME.dark
     ctx.font = 'bold ' + Math.max(8, lw(9)) + 'px Consolas,monospace'
     ctx.textAlign = 'center'
     const alive = new Set()
@@ -141,7 +144,7 @@ export const transportDraw = {
       const f = total > 0 ? Math.min(1, Math.max(0, s.h / total)) : 1
       const [x, z] = pointOnPath(path, f)
       this._drawPacketBlock(ctx, lw, x, z, CHAN_COL[p.chan ?? 0] ?? '#00E8FF')
-      ctx.fillStyle = 'rgba(220,245,255,0.9)'
+      ctx.fillStyle = T.text
       const fmtB = (b) => (b >= 1024 ? (b / 1024).toFixed(b % 1024 ? 1 : 0) + 'KB' : b + 'B')
       ctx.fillText('DATA ' + fmtB(p.bytes), x, z - lw(10))
     }
@@ -174,8 +177,9 @@ export const transportDraw = {
       if (!alive.has(k) && (!s.path || s.h >= s.total)) this._pkSmooth.delete(k)
   },
 
-  // 单个 DATA 方块 (发光圆角方块本体)
+  // 单个 DATA 方块 (发光圆角方块本体; 浅色主题补深色描边防发虚)
   _drawPacketBlock(ctx, lw, x, z, col) {
+    const T = THEME[this.theme] ?? THEME.dark
     ctx.shadowColor = col
     ctx.shadowBlur = 10
     ctx.fillStyle = col
@@ -185,15 +189,21 @@ export const transportDraw = {
     else ctx.rect(x - w / 2, z - w / 2, w, w)
     ctx.fill()
     ctx.shadowBlur = 0
+    if (T.outline) {
+      ctx.strokeStyle = T.outline
+      ctx.lineWidth = lw(0.7)
+      ctx.stroke()
+    }
   },
 
   // 4) 在途报文的源/目的节点标记环  5) 发消息模式: 源节点常亮大环
   _drawMarkers(ctx, lw, nodes) {
+    const T = THEME[this.theme] ?? THEME.dark
     for (const tr of this.snapshot.traffic ?? []) {
       const dst = tr.path?.[tr.path.length - 1]
       const s1 = nodes[tr.src], s2 = nodes[dst]
-      if (s1) this._ring(ctx, s1.x, s1.z, lw(12), 'rgba(0,232,255,0.8)', lw(1.4))
-      if (s2 && dst !== tr.src) this._ring(ctx, s2.x, s2.z, lw(14), 'rgba(255,255,255,0.7)', lw(1.4))
+      if (s1) this._ring(ctx, s1.x, s1.z, lw(12), T.markerSrc, lw(1.4))
+      if (s2 && dst !== tr.src) this._ring(ctx, s2.x, s2.z, lw(14), T.markerDst, lw(1.4))
     }
     if (this.sendFrom) {
       const s1 = nodes[this.sendFrom]
@@ -217,6 +227,7 @@ export const transportDraw = {
 
   // 7) 失败红叉: 报文死在哪 (超时/无路/重传耗尽/握手失败), 红叉停 2s 淡出
   _drawCrosses(ctx, lw, dt) {
+    const T = THEME[this.theme] ?? THEME.dark
     for (let i = this.crosses.length - 1; i >= 0; i--) {
       const c = this.crosses[i]
       c.age += dt
@@ -232,7 +243,7 @@ export const transportDraw = {
       ctx.moveTo(c.x + s, c.z - s); ctx.lineTo(c.x - s, c.z + s)
       ctx.stroke()
       ctx.shadowBlur = 0
-      ctx.fillStyle = 'rgba(255, 150, 140, ' + (a * 0.9).toFixed(3) + ')'
+      ctx.fillStyle = T.failText
       ctx.fillText('✗ 报文失败', c.x, c.z + lw(20))
     }
   },

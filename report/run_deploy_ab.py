@@ -21,18 +21,29 @@ ROOT = Path(__file__).parent.parent
 OUT = Path(__file__).parent
 ROUNDS = 3
 SECS = 600
+PORT = 5000          # 实验专用端口 (argv[3]; 5001 等可与正在跑的其他实验隔离)
+# 启动器可执行文件: 优先 pythonw.exe (无窗映像名) —— 同工作区其他批量脚本
+# 的"孤儿引擎清扫"按 IMAGENAME=python.exe 识别目标, pythonw 不在其列,
+# 实验服务器在共用机器上不会被误杀 (功能与 python 完全一致)
+import sys   # 标准库: 定位同目录解释器
+PYW = Path(sys.executable).with_name("pythonw.exe")
+PYTHON_BIN = str(PYW) if PYW.exists() else sys.executable
+# 端口启动器: main.py 固定读 config.PORT, 非默认端口经本启动器注入
+LAUNCH = ("import uvicorn; from sim import config; config.PORT=%d; "
+          "import main; uvicorn.run(main.app, host='127.0.0.1', "
+          "port=%d, ws=config.WS_BACKEND)")
 KEYS = ["beacons_deployed", "coverage_integral_pct_s", "coverage_min_pct",
         "waste_rate_pct"]
 
 
 def restart_server():
-    """协议: 重启服务器 (杀 :5000 监听进程 -> 干净进程拉起 -> 探活)。"""
+    """协议: 重启实验端口服务器 (杀监听进程 -> 干净拉起 -> 探活)。"""
     pid = None
     try:
         net = subprocess.run(["netstat", "-ano"], capture_output=True,
                              timeout=10).stdout.decode("gbk", errors="ignore")
         for line in net.splitlines():
-            if ":5000" in line and "LISTENING" in line:
+            if f":{PORT} " in line and "LISTENING" in line:
                 pid = line.split()[-1]
                 break
     except Exception:
@@ -41,29 +52,35 @@ def restart_server():
         subprocess.run(["taskkill", "/PID", pid, "/F"], capture_output=True,
                        timeout=15)
         time.sleep(1.5)
-    subprocess.Popen(["python", "main.py"], cwd=str(ROOT / "backend"),
+    subprocess.Popen([PYTHON_BIN, "-c", LAUNCH % (PORT, PORT)],
+                     cwd=str(ROOT / "backend"),
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(30):
         time.sleep(1)
         try:
-            with urllib.request.urlopen("http://127.0.0.1:5000/health",
-                                        timeout=2) as r:
+            with urllib.request.urlopen(
+                    f"http://127.0.0.1:{PORT}/health", timeout=2) as r:
                 if json.loads(r.read()).get("tick", 0) > 0:
                     return True
         except Exception:
             pass
-    raise RuntimeError("服务器重启后探活失败")
+    raise RuntimeError(f"实验服务器({PORT})重启后探活失败")
 
 
 def run_once(rl: bool) -> dict:
     """跑一轮道钉采集器, 返回其 DONE 行 JSON。
     --seeded: 采集器 random.seed(2000), A/B 流量序列同源; 灾害序列由
     墙钟灾害槽 (每 60s 一槽) 同节拍驱动 —— 配对可比。"""
-    cmd = ["python", "-u", str(OUT / "collect_deploy.py"), str(SECS), "--seeded"]
+    cmd = [PYTHON_BIN, "-u", str(OUT / "collect_deploy.py"), str(SECS),
+           "--seeded", f"--port={PORT}"]   # 采集器同用 pythonw: 避开同工作区
+                                            # 其他批量脚本的"孤儿清扫"(按映像名)
     if rl:
         cmd.append("--deploy-rl")
-    proc = subprocess.run(cmd, cwd=str(ROOT), capture_output=True,
-                          timeout=SECS + 300)
+    try:
+        proc = subprocess.run(cmd, cwd=str(ROOT), capture_output=True,
+                              timeout=SECS + 300)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"采集超时(>{SECS + 300}s, 疑似卡死) rl={rl}")
     out = proc.stdout.decode("utf-8", errors="replace")
     err = proc.stderr.decode("utf-8", errors="replace")
     m = re.search(r"DEPLOY DONE (\{.*\})", out)
@@ -85,32 +102,38 @@ def agg(rows):
 
 
 def main():
-    """批量执行入口: 可选 argv[1]=轮数(默认3), argv[2]=每组秒数(默认600)。"""
+    """批量执行入口: argv[1]=轮数(3) argv[2]=每组秒数(600) argv[3]=端口(5000)。"""
     import sys   # 标准库: 命令行参数
-    global ROUNDS, SECS
+    global ROUNDS, SECS, PORT
     if len(sys.argv) > 1 and sys.argv[1].isdigit():
         ROUNDS = int(sys.argv[1])
     if len(sys.argv) > 2 and sys.argv[2].isdigit():
         SECS = int(sys.argv[2])
+    if len(sys.argv) > 3 and sys.argv[3].isdigit():
+        PORT = int(sys.argv[3])
     rounds, secs = ROUNDS, SECS
     runs = {"A": [], "B": []}
     retries = []
     t0 = time.time()
     for group, rl in (("A", False), ("B", True)):
         for i in range(1, rounds + 1):
+            r = None
             for attempt in range(1, 4):
                 # A 组每轮重启 (无状态); B 组仅第 1 轮重启 (保 Q 表连跑)
                 if group == "A" or i == 1:
                     print(f"[{group}组 轮{i}] 重启服务器...", flush=True)
                     restart_server()
                 try:
-                    r = run_once(rl, i)
+                    r = run_once(rl)
                     break
                 except RuntimeError as e:
                     retries.append({"group": group, "round": i,
-                                    "attempt": attempt, "why": str(e)[:120],
+                                    "attempt": attempt, "why": str(e)[:600],
                                     "qtable_lost": group == "B" and i > 1})
-                    print(f"[{group}组 轮{i} 第{attempt}试失败重试]", flush=True)
+                    print(f"[{group}组 轮{i} 第{attempt}试失败重试] "
+                          f"原因: {str(e)[:600]}", flush=True)
+            if r is None:
+                raise RuntimeError(f"{group}组 轮{i} 连续 3 次采集失败, 中止")
             r["_round"] = i
             runs[group].append(r)
             print(f"[{group}组 轮{i}] 落钉 {r.get('beacons_deployed')} 根 | "

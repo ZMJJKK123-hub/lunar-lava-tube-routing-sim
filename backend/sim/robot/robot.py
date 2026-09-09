@@ -27,6 +27,7 @@ from .constants import (BEACON_STOCK, INVESTIGATE_COOLDOWN,   # 道钉库存/核
 from .deploy import DeployMixin             # 工程动作: 道钉投放/快照导出
 from .motion import MotionMixin             # 运动学能力 (移动/视线/路点)
 from .rescue import RescueMixin             # 救援状态机分支 (三态推进)
+from .rl_gate import observe_learner, want_deploy, wait_giveup   # 道钉学习问询门
 from .senses import SenseMixin              # 感知能力 (听测/情报/任务挑选)
 
 log = logging.getLogger(__name__)   # 本模块日志器
@@ -74,6 +75,7 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
         self._stuck = 0                  # 连续全向受阻计数 (撞墙检测; 移动成功清零)
         self._iso: dict[str, int] = {}      # nid -> 连续失联 tick 数
         self.sos_active: set[str] = set()   # 正在呼救的节点
+        self._deploy_wait_until: dict[str, int] = {}   # 道钉学习器「忍」冷却表 (nid -> tick)
         # 全同步观察者入链: 转发/追块全真, 但不在共识名单 (不出块/不遥测)
         engine.chain_net.register_node(ROBOT_ID)
 
@@ -116,22 +118,26 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
 
     # ======== 挂点②: 每 tick 推进 (路由算完后) ========
     def tick(self, tick: int):
-        """机器人主推进: 呼救判定 -> 状态机与移动。
+        """机器人主推进: 呼救判定 -> 状态机与移动 -> 学习器结算扫描。
 
         Args: tick: 当前仿真 tick。Returns: None。
-        Globals Used: None。Calls: _update_sos[SenseMixin] / _advance。
+        Globals Used: None。Calls: _update_sos[SenseMixin] / _advance /
+        observe_learner[rl_gate] (挂点③: 无学习器时零开销)。
         """
         self._update_sos(tick)
         self._advance(tick)
+        observe_learner(self, tick)
 
     # ---- 状态机与移动 ----
     def _advance(self, tick: int):
         eng = self.eng
         # 桥接检测: 有真实节点的路径正经过机器人 (代价罚保证只有孤岛会这样)
-        # -> 此地此刻已被机器人物理验证可搭桥, 落道钉固化, 机器人继续巡逻
+        # -> 此地此刻已被机器人物理验证可搭桥, 落道钉固化, 机器人继续巡逻。
+        # 问询门放最后 (短路): 确定本拍真要落钉才消耗一次 ε 决策样本
         if (tick >= self._deaf_until and self.stock > 0 and self._deploy_ok()
                 and any(ROBOT_ID in (r.get("path") or [])
-                        for nid, r in eng.routes.items() if nid != ROBOT_ID)):
+                        for nid, r in eng.routes.items() if nid != ROBOT_ID)
+                and want_deploy(self, self.target[0] if self.target else None, "sos")):
             log.info("桥接检测命中: 有路径正经过机器人, 落钉")
             self._deploy_beacon()
         self._pick_task(tick)
@@ -205,6 +211,7 @@ class PatrolRobot(MotionMixin, SenseMixin, RescueMixin, DeployMixin):
         self.state = "PATROL"
         self.target = None
         self._deaf_until = tick + RESCUE_DEAF
+        wait_giveup(self, tid)   # 道钉学习器终局: 该目标的「忍」按忍到放弃结算
         log.info("放弃救援 %s (%s): 耳聋至 t%d 冷却至 t%d",
                  tid, why, self._deaf_until,
                  tick + INVESTIGATE_COOLDOWN)

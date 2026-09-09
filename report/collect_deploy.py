@@ -20,7 +20,11 @@ from pathlib import Path        # 标准库: 产物路径
 
 import websocket     # 第三方: WS 客户端 (websocket-client)
 
-WS_URL = "ws://127.0.0.1:5000/ws"
+PORT = 5000          # 目标服务器端口 (--port=5001 等可覆盖, 与主实验隔离)
+for _a in sys.argv[1:]:
+    if _a.startswith("--port="):
+        PORT = int(_a.split("=", 1)[1])
+WS_URL = f"ws://127.0.0.1:{PORT}/ws"
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 600
 RL_MODE = "--deploy-rl" in sys.argv       # B 组: 道钉时机 Q-learning
 TRAFFIC_SEED = 2000 if "--seeded" in sys.argv else None
@@ -91,8 +95,10 @@ while time.time() - t0 < DURATION:
               flush=True)
         next_hb = now + 5.0
     if now >= next_freeze:                # 墙钟冻结检测 (30s 探一次水位)
+        # 阈值 12 tick/30s (0.4 tick/s): 共用机器上与另一实验共存时的
+        # 阵发降速是可接受的 (快照是无状态采样), 真死锁才判冻结
         next_freeze = now + 30.0
-        if freeze_probe and latest.get("tick", 0) - freeze_probe < 40:
+        if freeze_probe and latest.get("tick", 0) - freeze_probe < 12:
             print("COLLECTOR ABORT: tick 冻结", flush=True)
             sys.exit(3)
         freeze_probe = latest.get("tick", 0)
@@ -100,39 +106,52 @@ while time.time() - t0 < DURATION:
         print("COLLECTOR ABORT: tick 停走 >15s", flush=True)
         sys.exit(2)
     # 灾害槽: 制造孤岛/弱链 -> 救援样本 (A/B 同节拍同种类, 配对可比)
+    # (发送全部装甲: 瞬时网络抖动只丢一拍, 不让采集器整轮报废 —— 同基线采集器)
     slot = int((now - t0 - 20.0) / DISASTER_EVERY_S)
     if slot >= 0 and slot != disaster_slot:
         disaster_slot = slot
         kind = DISASTERS[slot % len(DISASTERS)]
-        if kind == "jammer":
-            if latest.get("jammer"):      # 上一槽未关 (节拍漂移) -> 先召回
+        try:
+            if kind == "jammer":
+                if latest.get("jammer"):      # 上一槽未关 (节拍漂移) -> 先召回
+                    ws.send(json.dumps({"cmd": "disaster", "kind": "jammer"}))
+                    jammer_on_at = None
                 ws.send(json.dumps({"cmd": "disaster", "kind": "jammer"}))
-                jammer_on_at = None
-            ws.send(json.dumps({"cmd": "disaster", "kind": "jammer"}))
-            jammer_on_at = now
-        else:
-            ws.send(json.dumps({"cmd": "disaster", "kind": kind}))
-        disasters_sent += 1
+                jammer_on_at = now
+            else:
+                ws.send(json.dumps({"cmd": "disaster", "kind": kind}))
+            disasters_sent += 1
+        except Exception:
+            pass
     if jammer_on_at and now - jammer_on_at > JAMMER_WINDOW_S:
-        ws.send(json.dumps({"cmd": "disaster", "kind": "jammer"}))   # 召回
+        try:
+            ws.send(json.dumps({"cmd": "disaster", "kind": "jammer"}))   # 召回
+        except Exception:
+            pass
         jammer_on_at = None
     if now >= next_traffic:               # 轻流量: 随机存活节点 -> sink
-        nodes = [k for k, v in latest.get("nodes", {}).items()
-                 if v.get("state") != "DEAD" and k != "NODE-00"]
-        if nodes:
-            ws.send(json.dumps({"cmd": "send_msg", "src": random.choice(nodes),
-                                "dst": "NODE-00", "bytes": random.choice([512, 1024])}))
-            traffic_sent += 1
+        try:
+            nodes = [k for k, v in latest.get("nodes", {}).items()
+                     if v.get("state") != "DEAD" and k != "NODE-00"]
+            if nodes:
+                ws.send(json.dumps({"cmd": "send_msg", "src": random.choice(nodes),
+                                    "dst": "NODE-00", "bytes": random.choice([512, 1024])}))
+                traffic_sent += 1
+        except Exception:
+            pass
         next_traffic = now + TRAFFIC_EVERY_S
     try:
-        msg = json.loads(ws.recv())
-        recv_n += 1
-        if msg.get("tick") is not None:
-            if latest and msg["tick"] > latest.get("tick", -1):
-                stale_since = now
-            latest = msg
+        # 排空式接收: 每轮最多清 60 条积压 (5Hz x 12s 上限; 必须有界 ——
+        # 广播永续, 只靠超时判空会死循环; 断连异常同样必须跳出)
+        for _ in range(60):
+            msg = json.loads(ws.recv())
+            recv_n += 1
+            if msg.get("tick") is not None:
+                if latest and msg["tick"] > latest.get("tick", -1):
+                    stale_since = now
+                latest = msg
     except websocket.WebSocketTimeoutException:
-        pass
+        pass                                    # 队列排空: 正常继续
     except Exception:
         time.sleep(0.5)
     if now >= next_sample and latest:

@@ -25,3 +25,6 @@ plan.md
 
 # ZCode 会话产物(本地工具状态)
 .zcode/
+
+# 轮转日志副本
+backend/sim.log.*

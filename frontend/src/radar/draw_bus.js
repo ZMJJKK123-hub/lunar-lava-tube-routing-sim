@@ -8,7 +8,7 @@
 // 样式表可选覆盖 (styles.KIND_STYLE), 未知 kind 按名称哈希自动配色 (零注册);
 // r=false 的跳半透明 (接收方已去重吸收, 波前止步)。
 
-import { BUS_HOP_MS, KIND_STYLE, autoKindStyle } from './styles'   // 总线节拍/样式表/零注册兜底取色
+import { BUS_HOP_MS, KIND_STYLE, THEME, autoKindStyle } from './styles'   // 总线节拍/样式表/调色板/零注册兜底取色
 
 export const busDraw = {
   _drawBusDots(ctx) {
@@ -44,6 +44,7 @@ export const busDraw = {
     ctx.translate(this.view.x, this.view.y)
     ctx.scale(this.view.scale, this.view.scale)
     const lw = (px) => px / this.view.scale
+    const T = THEME[this.theme] ?? THEME.dark
     const now = this._pnow() - 150        // 渲染延迟: 播放 150ms 前的世界
     for (const p of hops) {
       const na = nodes[p.a], nb = nodes[p.b]
@@ -65,6 +66,13 @@ export const busDraw = {
         ctx.beginPath()
         ctx.arc(x, z, lw(st.size), 0, Math.PI * 2)
         ctx.fill()
+        // 浅色主题: 纯发光点在浅底上发虚, 补一圈深色细描边 (含 BLOCK 等亮色大点)
+        if (T.outline) {
+          ctx.shadowBlur = 0
+          ctx.strokeStyle = T.outline
+          ctx.lineWidth = lw(0.6)
+          ctx.stroke()
+        }
       }
     }
     ctx.globalAlpha = 1

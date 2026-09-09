@@ -1,11 +1,14 @@
 // Hover 层绘制器: 悬停节点的邻域情报 (通信圈/高亮边/超距衰减线/被挡视线)
 // (挂到 Radar2D.prototype; 仅 hoverId 存在时由 _frame 调用)
 
+import { THEME } from './styles'
+
 export const hoverDraw = {
   /* ---------- Hover 层: 局部高亮 + 波浪脉冲 ---------- */
   _drawHoverGlow(ctx) {
     const A = this.snapshot.nodes[this.hoverId]
     if (!A) return
+    const T = THEME[this.theme] ?? THEME.dark
     ctx.save()
     ctx.translate(this.view.x, this.view.y)
     ctx.scale(this.view.scale, this.view.scale)
@@ -15,18 +18,18 @@ export const hoverDraw = {
     // 圈内 = 距离上可达(是否直连还看视线遮挡); 圈外 = 超距
     const R_COMM = 30 * 10
     const fillG = ctx.createRadialGradient(A.x, A.z, 0, A.x, A.z, R_COMM)
-    fillG.addColorStop(0, 'rgba(0,206,201,0.06)')
+    fillG.addColorStop(0, T.hoverFill)
     fillG.addColorStop(1, 'rgba(0,206,201,0)')
     ctx.fillStyle = fillG
     ctx.beginPath(); ctx.arc(A.x, A.z, R_COMM, 0, Math.PI * 2); ctx.fill()
     ctx.setLineDash([lw(14), lw(10)])
-    ctx.strokeStyle = 'rgba(0,206,201,0.4)'
+    ctx.strokeStyle = T.hoverEdge
     ctx.lineWidth = lw(1.4)
     ctx.beginPath(); ctx.arc(A.x, A.z, R_COMM, 0, Math.PI * 2); ctx.stroke()
     ctx.setLineDash([])
 
     // 高亮邻边: 半透明底线 + 霓虹光晕 (真实报文方块由动态层负责)
-    ctx.strokeStyle = 'rgba(0, 206, 201, 0.4)'
+    ctx.strokeStyle = T.hoverEdge
     ctx.lineWidth = lw(2)
     ctx.shadowColor = '#00CEC9'
     ctx.shadowBlur = 18
@@ -44,13 +47,14 @@ export const hoverDraw = {
     this._drawBlockedSight(ctx, lw, A)
 
     // 悬停节点本体高亮圈
-    ctx.strokeStyle = '#FFFFFF'
+    ctx.strokeStyle = T.hoverRing
     ctx.lineWidth = lw(1.6)
     ctx.beginPath(); ctx.arc(A.x, A.z, lw(13), 0, Math.PI * 2); ctx.stroke()
     ctx.restore()
   },
 
   _drawOutOfRange(ctx, lw, A) {
+    const T = THEME[this.theme] ?? THEME.dark
     const RANGE = 30 * 10            // UWB 仿真半径 30 x WORLD_SCALE 10 = 300 世界米
     const far = []
     for (const n2 of Object.values(this.snapshot.nodes)) {
@@ -60,13 +64,13 @@ export const hoverDraw = {
     }
     far.sort((p, q) => p[0] - q[0])
     ctx.lineCap = 'butt'
-    ctx.fillStyle = 'rgba(180,180,200,0.75)'
+    ctx.fillStyle = T.farLabel
     ctx.font = Math.max(9, lw(10)) + 'px Consolas,monospace'
     for (const [d, n2] of far.slice(0, 3)) {
       const SEG = 8
       for (let k = 0; k < SEG; k++) {
         const t0 = k / SEG, t1 = (k + 1) / SEG
-        ctx.strokeStyle = 'rgba(150,162,188,' + (0.5 * (1 - k / SEG) + 0.04).toFixed(3) + ')'
+        ctx.strokeStyle = 'rgba(' + T.farRGB + ',' + (0.5 * (1 - k / SEG) + 0.04).toFixed(3) + ')'
         ctx.lineWidth = lw(2.8 * (1 - k / SEG) + 0.22)
         ctx.beginPath()
         ctx.moveTo(A.x + (n2.x - A.x) * t0, A.z + (n2.z - A.z) * t0)

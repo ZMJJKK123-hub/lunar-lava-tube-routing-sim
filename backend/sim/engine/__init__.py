@@ -23,6 +23,7 @@ from collections import deque   # 标准库: history 滚动曲线 (定长)
 from ..config import (JAM_LIFT_MAX_DB, JAM_RADIUS, JAM_SPEED,   # 干扰源抬升/半径/速度
                       LOG_TICK_EVERY, ROBOT_ENABLED,   # 日志采样/功能开关
                       RL_CHANNEL_ENABLED,               # B组实验: 信道决策器开关
+                      RL_DEPLOY_ENABLED,                # RL试点②: 道钉时机决策开关
                       SEED, TICK_BROADCAST_S, TICK_PHYS_S)  # 种子/主循环节拍
 from ..node import Node                     # 节点数据类 (类型注解用)
 from ..transport import TransportLayer      # 传输层 (真实报文收发)
@@ -30,6 +31,7 @@ from ..blockchain import BlockchainNetwork  # 账本网络 (全网状态同步)
 from ..robot import PatrolRobot             # 巡检机器人 (SOS/道钉)
 from .api import ApiMixin                   # 对外指令 (上帝模式/灾害)
 from .events import EventHub, zh            # 事件总线与中文口语化
+from .experiments import ExperimentsMixin   # 实验开关 (道钉时机 Q-learning)
 from .network import NetworkMixin           # 链路/路由/模式机
 from .snapshot import SnapshotMixin         # 快照/渲染总线
 from .world import WorldMixin               # 地质/LOS
@@ -37,7 +39,8 @@ from .world import WorldMixin               # 地质/LOS
 log = logging.getLogger(__name__)   # 本模块日志器 (tick 异常可见, 不打断仿真)
 
 
-class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
+class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, ExperimentsMixin,
+                       SnapshotMixin):
     """职责: 仿真引擎门面: 装配各层 + 主循环 + 上帝重置。
 
     核心属性:
@@ -79,6 +82,13 @@ class SimulationEngine(WorldMixin, NetworkMixin, ApiMixin, SnapshotMixin):
         # 惰性创建的学习器实例 (reset 重建即弃表, 每次实验从头学)
         self.rl_channels = RL_CHANNEL_ENABLED
         self.rl_learner = None
+        # C 组阴性对照开关: 均匀随机信道 (无规则无学习, 实验效度检验用)
+        self.random_channels = False
+        # RL 试点②: 道钉投/忍决策开关 (False=规则恒投, 学习器仍审计落钉;
+        # True=Q-learning 学时机)。开关与学习器均跨 reset 保留 —— 世界种子
+        # 相同经验可迁移, 连续多轮实验可见学习曲线; toggle 关闭时才弃表
+        self.rl_deploy = getattr(self, "rl_deploy", RL_DEPLOY_ENABLED)
+        self.rl_deploy_learner = getattr(self, "rl_deploy_learner", None)
         # 传输层: 真实报文 store-and-forward (接纳/重传/超时/字节计数)
         self.transport = TransportLayer(self)
         # 渲染总线: 收发点调 vis_packet() 即自动上屏, 新报文类型零注册

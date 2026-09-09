@@ -20,6 +20,7 @@ export default function App() {
   const [logOpen, setLogOpen] = useState(true)
   const [chainOpen, setChainOpen] = useState(false)   // 账本面板默认收起 (常驻会遮挡画布; 从信息菜单开)
   const [chainFlow, setChainFlow] = useState(true)
+  const [theme, setTheme] = useState('dark')   // 画布主题: dark 默认 / light 亮色背景 (信息菜单设置)
   const [resetArmed, setResetArmed] = useState(false)
   const resetTimer = useRef(null)
 
@@ -54,7 +55,7 @@ export default function App() {
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <div ref={mountRef} style={{ position: 'absolute', inset: 0, background: '#0A0F1A' }} />
+      <div ref={mountRef} style={{ position: 'absolute', inset: 0, background: theme === 'light' ? '#E7ECF3' : '#0A0F1A' }} />
       <GlobalHUD
         stats={snapshot?.stats}
         mode={snapshot?.mode}
@@ -64,6 +65,8 @@ export default function App() {
         jammerOn={!!snapshot?.jammer}
         rlOn={!!snapshot?.rl?.enabled}
         onToggleRl={() => clientRef.current?.send({ cmd: 'toggle_rl' })}
+        deployRlOn={!!snapshot?.rl_deploy?.enabled}
+        onToggleDeployRl={() => clientRef.current?.send({ cmd: 'toggle_rl_deploy' })}
         onDisaster={disaster}
         wallMode={wallMode}
         onToggleWall={() => { const v = !wallMode; setWallMode(v); radarRef.current?.setWallMode(v) }}
@@ -85,6 +88,8 @@ export default function App() {
           }
         }}
         onToggleChainFlow={() => { const v = !chainFlow; setChainFlow(v); radarRef.current?.setLayer('chain', v) }}
+        lightBg={theme === 'light'}
+        onToggleTheme={() => { const v = theme === 'light' ? 'dark' : 'light'; setTheme(v); radarRef.current?.setTheme(v) }}
       />
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
       {chainOpen && (

@@ -19,16 +19,23 @@ import websocket     # 第三方: WS 客户端 (websocket-client)
 
 WS_URL = "ws://127.0.0.1:5000/ws"
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 600
-RL_MODE = "--rl" in sys.argv          # B 组: 信道 Q-learning (A/B 同口径对比)
+ARM = "A"                          # 实验臂: A=RCSPA规则 B=Q-learning C=随机信道(阴性对照)
+LOAD_EVERY_S = 2.0                 # 流量注入节拍 (秒; 压力条件可加密)
 TRAFFIC_SEED = None
 for _a in sys.argv[1:]:
+    if _a.startswith("--arm="):
+        ARM = _a.split("=", 1)[1].upper()
+    if _a.startswith("--load="):
+        LOAD_EVERY_S = float(_a.split("=", 1)[1])
     if _a.startswith("--traffic-seed="):
         TRAFFIC_SEED = int(_a.split("=", 1)[1])
 if TRAFFIC_SEED is None and "--seeded" in sys.argv:
     TRAFFIC_SEED = 1000
-GROUP = "B-rl-qlearning" if RL_MODE else "A-baseline-rcspa"
-PREFIX = "rl_qlearning" if RL_MODE else "baseline_rcspa"
-TRAFFIC_EVERY_S = 2.0
+RL_MODE = ARM == "B"               # 兼容旧 --rl 语义
+GROUP = {"A": "A-baseline-rcspa", "B": "B-rl-qlearning",
+         "C": "C-random-channel"}[ARM]
+PREFIX = {"A": "baseline_rcspa", "B": "rl_qlearning",
+          "C": "random_channel"}[ARM]
 SAMPLE_EVERY_S = 5.0
 OUT = Path(__file__).parent
 
@@ -54,8 +61,9 @@ if RL_MODE:
                 _rl_latest = _m
         except Exception:
             pass
-    ws.send(json.dumps({"cmd": "toggle_rl"}))
-print("STEP3 reset 已发", flush=True)
+    ws.send(json.dumps({"cmd": "toggle_rl" if ARM == "B"
+                        else "toggle_random_ch"}))
+print(f"STEP3 reset 已发 (arm={ARM}, load={LOAD_EVERY_S}s)", flush=True)
 
 # 统一预热排水 (边收边等到 settle 终点; 盲等会反压冻结服务器)
 while time.time() < _settle_until:
@@ -83,6 +91,7 @@ freeze_probe = [0]             # 墙钟冻结检测: 上一探测点的 tick 水
 next_freeze = 0.0              # 下次冻结检测时刻 (循环前锚定 t0)
 acks = {"admitted": 0, "rejected": 0, "reject_signals": {}}
 settled = {}             # 客户端累计结算: msg_id -> 终态 (不依赖日志文件)
+raw_settle = []          # 逐报文原始记录 (id/终态/时延/重传/时刻)
 t0 = time.time()
 next_freeze = t0 + 30.0        # 冻结检测时刻 (t0 就绪后锚定)
 t0_hms = time.strftime("%H:%M:%S")
@@ -121,7 +130,7 @@ while time.time() - t0 < DURATION:
                 traffic_sent += 1
         except Exception:
             pass
-        next_traffic = now + TRAFFIC_EVERY_S
+        next_traffic = now + LOAD_EVERY_S
     try:
         msg = json.loads(ws.recv())
         recv_n += 1
@@ -135,7 +144,12 @@ while time.time() - t0 < DURATION:
         for r in msg.get("transport", {}).get("results", []):
             mid = r.get("msg_id")      # 客户端累计结算 (按 msg_id 去重,
             if mid is not None:        #  不依赖 sim.log —— 文件日志会死)
-                settled[str(mid)] = r.get("status")
+                if str(mid) not in settled:
+                    settled[str(mid)] = r.get("status")
+                    raw_settle.append({          # 逐报文原始留存
+                        "id": mid, "st": r.get("status"),
+                        "tk": r.get("ticks"), "rt": r.get("retries"),
+                        "t": round(time.time() - t0, 1)})
         if msg.get("tick") is not None:
             if latest and msg["tick"] > latest.get("tick", -1):
                 stale_since = now
@@ -153,16 +167,51 @@ while time.time() - t0 < DURATION:
             "coverage_pct": st.get("coverage_pct"), "mean_degree": st.get("mean_degree"),
             "avg_snr_db": st.get("avg_snr_db"), "avg_soc_pct": st.get("avg_soc_pct"),
             "fragile_nodes": st.get("fragile_nodes"), "max_hop": st.get("max_hop"),
-            "delivered": tr.get("delivered"), "timeout": tr.get("timeout"),
+            "cum_delivered": sum(1 for v in settled.values()
+                                 if v == "DELIVERED"),
+            "cum_failed": sum(1 for v in settled.values()
+                              if v not in ("DELIVERED", None)),
             "inflight": tr.get("inflight"),
-            "retries": tr.get("retries"), "drops": tr.get("drops"),
         })
+        rlst = latest.get("rl") or {}
+        if samples:
+            samples[-1].update({"eps": rlst.get("epsilon"),
+                                "qe": rlst.get("q_entries"),
+                                "ar": rlst.get("avg_reward_100")})
         next_sample = time.time() + SAMPLE_EVERY_S
 
-# 末帧: 直接用主循环的最新快照 (广播 5Hz, latest 距今 ≤5s, 无需再排空 ——
-# 曾经的 while-True 排空在永续广播流里永不超时, 是采集器挂死的真凶)
+# 尾部排水: 停表后只收帧 30s, 让在途报文全部结算 (修截尾偏差)
+_t_drain = time.time()
+while time.time() - _t_drain < 30.0:
+    try:
+        msg = json.loads(ws.recv())
+        if msg.get("tick") is not None:
+            latest = msg
+            for r in msg.get("transport", {}).get("results", []):
+                mid = r.get("msg_id")
+                if mid is not None and str(mid) not in settled:
+                    settled[str(mid)] = r.get("status")
+                    raw_settle.append({"id": mid, "st": r.get("status"),
+                                       "tk": r.get("ticks"),
+                                       "rt": r.get("retries"),
+                                       "t": round(time.time() - t0, 1)})
+    except Exception:
+        pass
 final = latest
 ws.close()
+
+def _lat_stats(raw, t_from=None, t_to=None):
+    """客户端时延统计 (可按时刻窗切片 —— 学习曲线/首尾对比证据)。"""
+    tk = [r["tk"] for r in raw
+          if r.get("st") == "DELIVERED" and isinstance(r.get("tk"), (int, float))
+          and (t_from is None or r["t"] >= t_from)
+          and (t_to is None or r["t"] < t_to)]
+    if not tk:
+        return None
+    tk.sort()
+    return {"n": len(tk), "mean": round(sum(tk) / len(tk), 2),
+            "p50": tk[len(tk) // 2], "p95": tk[int(len(tk) * .95)]}
+
 
 results = final.get("transport", {}).get("results", [])
 chain = final.get("chain", {})
@@ -197,10 +246,11 @@ meta = {
     "group": GROUP, "git_rev": rev,
     "started_at": datetime.now().isoformat(timespec="seconds"),
     "duration_s": DURATION, "seed": 42,
-    "traffic": {"every_s": TRAFFIC_EVERY_S, "seed": TRAFFIC_SEED,
+    "traffic": {"every_s": LOAD_EVERY_S, "seed": TRAFFIC_SEED,
                 "sent": traffic_sent,
                 "acks": acks,
-                "profile": "random alive node -> NODE-00, 512/1024/1536B"},
+                "profile": "random alive node -> NODE-00, 512/1024/1536B",
+                "arm": ARM, "load_every_s": LOAD_EVERY_S},
     "switches": {"rl_channels": RL_MODE, "jammer": None, "paused": False},
 }
 summary = {
@@ -213,6 +263,7 @@ summary = {
     "client_delivery_rate_pct": round(100 * sum(1 for v in settled.values()
                                                 if v == "DELIVERED")
                                       / max(1, len(settled)), 1),
+    "client_latency": _lat_stats(raw_settle),
     "delivery_rate_pct": round(100 * cum["delivered"] / max(1, cum["accepted"]), 1),
     "avg_delivery_ticks": round(sum(latencies) / len(latencies), 2) if latencies else None,
     "p95_delivery_ticks": sorted(latencies)[int(len(latencies) * .95)] if latencies else None,
@@ -224,13 +275,17 @@ summary = {
 stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 (OUT / f"{PREFIX}_{stamp}.json").write_text(
     json.dumps({"meta": meta, "summary": summary, "samples": samples,
-                "recent_results": results}, ensure_ascii=False, indent=1),
+                "recent_results": results, "raw_settlements": raw_settle,
+    "latency_first_third": _lat_stats(raw_settle, 0, DURATION * 30 / 100),
+    "latency_last_third": _lat_stats(raw_settle, DURATION * 70 / 100,
+                                     DURATION + 60),
+    "rl_final": final.get("rl")}, ensure_ascii=False, indent=1),
     encoding="utf-8")
 
 lines = [
     f"# {GROUP} 数据", "",
     f"- 版本: git `{rev}` | 世界种子: 42 | 时长: {DURATION}s",
-    f"- 流量: 每 {TRAFFIC_EVERY_S}s 一条随机节点→NODE-00 遥测, 注入 {traffic_sent} 条 "
+    f"- 流量: 每 {LOAD_EVERY_S}s 一条随机节点→NODE-00 遥测, 注入 {traffic_sent} 条 "
     f"(ack 受理 {acks['admitted']} / 拒绝 {acks['rejected']})",
     f"- **累计受理 {cum['accepted']} | 累计送达 {cum['delivered']} | 超时 {cum['timeout']}"
     f"| 送达率 {summary['delivery_rate_pct']}%**",

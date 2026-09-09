@@ -14,6 +14,7 @@ from .constants import (HISTORIC_SPOT_GAIN, INVESTIGATE_COOLDOWN,   # 择点收�
                         RANGE, RESCUE_PATIENCE,                    # 通信半径/救援超时
                         SCOUT_BUDGET_TICKS,                        # 侦察预算 (拍)
                         STUCK_GIVEUP_TICKS)                        # 撞墙放弃阈值 (拍)
+from .rl_gate import want_deploy   # 道钉学习问询门 (落钉瞬间投/忍决策)
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -161,9 +162,11 @@ class RescueMixin:
                 self._assist_spot = spot
                 self._move_toward((spot[0], spot[1]))
                 return
-            if self._deploy_ok():
+            if self._deploy_ok() and want_deploy(self, tid, "assist"):
                 log.info("加固落钉: 为 %s 补链 (原 %d 条)", tid, n.neighbors)
                 self._deploy_beacon()
+            elif self._deploy_ok():
+                pass   # 学习器选择「忍」: 本拍不落钉, 冷却后重评 (任务继续, 超时兜底)
             else:
                 self._giveup(eng, tid, tick, "落点受限 (巨石/钉距), 无法加固")
             return

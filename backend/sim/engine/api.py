@@ -88,6 +88,24 @@ class ApiMixin:
                               "🧪 切回规则模式 (RCSPA)。"))
         return {"ok": True, "rl_channels": self.rl_channels}
 
+    def toggle_random_ch(self):
+        """C 组阴性对照开关 (WS toggle_random_ch 指令): 均匀随机信道。
+        与 B 组互斥 (后开者胜); 关闭即恢复规则 (A 组)。
+
+        Args: None。Returns: dict {ok, random_channels}。
+        Globals Used: None。Calls: _emit。
+        """
+        self.random_channels = not self.random_channels
+        if self.random_channels:
+            self.rl_channels = False       # 互斥: 随机开则 Q-learning 关
+            self.rl_learner = None
+        log.info("随机信道开关 -> %s", self.random_channels)
+        self._emit("rl_toggle", "info",
+                   "🎲 信道决策器切换为 "
+                   + ("均匀随机 (C组阴性对照)" if self.random_channels
+                      else "RCSPA (A组: 规则)"))
+        return {"ok": True, "random_channels": self.random_channels}
+
     def apply_override(self, node_id: str, params: dict):
         """上帝模式: 覆写节点可变参数; 温度/电量越界 -> 当场死亡播报。
         不做即时 compute_network: 引擎每 0.25s 全量重算, 滑块拖动风暴下
