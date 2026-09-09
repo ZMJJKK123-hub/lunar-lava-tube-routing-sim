@@ -16,14 +16,9 @@ report/
 ├── 信道实验/                 ← ZCode 产物: 信道 A/B/C 三臂对比全套
 │   ├── README.md            ← 每个文件、每个数据字段的大白话解释 (先看这个)
 │   ├── comparison_ABC.md    ← ★ 最终报告 (n=5 压力负载 配对三臂)
-│   ├── comparison_AB_avg.md ← 中间版 (n=3 轻负载, 已被上者取代)
-│   ├── comparison_AB.md     ← 最初单跑版 (仅存档)
 │   ├── collect_baseline.py  ← 采集器 (单跑一次实验)
-│   ├── run_ab_batch.py      ← A/B 两臂批量执行器 (旧)
-│   ├── run_abc_batch.py     ← A/B/C 三臂批量执行器 (现行, 带断点续跑)
+│   ├── run_abc_batch.py     ← A/B/C 三臂批量执行器 (带断点续跑)
 │   ├── abc_batch_*.json     ← 三臂实验原始汇总 (含逐报文明细)
-│   ├── ab_batch_*.json      ← 两臂实验原始汇总
-│   ├── abc_state.json       ← 三臂批量执行的断点存档 (续跑用)
 │   └── 每轮原始数据/         ← 34 次单跑的逐场数据 (见该文件夹 README)
 ├── 自愈实验/                 ← ZCode 产物: 网络自愈三实验
 │   ├── README.md            ← 文件与字段解释

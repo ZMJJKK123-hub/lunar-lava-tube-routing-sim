@@ -15,13 +15,9 @@
 | 文件 | 一句话说明 |
 |---|---|
 | `comparison_ABC.md` | **★ 最终结论报告**（n=5 轮、压力负载、配对 t 检验）。只想看结果读它 |
-| `comparison_AB_avg.md` | 中间版本（n=3、轻负载）。轻负载下人人满分没有区分度，被压力版取代 |
-| `comparison_AB.md` | 最早的单跑版本，仅存档 |
 | `collect_baseline.py` | 采集器：连上服务器→重置世界→按设定注入消息流→逐帧记录→落盘 |
 | `run_abc_batch.py` | 批量执行器：自动跑"重启服务器→跑一臂"×15 场，带孤儿清扫/重试/断点续跑 |
-| `run_ab_batch.py` | 旧版两臂批量器（保留可复现历史） |
 | `abc_batch_*.json` | 三臂实验总原始数据：每臂每轮的汇总 + 统计检验结果 |
-| `abc_state.json` | 批量执行的进度存档（每完成一场写一次，中断后可续跑） |
 
 ## 怎么复现
 
@@ -55,9 +51,9 @@ python -u report/信道实验/run_abc_batch.py 5 300
 
 文件名 = `组名_日期_时间`，三种种族对应三臂：
 
-- `baseline_rcspa_*` = A 组（规则）—— 15 场
-- `rl_qlearning_*` = B 组（学习）—— 14 场
-- `random_channel_*` = C 组（随机）—— 10 场
+- `baseline_rcspa_*` = A 组（规则）—— 5 场
+- `rl_qlearning_*` = B 组（学习）—— 5 场
+- `random_channel_*` = C 组（随机）—— 5 场
 
 同一场"轮次"的三臂共享流量种子（如 2001），文件内 `meta.traffic.seed` 可查。
 每个 `.md` 是当场的三行小结；`.json` 是全量原始数据。
