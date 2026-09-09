@@ -24,6 +24,7 @@ from .. import physics                      # 物理层: link_budget/link_cost/d
 from .constants import (BEACON_STOCK, INVESTIGATE_COOLDOWN,   # 道钉库存/核查冷却
                         RANGE, RESCUE_DEAF, RESCUE_PATIENCE,  # 救援节拍
                         ROBOT_LINK_PENALTY, WAYPOINT_PATIENCE)  # 边代价罚/路点耐心
+from .assist import AssistMixin             # 弱链加固任务 (踩点/合法择点/投放)
 from .deploy import DeployMixin             # 工程动作: 道钉投放/快照导出
 from .motion import MotionMixin             # 运动学能力 (移动/视线/路点)
 from .rescue import RescueMixin             # 救援状态机分支 (三态推进)
@@ -34,7 +35,8 @@ from .sos import SosMixin                   # 呼救判定 (布防/解除消抖/
 log = logging.getLogger(__name__)   # 本模块日志器
 
 
-class PatrolRobot(MotionMixin, SenseMixin, SosMixin, RescueMixin, DeployMixin):
+class PatrolRobot(MotionMixin, SenseMixin, SosMixin, RescueMixin,
+                  AssistMixin, DeployMixin):
     """职责: 巡检机器人: 移动资产 + 物理搭桥自愈执行者。
 
     核心属性:

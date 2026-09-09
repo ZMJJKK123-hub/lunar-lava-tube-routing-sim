@@ -2,19 +2,18 @@
 """
 救援状态机分支 (RescueMixin)
 ===============================
-职责: PatrolRobot 的"救援多分支推进" —— 弱链加固(ASSIST) / 目标恢复撤离 /
-到场无果冷却 / 到场无桥重定位 / 超时放弃 / 回撤点判定。决策入口 _rescue_step
-由 robot.py 的 _advance 调用; 移动能力来自 MotionMixin。
+职责: PatrolRobot 的"救援多分支推进" —— SOS 救援/失联核查的目标恢复撤离 /
+到场无果冷却 / 到场无桥重定位 / 超时放弃 / 回撤点判定。弱链加固 (ASSIST)
+分支独立于 assist.py (AssistMixin), 本模块仅分派。
+决策入口 _rescue_step 由 robot.py 的 _advance 调用; 移动能力来自 MotionMixin。
 """
 import logging   # 标准库: 模块日志 (救援分支结局)
 import math   # 标准库: 可桥性预判的距离计算
 
-from ..config import MIN_DEGREE, ROBOT_ID                   # 度数安全线/自身节点标识
-from .constants import (HISTORIC_SPOT_GAIN, INVESTIGATE_COOLDOWN,   # 择点收益门槛/核查冷却
-                        RANGE, RESCUE_PATIENCE,                    # 通信半径/救援超时
-                        SCOUT_BUDGET_TICKS,                        # 侦察预算 (拍)
-                        STUCK_GIVEUP_TICKS)                        # 撞墙放弃阈值 (拍)
-from .rl_gate import want_deploy   # 道钉学习问询门 (落钉瞬间投/忍决策)
+from ..config import ROBOT_ID                   # 协议标识: 自身节点 ID
+from .constants import (INVESTIGATE_COOLDOWN,   # 核查冷却
+                        RANGE, RESCUE_PATIENCE,  # 通信半径/救援超时
+                        STUCK_GIVEUP_TICKS)      # 撞墙放弃阈值 (拍)
 
 log = logging.getLogger(__name__)   # 本模块日志器
 
@@ -23,11 +22,11 @@ class RescueMixin:
     """职责: PatrolRobot 的救援分支混入。
 
     属性要求 (由 PatrolRobot.__init__ 提供): self.eng (引擎引用),
-    self.state/target/_rescue_since (任务状态), self.stock (道钉库存)。
-
-    调用链: robot._advance -> _rescue_step -> (_on_target_recovered |
+    self.state/target/_rescue_since (任务状态), self.stock (道钉库存),
+    self.sos_active (呼救集合), self._deployed_at (最近落钉拍)。
+    调用链: robot._advance -> _rescue_step -> (_target_recovered[SosMixin] |
     _on_investigate_dry | _on_arrived_dry | _giveup | _fallback_step |
-    _advance_to_target[MotionMixin])。
+    _advance_to_target[MotionMixin] | _assist_step[AssistMixin])。
     """
 
     def _rescue_step(self, tick: int):
@@ -70,107 +69,6 @@ class RescueMixin:
             self._fallback_step(eng, tid, tick)
         else:
             self._advance_to_target()
-
-    def _assist_step(self, eng, tid, tick):
-        """弱链加固推进 (ASSIST): 到自举节点身旁落钉补冗余。
-        成功判定与 SOS 救援不同: 目标本就可达 (hop>=0), 完成条件是
-        "度数回到安全线"或"已停止自举", 而非恢复可达。
-
-        Args: eng: 引擎; tid: 目标 id; tick: 当前拍。
-        Returns: None。Globals Used: MIN_DEGREE/INVESTIGATE_COOLDOWN/
-        RESCUE_PATIENCE/RANGE。Calls: _deploy_beacon/_deploy_ok/_giveup/
-        _near/_advance_to_target[MotionMixin]。
-        """
-        n = eng.nodes.get(tid)
-        # 撞墙脱困 (最优先, 先于目标状态判定: 带病计数若不清会毒害下一任务):
-        # 侦察/择点途中被长墙围困 -> 弃点收工原地落钉; 赶路被困 -> 放弃任务
-        if self._stuck >= STUCK_GIVEUP_TICKS:
-            self._stuck = 0
-            if tick < self._scout_until or self._assist_spot is not None:
-                log.info("加固弃点 %s: 采样/择点路径被墙阻断, 原地收工", tid)
-                self._assist_spot = None
-                self._scout_until = tick
-            else:
-                self._giveup(eng, tid, tick, "路径被墙体阻断")
-            return
-        # 完成/失效判定: 目标消失/死亡/不再自举/真实度数回安全线 -> 撤离
-        # (真实度数剔除机器人自身边, 否则"站在目标身边"会被误判为已安全;
-        #  撤离登记冷却: 机器人离开会掉度数, 防同一目标反复触发)
-        deg = self.real_degree(tid)
-        if (n is None or n.state == "DEAD"
-                or not n.power_boosted or deg >= MIN_DEGREE):
-            self.state = "PATROL"
-            self.target = None
-            self._checked_until[tid] = tick + INVESTIGATE_COOLDOWN
-            if n is not None and n.state != "DEAD" and deg >= MIN_DEGREE:
-                log.info("加固完成 %s: 度数=%d, 撤离", tid, deg)
-                eng._emit("robot_assist_done", "ok",
-                          f"🎉 {tid} 链路冗余已补足 ({deg} 条), 机器人撤离",
-                          node=tid)
-            else:
-                log.info("加固结束 %s: 目标恢复或失效, 撤离", tid)
-            return
-        if self.stock == 0:
-            self._giveup(eng, tid, tick, "道钉耗尽")
-            return
-        if tick - self._rescue_since > RESCUE_PATIENCE:
-            self._giveup(eng, tid, tick, "加固超时")
-            return
-        # 到场 (0.6x 半径内): 先侦察踩点 (ASSIST 不赶时间, 主动采样优于被动旧账)
-        if self._near((self.target[1], self.target[2]), RANGE * 0.6):
-            tgt = (self.target[1], self.target[2])
-            if self._scout_until == 0:               # 一次性启动侦察
-                self._scout_vis0 = self._vis_count()
-                self._scout_wps = self._scout_waypoints(tgt)
-                self._scout_until = tick + SCOUT_BUDGET_TICKS
-                log.info("加固侦察 %s: %d 个采样点, 预算 %d 拍, 基线可见 %d",
-                         tid, len(self._scout_wps), SCOUT_BUDGET_TICKS,
-                         self._scout_vis0)
-                eng._emit("robot_scout", "info",
-                          f"🤖 先绕 {tid} 侦察踩点 ({len(self._scout_wps)} 个采样位, "
-                          f"预算 {SCOUT_BUDGET_TICKS} 拍), 再选最佳落钉位",
-                          narration="🤖 机器人先围着目标转一小圈——把周围各个"
-                                    "位置能听见几个节点都记下来, 再挑听得最全"
-                                    "的地方投放道钉。")
-            if tick < self._scout_until:              # 侦察期: 达标即早退, 否则踩点
-                spot = self._best_historic_spot(tgt)
-                if spot is None or spot[2] < self._scout_vis0 + HISTORIC_SPOT_GAIN:
-                    wp = next((p for p in self._scout_wps
-                               if not self._near(p, 40)), None)
-                    if wp is not None:
-                        self._move_toward(wp)
-                        return
-                    self._scout_until = tick          # 路点走完: 提前收工
-            # 落钉选点 (侦察结束/提前达标): 历史最佳严格优于当前位置、且
-            # 机器人->点位不穿墙 (墙后的旧面包屑不可达) 才挪
-            spot = self._best_historic_spot(tgt)
-            if (spot is not None and not self._near(spot, 30)
-                    and spot[2] > self._vis_count()
-                    and math.hypot(spot[0] - self.node.x,
-                                   spot[1] - self.node.z) <= RANGE * 0.6
-                    and not self._hit_wall((self.node.x, self.node.z),
-                                           (spot[0], spot[1]))):
-                if self._assist_spot is None:
-                    log.info("加固择点: 移往最佳点位 (%.0f,%.0f) 可见 %d 节点",
-                             spot[0], spot[1], spot[2])
-                    eng._emit("robot_spot", "info",
-                              f"🤖 选定最佳落钉位 (此地可同时看见 "
-                              f"{spot[2]} 个节点), 移过去投放",
-                              narration="🤖 机器人记得自己在这条路上各个位置"
-                                        "能听见几个节点——它挑了一个听得最全的"
-                                        "位置去投放道钉, 一根钉照顾更多邻居。")
-                self._assist_spot = spot
-                self._move_toward((spot[0], spot[1]))
-                return
-            if self._deploy_ok() and want_deploy(self, tid, "assist"):
-                log.info("加固落钉: 为 %s 补链 (原 %d 条)", tid, n.neighbors)
-                self._deploy_beacon()
-            elif self._deploy_ok():
-                pass   # 学习器选择「忍」: 本拍不落钉, 冷却后重评 (任务继续, 超时兜底)
-            else:
-                self._giveup(eng, tid, tick, "落点受限 (巨石/钉距), 无法加固")
-            return
-        self._advance_to_target()
 
     def _on_target_recovered(self, eng, tid, bridging_now):
         """目标已真恢复可达 (SOS 消抖口径, 常为机器人自身路过桥接)。

@@ -28,6 +28,9 @@ Regardless of whether the current task is routed to Scenario A, B, or C, **the f
    - Strictly forbid mixing business logic with storage/persistence in a single file (presentation, business, and infrastructure layers must be strictly separated).
    - Strictly forbid writing files longer than 250 lines and functions longer than 40 lines.
    - Strictly forbid passing weakly typed raw dictionaries, and strictly forbid silently swallowing exceptions.
+3. **Autonomous Git Workflow** (standing authorization from the project owner, 2026-09-09):
+   - After completing and verifying any code modification, commit and push to the remote repository **without asking for per-commit approval**.
+   - Never stage presentation files (`*.pptx`) or Office lock files (`~$*`); only stage files changed by the agent's own work.
 
 ---
 

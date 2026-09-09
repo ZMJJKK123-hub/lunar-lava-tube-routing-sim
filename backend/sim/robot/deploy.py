@@ -26,19 +26,25 @@ class DeployMixin:
     """
 
     # ---- 道钉投放 ----
-    def _deploy_ok(self) -> bool:
-        """落点合法性: 管内 / 不压巨石 / 距既有道钉留间隔"""
+    def _deploy_ok_at(self, x: float, z: float) -> bool:
+        """落点合法性 (点位版): 管内 / 不压巨石 / 距既有道钉留间隔。
+        供踩点与择点在"出发前"预检 —— 免得站过去才发现放不了钉。
+        Args: x/z: 待检点位。Returns: bool (True=可落钉)。"""
         eng = self.eng
-        if not eng._in_tube((self.node.x, 0.0, self.node.z)):
+        if not eng._in_tube((x, 0.0, z)):
             return False
         for o in eng.obstacles:            # 不砸在石头上
-            if math.hypot(self.node.x - o["x"], self.node.z - o["z"]) < o["r"] + 30:
+            if math.hypot(x - o["x"], z - o["z"]) < o["r"] + 30:
                 return False
         for n in eng.nodes.values():       # 距既有道钉留间隔
             if (n.role == "beacon"
-                    and math.hypot(self.node.x - n.x, self.node.z - n.z) < DEPLOY_GAP):
+                    and math.hypot(x - n.x, z - n.z) < DEPLOY_GAP):
                 return False
         return True
+
+    def _deploy_ok(self) -> bool:
+        """落点合法性: 机器人当前位置 (点位判定的封装)。"""
+        return self._deploy_ok_at(self.node.x, self.node.z)
 
     def _deploy_beacon(self):
         """投放道钉: 永久中继入网 (普通节点 + 链上哑节点)"""
