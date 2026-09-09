@@ -74,5 +74,43 @@ class TestLegalSpot(unittest.TestCase):
         self.assertIsNone(rb._legal_spot((0.0, 0.0)))
 
 
+class TestScoutCursor(unittest.TestCase):
+    """侦察走访游标: 单调推进, 不因离开已走路点的邻近圈而折返 (治乒乓)。"""
+
+    def test_cursor_monotonic_no_return(self):
+        class _R(AssistMixin):   # 测试桩: 只装 _assist_scout_go 所需的最小面
+            _scout_i = 0
+            _scout_wps = [(0.0, 0.0), (120.0, 0.0)]   # 间距 120m (> 40m 邻近圈)
+            _scout_until = 1000                       # 预算未到
+            _scout_vis0 = 0
+            moves = []
+            near = set()                              # 视为"已到达"的点位
+
+            def _legal_spot(self, tgt):               # 永不提前达标
+                return None
+
+            def _near(self, p, d=30.0):
+                return p in self.near
+
+            def _move_toward(self, wp):
+                self.moves.append(wp)
+
+        class _E:
+            tick = 500
+
+        rb = _R()
+        rb.eng = _E()
+        self.assertTrue(rb._assist_scout_go((0, 0)))   # 前往 wp1
+        self.assertEqual(rb.moves, [(0.0, 0.0)])
+        rb.near.add((0.0, 0.0))                        # 到达 wp1
+        self.assertTrue(rb._assist_scout_go((0, 0)))   # 游标推进 -> 前往 wp2
+        self.assertEqual(rb.moves[-1], (120.0, 0.0))
+        rb.near.discard((0.0, 0.0))                    # 离开 wp1 邻近圈 (旧版折返条件)
+        rb.near.add((120.0, 0.0))                      # 到达 wp2
+        self.assertFalse(rb._assist_scout_go((0, 0)))  # 全走完: 收工, 不折返 wp1
+        self.assertEqual(len(rb.moves), 2)
+        self.assertEqual(rb._scout_until, _E.tick)
+
+
 if __name__ == "__main__":
     unittest.main()

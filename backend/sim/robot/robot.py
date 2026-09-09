@@ -74,6 +74,7 @@ class PatrolRobot(MotionMixin, SenseMixin, SosMixin, RescueMixin,
         self._assist_spot = None         # 加固择点: 依历史观测选定的落钉位 (x,z,vis)
         self._scout_until = 0            # 侦察截止 tick (0=未启动; 加固到场先踩点)
         self._scout_wps: list = []       # 侦察采样路点 [(x, z)]
+        self._scout_i = 0                # 侦察走访游标 (单调推进, 防路点乒乓折返)
         self._scout_vis0 = 0             # 侦察基线: 到场时的可见节点数 (早退门槛)
         self._stuck = 0                  # 连续全向受阻计数 (撞墙检测; 移动成功清零)
         self._iso: dict[str, int] = {}      # nid -> 连续失联 tick 数

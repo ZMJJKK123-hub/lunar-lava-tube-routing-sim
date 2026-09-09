@@ -116,8 +116,8 @@ class SenseMixin:
             if best is None or d < best[0]:
                 best = (d, nid, sx, sz)
         if best:
-            log.info("链上情报命中 %s: 遥测停更 %d tick 距离 %.0fm -> 前往核查",
-                     best[1], tick - me.world_state[best[1]].get("tick", 0), best[0])
+            log.debug("链上情报命中 %s: 遥测停更 %d tick 距离 %.0fm -> 前往核查",
+                      best[1], tick - me.world_state[best[1]].get("tick", 0), best[0])
         return best
 
     def _chain_fragile(self, tick):
@@ -151,8 +151,8 @@ class SenseMixin:
             if best is None or d < best[0]:
                 best = (d, nid, sx, sz)
         if best:
-            log.info("链上弱链情报命中 %s: pboost 遥测龄 %d tick 距离 %.0fm -> 前往加固",
-                     best[1], tick - me.world_state[best[1]].get("tick", 0), best[0])
+            log.debug("链上弱链情报命中 %s: pboost 遥测龄 %d tick 距离 %.0fm -> 前往加固",
+                      best[1], tick - me.world_state[best[1]].get("tick", 0), best[0])
         return best
 
     # ---- 任务生命周期 ----
@@ -168,6 +168,7 @@ class SenseMixin:
             self.trail = []
         self._assist_spot = None         # 上一次任务的加固择点不跨任务复用
         self._scout_until, self._scout_wps = 0, []   # 侦察状态同样不跨任务
+        self._scout_i = 0                # 走访游标一并复位
         self._stuck = 0                  # 撞墙计数不跨任务 (防旧值误触发放弃)
         log.info("任务开启 %s -> %s 目标=%s via=%s (tick=%d)",
                  self.state, state, nid, via, tick)

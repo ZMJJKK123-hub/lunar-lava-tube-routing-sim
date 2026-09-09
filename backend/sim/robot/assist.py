@@ -116,18 +116,23 @@ class AssistMixin:
         self._assist_spot_step(eng, tid, tick)
 
     def _assist_scout_go(self, tgt) -> bool:
-        """侦察踩点推进: 历史合法择点已达收益门槛即收工; 否则走访下一个
-        采样点, 走完提前收工。Returns: bool True=仍在侦察期 (本拍已处理)。"""
+        """侦察踩点推进: 游标单调前进。历史择点达收益门槛即收工; 路点全部
+        走完提前收工。旧版按"非邻近即下一"重扫路点表: 路点间距 > 40m 时,
+        机器人一离开 wp1 的 40m 圈, 重扫又把 wp1 当"下一个"折返 —— 现场
+        抽搐 (两点间每拍往返) 的元凶; 游标保证只进不退。
+        Returns: bool True=仍在侦察期 (本拍已处理)。"""
         spot = self._legal_spot(tgt)
         if spot is not None and spot[2] >= self._scout_vis0 + HISTORIC_SPOT_GAIN:
             self._scout_until = self.eng.tick    # 达标: 提前收工
             return False
-        wp = next((p for p in self._scout_wps if not self._near(p, 40)), None)
-        if wp is None:
-            self._scout_until = self.eng.tick    # 路点走完: 提前收工
-            return False
-        self._move_toward(wp)
-        return True
+        while self._scout_i < len(self._scout_wps):
+            wp = self._scout_wps[self._scout_i]
+            if not self._near(wp, 40):
+                self._move_toward(wp)            # 游标处的路点: 前往
+                return True
+            self._scout_i += 1                   # 走访完: 游标单调推进
+        self._scout_until = self.eng.tick        # 全部走完: 收工
+        return False
 
     def _assist_spot_step(self, eng, tid, tick):
         """落钉收尾: 站位合法 -> 问询投/忍就地投放; 站位非法 -> 挪到最近
