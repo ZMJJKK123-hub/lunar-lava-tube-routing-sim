@@ -1,14 +1,14 @@
 {
  "summary": {
   "group": "A-deploy-rule",
-  "git_rev": "b08b390",
+  "git_rev": "4f87028",
   "duration_s": 600,
   "beacons_deployed": 6,
   "final_stock": 0,
-  "coverage_integral_pct_s": 50423.0,
-  "coverage_min_pct": 21.7,
+  "coverage_integral_pct_s": 53655.0,
+  "coverage_min_pct": 20.0,
   "deploy_settled": {
-   "good": 1,
+   "good": 2,
    "waste": 0,
    "late": 0,
    "patient": 0,
@@ -26,7 +26,7 @@
  "samples": [
   {
    "t": 2.0,
-   "tick": 42,
+   "tick": 41,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -39,7 +39,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 7.2,
+   "t": 7.1,
    "tick": 61,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -53,7 +53,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 12.2,
+   "t": 12.3,
    "tick": 80,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -67,8 +67,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 17.4,
-   "tick": 100,
+   "t": 17.3,
+   "tick": 99,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -81,7 +81,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 22.6,
+   "t": 22.4,
    "tick": 119,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -95,8 +95,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 27.7,
-   "tick": 139,
+   "t": 27.6,
+   "tick": 138,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -109,8 +109,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 32.8,
-   "tick": 158,
+   "t": 32.7,
+   "tick": 157,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -123,8 +123,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 38.0,
-   "tick": 178,
+   "t": 37.9,
+   "tick": 177,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -138,7 +138,7 @@
   },
   {
    "t": 43.1,
-   "tick": 197,
+   "tick": 196,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -151,7 +151,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 48.3,
+   "t": 48.2,
    "tick": 216,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -165,7 +165,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 53.5,
+   "t": 53.4,
    "tick": 236,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -179,7 +179,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 58.5,
+   "t": 58.4,
    "tick": 255,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -193,7 +193,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 63.5,
+   "t": 63.4,
    "tick": 274,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -221,8 +221,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 73.7,
-   "tick": 313,
+   "t": 73.6,
+   "tick": 312,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -235,7 +235,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 78.7,
+   "t": 78.8,
    "tick": 331,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -263,7 +263,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 89.0,
+   "t": 89.1,
    "tick": 370,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -291,8 +291,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 99.3,
-   "tick": 409,
+   "t": 99.1,
+   "tick": 408,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -305,7 +305,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 104.4,
+   "t": 104.2,
    "tick": 428,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -319,7 +319,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 109.6,
+   "t": 109.3,
    "tick": 447,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -333,7 +333,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 114.7,
+   "t": 114.5,
    "tick": 466,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -347,7 +347,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 119.8,
+   "t": 119.7,
    "tick": 486,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -361,7 +361,7 @@
    "rl_epsilon": null
   },
   {
-   "t": 125.0,
+   "t": 124.7,
    "tick": 505,
    "coverage_pct": 98.3,
    "mode": "STABLE",
@@ -375,8 +375,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 130.2,
-   "tick": 525,
+   "t": 129.7,
+   "tick": 523,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -389,8 +389,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 135.2,
-   "tick": 544,
+   "t": 134.9,
+   "tick": 543,
    "coverage_pct": 98.3,
    "mode": "STABLE",
    "alive": 59,
@@ -403,10 +403,10 @@
    "rl_epsilon": null
   },
   {
-   "t": 140.4,
-   "tick": 563,
+   "t": 139.9,
+   "tick": 561,
    "coverage_pct": 98.3,
-   "mode": "HEALING",
+   "mode": "STABLE",
    "alive": 59,
    "fragile": 0,
    "beacons": 0,
@@ -417,8 +417,8 @@
    "rl_epsilon": null
   },
   {
-   "t": 145.5,
-   "tick": 583,
+   "t": 145.0,
+   "tick": 579,
    "coverage_pct": 98.3,
    "mode": "HEALING",
    "alive": 60,
@@ -431,12 +431,572 @@
    "rl_epsilon": null
   },
   {
-   "t": 150.6,
-   "tick": 602,
+   "t": 150.0,
+   "tick": 599,
    "coverage_pct": 98.3,
    "mode": "HEALING",
-   "alive": 63,
+   "alive": 60,
    "fragile": 1,
+   "beacons": 1,
+   "stock": 5,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 155.1,
+   "tick": 618,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 160.1,
+   "tick": 637,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 61,
+   "fragile": 1,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 165.2,
+   "tick": 656,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 170.3,
+   "tick": 674,
+   "coverage_pct": 98.3,
+   "mode": "HEALING",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 175.4,
+   "tick": 694,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 180.6,
+   "tick": 713,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 185.7,
+   "tick": 733,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 190.9,
+   "tick": 752,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 196.1,
+   "tick": 771,
+   "coverage_pct": 98.3,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 201.1,
+   "tick": 790,
+   "coverage_pct": 96.7,
+   "mode": "CONVERGED",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 206.1,
+   "tick": 809,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 211.3,
+   "tick": 829,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 216.5,
+   "tick": 848,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 221.6,
+   "tick": 868,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 226.8,
+   "tick": 887,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 232.0,
+   "tick": 907,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 237.2,
+   "tick": 926,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 242.4,
+   "tick": 946,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 247.5,
+   "tick": 965,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 252.7,
+   "tick": 985,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 257.9,
+   "tick": 1005,
+   "coverage_pct": 96.7,
+   "mode": "STABLE",
+   "alive": 60,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 263.1,
+   "tick": 1024,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 268.2,
+   "tick": 1043,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 273.3,
+   "tick": 1062,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 278.4,
+   "tick": 1082,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 283.4,
+   "tick": 1101,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 288.5,
+   "tick": 1120,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 293.5,
+   "tick": 1139,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 298.7,
+   "tick": 1159,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 303.9,
+   "tick": 1178,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 308.9,
+   "tick": 1197,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 314.1,
+   "tick": 1217,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 319.3,
+   "tick": 1236,
+   "coverage_pct": 95.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 0,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 324.3,
+   "tick": 1255,
+   "coverage_pct": 20.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 45,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 329.3,
+   "tick": 1274,
+   "coverage_pct": 20.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 45,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 334.3,
+   "tick": 1292,
+   "coverage_pct": 20.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 45,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 339.5,
+   "tick": 1313,
+   "coverage_pct": 20.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 45,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 344.7,
+   "tick": 1332,
+   "coverage_pct": 20.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 45,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 349.7,
+   "tick": 1351,
+   "coverage_pct": 20.0,
+   "mode": "STABLE",
+   "alive": 59,
+   "fragile": 0,
+   "beacons": 2,
+   "stock": 4,
+   "sos": 45,
+   "rl_picks": {},
+   "rl_settled": {},
+   "rl_epsilon": null
+  },
+  {
+   "t": 354.9,
+   "tick": 1370,
+   "coverage_pct": 95.0,
+   "mode": "HEALING",
+   "alive": 61,
+   "fragile": 0,
    "beacons": 4,
    "stock": 2,
    "sos": 0,
@@ -454,497 +1014,14 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 155.7,
-   "tick": 622,
-   "coverage_pct": 98.3,
-   "mode": "HEALING",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 160.9,
-   "tick": 641,
-   "coverage_pct": 96.7,
-   "mode": "HEALING",
-   "alive": 64,
-   "fragile": 1,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 166.0,
-   "tick": 660,
-   "coverage_pct": 98.3,
-   "mode": "HEALING",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 171.2,
-   "tick": 680,
-   "coverage_pct": 98.3,
-   "mode": "CONVERGED",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 176.3,
-   "tick": 700,
-   "coverage_pct": 98.3,
-   "mode": "STABLE",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 181.3,
-   "tick": 719,
-   "coverage_pct": 98.3,
-   "mode": "STABLE",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 186.5,
-   "tick": 738,
-   "coverage_pct": 98.3,
-   "mode": "STABLE",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 191.6,
-   "tick": 757,
-   "coverage_pct": 98.3,
-   "mode": "STABLE",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 196.7,
-   "tick": 777,
-   "coverage_pct": 98.3,
-   "mode": "STABLE",
-   "alive": 64,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 201.7,
-   "tick": 796,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 206.7,
-   "tick": 814,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 211.9,
-   "tick": 834,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 217.0,
-   "tick": 854,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 222.2,
-   "tick": 873,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 227.3,
-   "tick": 892,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 232.3,
-   "tick": 911,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 237.3,
-   "tick": 930,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 242.4,
-   "tick": 950,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 247.4,
-   "tick": 969,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 252.6,
-   "tick": 988,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 257.6,
-   "tick": 1007,
-   "coverage_pct": 96.7,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 262.8,
-   "tick": 1027,
+   "t": 359.9,
+   "tick": 1390,
    "coverage_pct": 95.0,
    "mode": "STABLE",
-   "alive": 62,
+   "alive": 61,
    "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
+   "beacons": 4,
+   "stock": 2,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
@@ -960,451 +1037,14 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 267.8,
-   "tick": 1046,
+   "t": 365.1,
+   "tick": 1409,
    "coverage_pct": 95.0,
    "mode": "STABLE",
-   "alive": 62,
+   "alive": 61,
    "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 273.0,
-   "tick": 1065,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 278.2,
-   "tick": 1085,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 283.2,
-   "tick": 1103,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 288.3,
-   "tick": 1123,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 293.4,
-   "tick": 1142,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 298.6,
-   "tick": 1162,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 303.6,
-   "tick": 1181,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 308.8,
-   "tick": 1201,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 313.8,
-   "tick": 1219,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 319.0,
-   "tick": 1239,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 5,
-   "stock": 1,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 324.1,
-   "tick": 1259,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 329.3,
-   "tick": 1278,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 334.4,
-   "tick": 1298,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 339.7,
-   "tick": 1318,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 344.8,
-   "tick": 1337,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 349.8,
-   "tick": 1356,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 354.9,
-   "tick": 1375,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 360.0,
-   "tick": 1395,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 365.2,
-   "tick": 1414,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 4,
+   "stock": 2,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
@@ -1421,13 +1061,13 @@
   },
   {
    "t": 370.2,
-   "tick": 1433,
+   "tick": 1429,
    "coverage_pct": 95.0,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 61,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 4,
+   "stock": 2,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
@@ -1443,14 +1083,14 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 375.3,
-   "tick": 1452,
+   "t": 375.2,
+   "tick": 1448,
    "coverage_pct": 95.0,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 61,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 4,
+   "stock": 2,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
@@ -1467,13 +1107,13 @@
   },
   {
    "t": 380.3,
-   "tick": 1470,
+   "tick": 1467,
    "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
+   "mode": "HEALING",
+   "alive": 61,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 4,
+   "stock": 2,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
@@ -1489,21 +1129,21 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 385.4,
-   "tick": 1490,
+   "t": 385.5,
+   "tick": 1487,
    "coverage_pct": 95.0,
    "mode": "HEALING",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 5,
+   "stock": 1,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1513,20 +1153,20 @@
   },
   {
    "t": 390.6,
-   "tick": 1510,
+   "tick": 1506,
    "coverage_pct": 95.0,
    "mode": "HEALING",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 5,
+   "stock": 1,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1535,21 +1175,21 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 395.8,
-   "tick": 1529,
+   "t": 395.6,
+   "tick": 1525,
    "coverage_pct": 95.0,
    "mode": "HEALING",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 5,
+   "stock": 1,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1558,21 +1198,21 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 401.0,
-   "tick": 1548,
+   "t": 400.8,
+   "tick": 1544,
    "coverage_pct": 95.0,
    "mode": "HEALING",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 5,
+   "stock": 1,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1581,21 +1221,21 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 406.1,
-   "tick": 1568,
+   "t": 406.0,
+   "tick": 1564,
    "coverage_pct": 95.0,
    "mode": "HEALING",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
+   "beacons": 5,
+   "stock": 1,
    "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1604,8 +1244,8 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 411.3,
-   "tick": 1587,
+   "t": 411.0,
+   "tick": 1583,
    "coverage_pct": 95.0,
    "mode": "STABLE",
    "alive": 63,
@@ -1618,7 +1258,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1627,8 +1267,8 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 416.4,
-   "tick": 1607,
+   "t": 416.0,
+   "tick": 1602,
    "coverage_pct": 95.0,
    "mode": "STABLE",
    "alive": 63,
@@ -1641,7 +1281,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1650,8 +1290,8 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 421.4,
-   "tick": 1625,
+   "t": 421.2,
+   "tick": 1622,
    "coverage_pct": 95.0,
    "mode": "STABLE",
    "alive": 63,
@@ -1664,7 +1304,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1673,8 +1313,8 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 426.6,
-   "tick": 1645,
+   "t": 426.4,
+   "tick": 1641,
    "coverage_pct": 95.0,
    "mode": "STABLE",
    "alive": 63,
@@ -1687,7 +1327,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1696,8 +1336,8 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 431.7,
-   "tick": 1665,
+   "t": 431.5,
+   "tick": 1660,
    "coverage_pct": 95.0,
    "mode": "STABLE",
    "alive": 63,
@@ -1710,7 +1350,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1719,8 +1359,8 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 436.8,
-   "tick": 1684,
+   "t": 436.6,
+   "tick": 1679,
    "coverage_pct": 95.0,
    "mode": "STABLE",
    "alive": 63,
@@ -1733,7 +1373,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1742,11 +1382,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 442.0,
-   "tick": 1703,
-   "coverage_pct": 95.0,
+   "t": 441.7,
+   "tick": 1699,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1756,7 +1396,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1765,11 +1405,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 447.1,
-   "tick": 1723,
-   "coverage_pct": 95.0,
+   "t": 446.8,
+   "tick": 1718,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1779,7 +1419,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1788,11 +1428,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 452.3,
-   "tick": 1743,
-   "coverage_pct": 95.0,
+   "t": 451.9,
+   "tick": 1737,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1802,7 +1442,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1811,11 +1451,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 457.3,
-   "tick": 1761,
-   "coverage_pct": 95.0,
+   "t": 457.1,
+   "tick": 1757,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1825,7 +1465,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1834,11 +1474,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 462.5,
-   "tick": 1780,
-   "coverage_pct": 95.0,
+   "t": 462.3,
+   "tick": 1776,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1848,7 +1488,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1857,11 +1497,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 467.6,
-   "tick": 1800,
-   "coverage_pct": 95.0,
+   "t": 467.3,
+   "tick": 1795,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1871,7 +1511,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1880,11 +1520,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 472.7,
-   "tick": 1819,
-   "coverage_pct": 95.0,
+   "t": 472.5,
+   "tick": 1815,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1894,7 +1534,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1903,11 +1543,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 477.9,
-   "tick": 1839,
-   "coverage_pct": 95.0,
+   "t": 477.7,
+   "tick": 1834,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
-   "alive": 63,
+   "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -1917,7 +1557,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -1927,214 +1567,7 @@
   },
   {
    "t": 482.9,
-   "tick": 1858,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 488.0,
-   "tick": 1877,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 493.1,
-   "tick": 1896,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 498.2,
-   "tick": 1916,
-   "coverage_pct": 95.0,
-   "mode": "STABLE",
-   "alive": 63,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 0,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 503.3,
-   "tick": 1935,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 508.5,
-   "tick": 1954,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 513.6,
-   "tick": 1974,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 518.8,
-   "tick": 1993,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 523.9,
-   "tick": 2013,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 529.1,
-   "tick": 2032,
+   "tick": 1854,
    "coverage_pct": 93.3,
    "mode": "STABLE",
    "alive": 62,
@@ -2147,7 +1580,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -2156,146 +1589,8 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 534.3,
-   "tick": 2052,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 539.3,
-   "tick": 2071,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 544.3,
-   "tick": 2090,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 549.5,
-   "tick": 2109,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 554.5,
-   "tick": 2128,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 559.6,
-   "tick": 2147,
-   "coverage_pct": 21.7,
-   "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 564.6,
-   "tick": 2166,
+   "t": 488.1,
+   "tick": 1874,
    "coverage_pct": 93.3,
    "mode": "STABLE",
    "alive": 62,
@@ -2308,7 +1603,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -2317,21 +1612,21 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 569.7,
-   "tick": 2184,
-   "coverage_pct": 21.7,
+   "t": 493.2,
+   "tick": 1893,
+   "coverage_pct": 93.3,
    "mode": "STABLE",
    "alive": 62,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
-   "sos": 43,
+   "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -2340,34 +1635,356 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 574.7,
+   "t": 498.3,
+   "tick": 1912,
+   "coverage_pct": 93.3,
+   "mode": "STABLE",
+   "alive": 62,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 503.5,
+   "tick": 1931,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 508.7,
+   "tick": 1951,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 513.8,
+   "tick": 1970,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 519.0,
+   "tick": 1990,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 524.2,
+   "tick": 2009,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 529.4,
+   "tick": 2029,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 534.6,
+   "tick": 2048,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 539.7,
+   "tick": 2067,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 544.7,
+   "tick": 2087,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 549.8,
+   "tick": 2106,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 555.0,
+   "tick": 2125,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 560.0,
+   "tick": 2143,
+   "coverage_pct": 91.7,
+   "mode": "HEALING",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 565.2,
+   "tick": 2164,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 570.2,
+   "tick": 2183,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 575.3,
    "tick": 2202,
-   "coverage_pct": 21.7,
+   "coverage_pct": 91.7,
    "mode": "STABLE",
-   "alive": 62,
-   "fragile": 0,
-   "beacons": 6,
-   "stock": 0,
-   "sos": 43,
-   "rl_picks": {
-    "invest": 0,
-    "wait": 0
-   },
-   "rl_settled": {
-    "good": 1,
-    "waste": 0,
-    "late": 0,
-    "patient": 0,
-    "hesitated": 0
-   },
-   "rl_epsilon": 0.35
-  },
-  {
-   "t": 579.8,
-   "tick": 2222,
-   "coverage_pct": 93.3,
-   "mode": "STABLE",
-   "alive": 62,
+   "alive": 61,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -2377,7 +1994,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -2386,11 +2003,11 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 585.1,
-   "tick": 2241,
-   "coverage_pct": 21.7,
+   "t": 580.3,
+   "tick": 2221,
+   "coverage_pct": 91.7,
    "mode": "STABLE",
-   "alive": 62,
+   "alive": 61,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
@@ -2400,7 +2017,7 @@
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -2409,21 +2026,21 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 590.2,
-   "tick": 2261,
-   "coverage_pct": 21.7,
+   "t": 585.3,
+   "tick": 2240,
+   "coverage_pct": 91.7,
    "mode": "STABLE",
-   "alive": 62,
+   "alive": 61,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
-   "sos": 43,
+   "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,
@@ -2432,21 +2049,44 @@
    "rl_epsilon": 0.35
   },
   {
-   "t": 595.2,
+   "t": 590.5,
+   "tick": 2260,
+   "coverage_pct": 91.7,
+   "mode": "STABLE",
+   "alive": 61,
+   "fragile": 0,
+   "beacons": 6,
+   "stock": 0,
+   "sos": 0,
+   "rl_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "rl_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "rl_epsilon": 0.35
+  },
+  {
+   "t": 595.7,
    "tick": 2280,
-   "coverage_pct": 21.7,
+   "coverage_pct": 91.7,
    "mode": "STABLE",
-   "alive": 62,
+   "alive": 61,
    "fragile": 0,
    "beacons": 6,
    "stock": 0,
-   "sos": 43,
+   "sos": 0,
    "rl_picks": {
     "invest": 0,
     "wait": 0
    },
    "rl_settled": {
-    "good": 1,
+    "good": 2,
     "waste": 0,
     "late": 0,
     "patient": 0,

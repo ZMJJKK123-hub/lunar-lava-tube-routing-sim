@@ -1,0 +1,206 @@
+{
+ "meta": {
+  "rounds": 3,
+  "secs": 600,
+  "wall_secs": 3671
+ },
+ "A_mean_std": {
+  "beacons_deployed": {
+   "mean": 3.67,
+   "std": 2.08,
+   "n": 3
+  },
+  "coverage_integral_pct_s": {
+   "mean": 48203.67,
+   "std": 6396.87,
+   "n": 3
+  },
+  "coverage_min_pct": {
+   "mean": 22.2,
+   "std": 1.91,
+   "n": 3
+  },
+  "waste_rate_pct": {
+   "mean": 0.0,
+   "std": 0.0,
+   "n": 3
+  }
+ },
+ "B_mean_std": {
+  "beacons_deployed": {
+   "mean": 2.33,
+   "std": 1.53,
+   "n": 3
+  },
+  "coverage_integral_pct_s": {
+   "mean": 48004.5,
+   "std": 2413.17,
+   "n": 3
+  },
+  "coverage_min_pct": {
+   "mean": 20.57,
+   "std": 1.96,
+   "n": 3
+  },
+  "waste_rate_pct": {
+   "mean": 0.0,
+   "std": 0.0,
+   "n": 3
+  }
+ },
+ "runs_A": [
+  {
+   "group": "A-deploy-rule",
+   "git_rev": "4f87028",
+   "duration_s": 600,
+   "beacons_deployed": 2,
+   "final_stock": 4,
+   "coverage_integral_pct_s": 41161.5,
+   "coverage_min_pct": 23.3,
+   "deploy_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "deploy_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "deploy_epsilon": 0.35,
+   "waste_rate_pct": 0.0,
+   "disasters_sent": 10,
+   "traffic_sent": 146,
+   "_round": 1
+  },
+  {
+   "group": "A-deploy-rule",
+   "git_rev": "4f87028",
+   "duration_s": 600,
+   "beacons_deployed": 3,
+   "final_stock": 3,
+   "coverage_integral_pct_s": 49794.5,
+   "coverage_min_pct": 23.3,
+   "deploy_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "deploy_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "deploy_epsilon": 0.35,
+   "waste_rate_pct": 0.0,
+   "disasters_sent": 10,
+   "traffic_sent": 146,
+   "_round": 2
+  },
+  {
+   "group": "A-deploy-rule",
+   "git_rev": "4f87028",
+   "duration_s": 600,
+   "beacons_deployed": 6,
+   "final_stock": 0,
+   "coverage_integral_pct_s": 53655.0,
+   "coverage_min_pct": 20.0,
+   "deploy_settled": {
+    "good": 2,
+    "waste": 0,
+    "late": 0,
+    "patient": 0,
+    "hesitated": 0
+   },
+   "deploy_picks": {
+    "invest": 0,
+    "wait": 0
+   },
+   "deploy_epsilon": 0.35,
+   "waste_rate_pct": 0.0,
+   "disasters_sent": 10,
+   "traffic_sent": 146,
+   "_round": 3
+  }
+ ],
+ "runs_B": [
+  {
+   "group": "B-deploy-rl",
+   "git_rev": "4f87028",
+   "duration_s": 600,
+   "beacons_deployed": 2,
+   "final_stock": 4,
+   "coverage_integral_pct_s": 45236.5,
+   "coverage_min_pct": 21.7,
+   "deploy_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 1,
+    "hesitated": 0
+   },
+   "deploy_picks": {
+    "invest": 1,
+    "wait": 1
+   },
+   "deploy_epsilon": 0.349,
+   "waste_rate_pct": 0.0,
+   "disasters_sent": 10,
+   "traffic_sent": 146,
+   "_round": 1
+  },
+  {
+   "group": "B-deploy-rl",
+   "git_rev": "4f87028",
+   "duration_s": 600,
+   "beacons_deployed": 1,
+   "final_stock": 5,
+   "coverage_integral_pct_s": 49111.0,
+   "coverage_min_pct": 21.7,
+   "deploy_settled": {
+    "good": 1,
+    "waste": 0,
+    "late": 0,
+    "patient": 1,
+    "hesitated": 0
+   },
+   "deploy_picks": {
+    "invest": 1,
+    "wait": 1
+   },
+   "deploy_epsilon": 0.349,
+   "waste_rate_pct": 0.0,
+   "disasters_sent": 10,
+   "traffic_sent": 146,
+   "_round": 2
+  },
+  {
+   "group": "B-deploy-rl",
+   "git_rev": "4f87028",
+   "duration_s": 600,
+   "beacons_deployed": 4,
+   "final_stock": 2,
+   "coverage_integral_pct_s": 49666.0,
+   "coverage_min_pct": 18.3,
+   "deploy_settled": {
+    "good": 3,
+    "waste": 0,
+    "late": 0,
+    "patient": 2,
+    "hesitated": 0
+   },
+   "deploy_picks": {
+    "invest": 3,
+    "wait": 3
+   },
+   "deploy_epsilon": 0.346,
+   "waste_rate_pct": 0.0,
+   "disasters_sent": 10,
+   "traffic_sent": 145,
+   "_round": 3
+  }
+ ],
+ "retries": []
+}

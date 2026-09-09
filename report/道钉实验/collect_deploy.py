@@ -35,7 +35,8 @@ JAMMER_WINDOW_S = 30.0                    # 干扰源槽的开机时长
 DISASTERS = ["kill_backbone", "collapse", "jammer", "random_kill"]
 TRAFFIC_EVERY_S = 4.0                     # 轻流量 (维持网络活性, 非本实验变量)
 SAMPLE_EVERY_S = 5.0
-OUT = Path(__file__).parent
+OUT = Path(__file__).parent / "每轮原始数据"   # 单轮产物归档子目录
+OUT.mkdir(exist_ok=True)
 
 ws = websocket.create_connection(WS_URL, timeout=2)
 ws.settimeout(1.0)

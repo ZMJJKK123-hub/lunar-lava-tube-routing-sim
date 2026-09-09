@@ -17,8 +17,8 @@ from datetime import datetime   # 标准库: 产物时间戳
 from pathlib import Path        # 标准库: 路径定位
 import urllib.request   # 标准库: /health 探活
 
-ROOT = Path(__file__).parent.parent
-OUT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent.parent.parent   # 仓库根 (脚本位于 report/道钉实验/)
+OUT = Path(__file__).parent                            # 本实验文件夹 (报告/汇总产物落此)
 ROUNDS = 3
 SECS = 600
 PORT = 5000          # 实验专用端口 (argv[3]; 5001 等可与正在跑的其他实验隔离)
