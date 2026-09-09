@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 import urllib.request   # 标准库: /health 探活
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).parents[1]
 OUT = Path(__file__).parent
 ROUNDS = 3
 SECS = 600

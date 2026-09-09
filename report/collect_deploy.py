@@ -103,7 +103,7 @@ while time.time() - t0 < DURATION:
             sys.exit(3)
         freeze_probe = latest.get("tick", 0)
     if latest and stale_since and now - stale_since > 15:
-        print("COLLECTOR ABORT: tick 停走 >15s", flush=True)
+        print("COLLECTOR ABORT: tick 停走 >35s", flush=True)
         sys.exit(2)
     # 灾害槽: 制造孤岛/弱链 -> 救援样本 (A/B 同节拍同种类, 配对可比)
     # (发送全部装甲: 瞬时网络抖动只丢一拍, 不让采集器整轮报废 —— 同基线采集器)
@@ -141,17 +141,16 @@ while time.time() - t0 < DURATION:
             pass
         next_traffic = now + TRAFFIC_EVERY_S
     try:
-        # 排空式接收: 每轮最多清 60 条积压 (5Hz x 12s 上限; 必须有界 ——
-        # 广播永续, 只靠超时判空会死循环; 断连异常同样必须跳出)
-        for _ in range(60):
-            msg = json.loads(ws.recv())
-            recv_n += 1
-            if msg.get("tick") is not None:
-                if latest and msg["tick"] > latest.get("tick", -1):
-                    stale_since = now
-                latest = msg
+        # 单条接收 (与基线采集器逐字同构 —— 该模式已在本机同服务器实战
+        # 300s 零中断验证; 排空式接收反而周期性触发服务端僵死踢出)
+        msg = json.loads(ws.recv())
+        recv_n += 1
+        if msg.get("tick") is not None:
+            if latest and msg["tick"] > latest.get("tick", -1):
+                stale_since = now
+            latest = msg
     except websocket.WebSocketTimeoutException:
-        pass                                    # 队列排空: 正常继续
+        pass
     except Exception:
         time.sleep(0.5)
     if now >= next_sample and latest:

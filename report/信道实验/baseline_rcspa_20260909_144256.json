@@ -1,0 +1,299 @@
+{
+ "meta": {
+  "group": "A-baseline-rcspa",
+  "git_rev": "4276a6b",
+  "started_at": "2026-09-09T14:42:56",
+  "duration_s": 15,
+  "seed": 42,
+  "traffic": {
+   "every_s": 2.0,
+   "seed": 9999,
+   "sent": 7,
+   "acks": {
+    "admitted": 7,
+    "rejected": 0,
+    "reject_signals": {}
+   },
+   "profile": "random alive node -> NODE-00, 512/1024/1536B",
+   "arm": "A",
+   "load_every_s": 2.0
+  },
+  "switches": {
+   "rl_channels": false,
+   "jammer": null,
+   "paused": false
+  }
+ },
+ "summary": {
+  "cumulative_accepted": 18,
+  "cumulative_delivered": 18,
+  "cumulative_timeout": 0,
+  "ack_admitted": 7,
+  "ack_rejected": 0,
+  "client_settled": {
+   "DELIVERED": 7,
+   "TIMEOUT": 0,
+   "BUFFER_FULL": 0,
+   "MAX_RETRIES": 0
+  },
+  "client_delivery_rate_pct": 100.0,
+  "client_latency": {
+   "n": 7,
+   "mean": 7.29,
+   "p50": 8,
+   "p95": 10
+  },
+  "delivery_rate_pct": 100.0,
+  "avg_delivery_ticks": 6.28,
+  "p95_delivery_ticks": 10,
+  "window_delivery_rate_pct": 100.0,
+  "retries_window": 0,
+  "chain_h_max": 16,
+  "chain_agree": 60,
+  "alive": 60
+ },
+ "samples": [
+  {
+   "t": 2.1,
+   "tick": 38,
+   "mode": "STABLE",
+   "alive": 60,
+   "coverage_pct": 100.0,
+   "mean_degree": 5.83,
+   "avg_snr_db": 29.2,
+   "avg_soc_pct": 87.0,
+   "fragile_nodes": 0,
+   "max_hop": 10,
+   "cum_delivered": 1,
+   "cum_failed": 0,
+   "inflight": 0,
+   "eps": null,
+   "qe": null,
+   "ar": null
+  },
+  {
+   "t": 7.3,
+   "tick": 58,
+   "mode": "STABLE",
+   "alive": 60,
+   "coverage_pct": 100.0,
+   "mean_degree": 6.0,
+   "avg_snr_db": 29.2,
+   "avg_soc_pct": 86.9,
+   "fragile_nodes": 0,
+   "max_hop": 11,
+   "cum_delivered": 2,
+   "cum_failed": 0,
+   "inflight": 1,
+   "eps": null,
+   "qe": null,
+   "ar": null
+  },
+  {
+   "t": 12.4,
+   "tick": 77,
+   "mode": "STABLE",
+   "alive": 60,
+   "coverage_pct": 100.0,
+   "mean_degree": 5.93,
+   "avg_snr_db": 29.2,
+   "avg_soc_pct": 86.8,
+   "fragile_nodes": 0,
+   "max_hop": 11,
+   "cum_delivered": 5,
+   "cum_failed": 0,
+   "inflight": 1,
+   "eps": null,
+   "qe": null,
+   "ar": null
+  }
+ ],
+ "recent_results": [
+  {
+   "msg_id": 1,
+   "src": "NODE-54",
+   "dst": "NODE-00",
+   "status": "DELIVERED",
+   "signal": "DELIVERED",
+   "bytes": 512,
+   "ticks": 3,
+   "retries": 0,
+   "stage": "DATA",
+   "hops": 2,
+   "reroutes": 0,
+   "tx_bytes": 1052,
+   "rx_bytes": 1024,
+   "stuck_at": null,
+   "note": ""
+  },
+  {
+   "msg_id": 2,
+   "src": "NODE-11",
+   "dst": "NODE-00",
+   "status": "DELIVERED",
+   "signal": "DELIVERED",
+   "bytes": 512,
+   "ticks": 8,
+   "retries": 0,
+   "stage": "DATA",
+   "hops": 7,
+   "reroutes": 0,
+   "tx_bytes": 3682,
+   "rx_bytes": 3584,
+   "stuck_at": null,
+   "note": ""
+  },
+  {
+   "msg_id": 3,
+   "src": "NODE-09",
+   "dst": "NODE-00",
+   "status": "DELIVERED",
+   "signal": "DELIVERED",
+   "bytes": 512,
+   "ticks": 9,
+   "retries": 0,
+   "stage": "DATA",
+   "hops": 8,
+   "reroutes": 0,
+   "tx_bytes": 4208,
+   "rx_bytes": 4096,
+   "stuck_at": null,
+   "note": ""
+  },
+  {
+   "msg_id": 4,
+   "src": "NODE-19",
+   "dst": "NODE-00",
+   "status": "DELIVERED",
+   "signal": "DELIVERED",
+   "bytes": 512,
+   "ticks": 7,
+   "retries": 0,
+   "stage": "DATA",
+   "hops": 6,
+   "reroutes": 0,
+   "tx_bytes": 3156,
+   "rx_bytes": 3072,
+   "stuck_at": null,
+   "note": ""
+  },
+  {
+   "msg_id": 5,
+   "src": "NODE-44",
+   "dst": "NODE-00",
+   "status": "DELIVERED",
+   "signal": "DELIVERED",
+   "bytes": 1536,
+   "ticks": 10,
+   "retries": 0,
+   "stage": "DATA",
+   "hops": 9,
+   "reroutes": 0,
+   "tx_bytes": 13950,
+   "rx_bytes": 13824,
+   "stuck_at": null,
+   "note": ""
+  },
+  {
+   "msg_id": 6,
+   "src": "NODE-57",
+   "dst": "NODE-00",
+   "status": "DELIVERED",
+   "signal": "DELIVERED",
+   "bytes": 1536,
+   "ticks": 9,
+   "retries": 0,
+   "stage": "DATA",
+   "hops": 8,
+   "reroutes": 0,
+   "tx_bytes": 12400,
+   "rx_bytes": 12288,
+   "stuck_at": null,
+   "note": ""
+  },
+  {
+   "msg_id": 7,
+   "src": "NODE-20",
+   "dst": "NODE-00",
+   "status": "DELIVERED",
+   "signal": "DELIVERED",
+   "bytes": 1536,
+   "ticks": 5,
+   "retries": 0,
+   "stage": "DATA",
+   "hops": 4,
+   "reroutes": 0,
+   "tx_bytes": 6200,
+   "rx_bytes": 6144,
+   "stuck_at": null,
+   "note": ""
+  }
+ ],
+ "raw_settlements": [
+  {
+   "id": 1,
+   "st": "DELIVERED",
+   "tk": 3,
+   "rt": 0,
+   "t": 1.8
+  },
+  {
+   "id": 2,
+   "st": "DELIVERED",
+   "tk": 8,
+   "rt": 0,
+   "t": 5.3
+  },
+  {
+   "id": 3,
+   "st": "DELIVERED",
+   "tk": 9,
+   "rt": 0,
+   "t": 7.6
+  },
+  {
+   "id": 4,
+   "st": "DELIVERED",
+   "tk": 7,
+   "rt": 0,
+   "t": 9.2
+  },
+  {
+   "id": 5,
+   "st": "DELIVERED",
+   "tk": 10,
+   "rt": 0,
+   "t": 12.1
+  },
+  {
+   "id": 6,
+   "st": "DELIVERED",
+   "tk": 9,
+   "rt": 0,
+   "t": 13.9
+  },
+  {
+   "id": 7,
+   "st": "DELIVERED",
+   "tk": 5,
+   "rt": 0,
+   "t": 15.0
+  }
+ ],
+ "latency_first_third": {
+  "n": 1,
+  "mean": 3.0,
+  "p50": 3,
+  "p95": 3
+ },
+ "latency_last_third": {
+  "n": 3,
+  "mean": 8.0,
+  "p50": 9,
+  "p95": 10
+ },
+ "rl_final": {
+  "enabled": false,
+  "random_channels": false
+ }
+}

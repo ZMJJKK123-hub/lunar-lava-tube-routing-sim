@@ -220,7 +220,7 @@ chain = final.get("chain", {})
 # 不是累计; 日志行含 受理/送达 N tick/超时/重传 —— 全量可grep)
 import re
 t_end_hms = time.strftime("%H:%M:%S")
-log_path = Path(__file__).parent.parent / "backend" / "sim.log"
+log_path = Path(__file__).parents[2] / "backend" / "sim.log"
 cum = {"accepted": 0, "delivered": 0, "timeout": 0}
 latencies = []
 try:

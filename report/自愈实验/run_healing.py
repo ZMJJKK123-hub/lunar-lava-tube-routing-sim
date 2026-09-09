@@ -22,7 +22,7 @@ import websocket     # 第三方: WS 客户端
 
 WS_URL = "ws://127.0.0.1:5000/ws"
 OUT = Path(__file__).parent
-LOG_PATH = OUT.parent / "backend" / "sim.log"
+LOG_PATH = OUT.parents[1] / "backend" / "sim.log"
 random.seed(20260908)          # 场景抽样可复现
 
 STEADY_COV = 99.9             # 稳态判据: 覆盖率 (%)
