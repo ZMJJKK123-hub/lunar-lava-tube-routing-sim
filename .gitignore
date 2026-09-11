@@ -31,3 +31,7 @@ backend/sim.log.*
 
 # Office 打开期间的临时锁文件 (关掉即消失, 不入库)
 ~$*
+
+# 大文件不入库
+*.pptx
+LTRP汇报*
